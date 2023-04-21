@@ -14,6 +14,7 @@ class Location {
     L.id = id + l;
     return L;
   }
+  Ty raw() const { return id; }
 
  private:
   Ty id;
