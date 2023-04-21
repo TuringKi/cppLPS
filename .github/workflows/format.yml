@@ -1,0 +1,24 @@
+name: format
+
+on:
+  push:
+    branches:
+      - trying
+      - staging
+  pull_request:
+    branches: [ main ]
+  merge_group:
+
+jobs:
+  clang-format:
+    runs-on: ubuntu-latest
+
+    steps:
+    # If updating these steps, please also correspondingly update '../../CONTRIBUTING.md', "Running `clang-format` locally".
+    - uses: actions/checkout@v3
+    - name: Check clang-format
+      uses: DoozyX/clang-format-lint-action@v0.14
+      with:
+        source: '.'
+        extensions: 'h,cc'
+        clangFormatVersion: 14
