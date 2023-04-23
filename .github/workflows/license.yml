@@ -14,6 +14,6 @@ jobs:
       - name: Check out code
         uses: actions/checkout@v3
       - name: Install license-header-checker
-        run: curl -s https://raw.githubusercontent.com/lluissm/license-header-checker/master/install.sh | bash
+        run: curl -s https://raw.githubusercontent.com/lluissm/license-header-checker/master/install.sh | bash -s v1.3.0
       - name: Run license check
-        run: ./bin/license-header-checker  ./license_header.txt . cc h
+        run: ./bin/license-header-checker   ./license_header.txt . cc h | [[ -z `grep  "!"` ]]
