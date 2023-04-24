@@ -43,7 +43,33 @@ constexpr auto array(char const (&cstr)[N]) {
 
 template <auto N>
 std::ostream& operator<<(std::ostream& s, const std::array<char, N>& arr) {
-  s << std::string(arr.begin(), arr.end());
+  if (arr.empty()) {
+    return s;
+  }
+  s << std::string(arr.begin(), arr.end() - 1);
+  return s;
+}
+
+template <typename T>
+std::ostream& operator<<(std::ostream& s, const std::vector<T>& arr) {
+  if (arr.empty()) {
+    return s;
+  }
+  const size_t max = 32;
+  size_t max_idx = std::min(max, arr.size());
+  s << "[";
+  for (size_t i = 0; i < max_idx; i++) {
+    if (i < max_idx - 1)
+      s << arr[i] << ", ";
+    else {
+      if (arr.size() > max_idx) {
+        s << arr[i] << ", ...";
+      } else {
+        s << arr[i];
+      }
+    }
+  }
+  s << "]";
   return s;
 }
 
@@ -108,7 +134,7 @@ struct Warper<> final {
 }  // namespace details
 
 template <typename... Args>
-inline decltype(auto) to(const Args&... args) {
+inline decltype(auto) from(const Args&... args) {
   return details::Warper<typename details::Canonicalize<Args>::type...>::call(
       args...);
 }

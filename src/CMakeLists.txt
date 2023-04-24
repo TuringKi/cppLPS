@@ -1,6 +1,6 @@
 
 
-set(SRC main.cc parser.cc)
+file(GLOB SRC  "./*.cc")
 
 add_executable(lps ${SRC})
 

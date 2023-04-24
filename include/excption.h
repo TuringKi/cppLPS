@@ -25,23 +25,52 @@
 
 #include <exception>
 #include <stdexcept>
+#include <utility>
 #include "str.h"
+#include "tui.h"
 
 namespace lps::basic::exception {
 
-class Error : public std::exception {};
+class Error : public std::exception {
+ public:
+  explicit Error(std::string msg) : msg_(std::move(msg)) {}
+  [[nodiscard]] const char* what() const noexcept override {
+    return msg_.c_str();
+  }
 
-template <int Line, typename... Args>
-inline void fail(const std::string& file_name, Args... args) {
-  auto msg = lps::basic::str::to("[File:", file_name,
-                                 ","
-                                 "Line:",
-                                 Line, "]: ");
-  std::throw_with_nested(std::runtime_error(lps::basic::str::to(msg, args...)));
+ private:
+  std::string msg_;
+};
+
+template <auto Filename, uint32_t Line, auto Funcname, typename... Args>
+inline void fail(Args... args) {
+  auto msg = tui::color::Shell::colorize(
+      lps::basic::str::from("[File:", Filename,
+                            ","
+                            "Line:",
+                            Line, ", Func: ", Funcname, "]: "),
+      lps::basic::tui::color::Shell::fgreen());
+
+  throw Error(lps::basic::str::from(msg, args...));
 }
 }  // namespace lps::basic::exception
 
-#define FAIL(COND, ...)                                           \
-  if (!(COND)) {                                                  \
-    lps::basic::exception::fail<__LINE__>(__FILE__, __VA_ARGS__); \
+#define LPS_CHECK(COND, ...)                                                \
+  if (!(COND)) {                                                            \
+    lps::basic::exception::fail<lps::basic::str::details::array(__FILE__),  \
+                                __LINE__,                                   \
+                                lps::basic::str::details::array(__func__)>( \
+        lps::basic::tui::color::Shell::colorize(                            \
+            " [`" #COND "`] ", lps::basic::tui::color::Shell::fred()),      \
+        "not true. ", ##__VA_ARGS__);                                       \
+  }
+
+#define LPS_ERROR(COND, ...)                                                \
+  {                                                                         \
+    lps::basic::exception::fail<lps::basic::str::details::array(__FILE__),  \
+                                __LINE__,                                   \
+                                lps::basic::str::details::array(__func__)>( \
+        lps::basic::tui::color::Shell::colorize(                            \
+            " [ERROR] ", lps::basic::tui::color::Shell::fred()),            \
+        ##__VA_ARGS__);                                                     \
   }
