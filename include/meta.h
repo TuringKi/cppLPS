@@ -20,13 +20,17 @@
 * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 * SOFTWARE.
 */
+#pragma once
 
-#include "vec.h"
-#include <cstring>
-#include "excption.h"
-#include "mem.h"
+#include <algorithm>
+#include <iostream>
 
-namespace lps::basic::vec::details {
+namespace meta {
 
+template <size_t N>
+struct Str {
+  constexpr explicit Str(const char (&str)[N]) { std::copy_n(str, N, value); }
+  char value[N];
+};
 
-}  // namespace lps::basic::vec::details
+}  // namespace meta

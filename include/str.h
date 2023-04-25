@@ -28,17 +28,16 @@
 #include <sstream>
 #include <string>
 #include <vector>
+#include "meta.h"
 
 namespace lps::basic::str {
 
 namespace details {
 
 template <auto N>
-constexpr auto array(char const (&cstr)[N]) {
-  std::array<char, N> arr;
-  for (std::size_t i = 0; i < N; ++i)
-    arr[i] = cstr[i];
-  return arr;
+std::ostream& operator<<(std::ostream& s, const meta::Str<N>& arr) {
+  s << arr.value;
+  return s;
 }
 
 template <auto N>

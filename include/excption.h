@@ -42,7 +42,19 @@ class Error : public std::exception {
   std::string msg_;
 };
 
-template <auto Filename, uint32_t Line, auto Funcname, typename... Args>
+template <meta::Str Filename, uint32_t Line, meta::Str Funcname, typename... Args>
+inline void warning(Args... args) {
+  auto msg = tui::color::Shell::colorize(
+      lps::basic::str::from("[File:", Filename,
+                            ","
+                            "Line:",
+                            Line, ", Func: ", Funcname, "]: "),
+      lps::basic::tui::color::Shell::fgreen());
+
+  std::cout << lps::basic::str::from(msg, args...);
+}
+
+template <meta::Str Filename, uint32_t Line, meta::Str Funcname, typename... Args>
 inline void fail(Args... args) {
   auto msg = tui::color::Shell::colorize(
       lps::basic::str::from("[File:", Filename,
@@ -53,24 +65,41 @@ inline void fail(Args... args) {
 
   throw Error(lps::basic::str::from(msg, args...));
 }
+
 }  // namespace lps::basic::exception
 
-#define LPS_CHECK(COND, ...)                                                \
-  if (!(COND)) {                                                            \
-    lps::basic::exception::fail<lps::basic::str::details::array(__FILE__),  \
-                                __LINE__,                                   \
-                                lps::basic::str::details::array(__func__)>( \
-        lps::basic::tui::color::Shell::colorize(                            \
-            " [`" #COND "`] ", lps::basic::tui::color::Shell::fred()),      \
-        "not true. ", ##__VA_ARGS__);                                       \
+#define LPS_CHECK_ERROR(COND, ...)                                     \
+  if (!(COND)) {                                                       \
+    lps::basic::exception::fail<meta::Str(__FILE__), __LINE__,         \
+                                meta::Str(__func__)>(                  \
+        lps::basic::tui::color::Shell::colorize(                       \
+            " [`" #COND "`] ", lps::basic::tui::color::Shell::fred()), \
+        "not true. ", ##__VA_ARGS__);                                  \
   }
 
-#define LPS_ERROR(COND, ...)                                                \
-  {                                                                         \
-    lps::basic::exception::fail<lps::basic::str::details::array(__FILE__),  \
-                                __LINE__,                                   \
-                                lps::basic::str::details::array(__func__)>( \
-        lps::basic::tui::color::Shell::colorize(                            \
-            " [ERROR] ", lps::basic::tui::color::Shell::fred()),            \
-        ##__VA_ARGS__);                                                     \
+#define LPS_CHECK_WARNING(COND, ...)                                      \
+  if (!(COND)) {                                                          \
+    lps::basic::exception::warning<meta::Str(__FILE__), __LINE__,         \
+                                   meta::Str(__func__)>(                  \
+        lps::basic::tui::color::Shell::colorize(                          \
+            " [`" #COND "`] ", lps::basic::tui::color::Shell::fyellow()), \
+        "not true. ", ##__VA_ARGS__);                                     \
+  }
+
+#define LPS_ERROR(COND, ...)                                     \
+  {                                                              \
+    lps::basic::exception::fail<meta::Str(__FILE__), __LINE__,   \
+                                meta::Str(__func__)>(            \
+        lps::basic::tui::color::Shell::colorize(                 \
+            " [ERROR] ", lps::basic::tui::color::Shell::fred()), \
+        ##__VA_ARGS__);                                          \
+  }
+
+#define LPS_WARNING(COND, ...)                                      \
+  {                                                                 \
+    lps::basic::exception::warning<meta::Str(__FILE__), __LINE__,   \
+                                   meta::Str(__func__)>(            \
+        lps::basic::tui::color::Shell::colorize(                    \
+            " [ERROR] ", lps::basic::tui::color::Shell::fyellow()), \
+        ##__VA_ARGS__);                                             \
   }

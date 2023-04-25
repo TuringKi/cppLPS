@@ -32,6 +32,7 @@ namespace color {
 enum Code {
   kFgRed = 31,
   kFgGreen = 32,
+  kFgYellow = 33,
   kFgBlue = 34,
   kFgDefault = 39,
   kBgRed = 41,
@@ -47,6 +48,7 @@ class Shell {
   explicit Shell(Code pCode) : code_(pCode) {}
   static Shell fred() { return Shell(Code::kFgRed); }
   static Shell fgreen() { return Shell(Code::kFgGreen); }
+  static Shell fyellow() { return Shell(Code::kFgYellow); }
   static Shell fblue() { return Shell(Code::kFgBlue); }
   static Shell bred() { return Shell(Code::kBgRed); }
   static Shell bgreen() { return Shell(Code::kBgGreen); }

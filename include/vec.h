@@ -27,29 +27,30 @@
 #include <limits>
 #include <cstdint>
 #include <type_traits>
+#include <array>
+#include "meta.h"
+
+namespace lps::basic::mem {
+
+template <meta::Str TagName, size_t NBuffer, size_t BufferSize,
+          typename BlockSizeType, typename T>
+class MemoryBuffer;
+
+}
+
 
 namespace lps::basic::vec::details {
 
+
+
 template <typename Size>
 class Base {
- public:
-  Base() = delete;
+public:
+ Base() = delete;
+ protected:
   [[nodiscard]] size_t size() const { return size_; }
   [[nodiscard]] size_t capacity() const { return capacity_; }
-
   [[nodiscard]] bool empty() const { return size_; }
-
- protected:
-  Base(void* first, Size capacity) : first_(first), capacity_(capacity) {}
-
-  static Size new_capacity(Size min, Size old_capacity);
-
-  void* malloc_grow(void* first, Size min, Size type_size, Size& new_capacity);
-
-  void grow_pod(void* first, Size MinSize, Size type_size);
-
-  void* replace(void* first, Size type_size, Size new_capacity,
-                Size vsize = 0);
 
   void* first_;
   Size size_ = 0;
@@ -60,12 +61,6 @@ template <typename T>
 using SizeType =
     std::conditional_t<sizeof(T) < 4 && sizeof(void*) >= 8, uint64_t, uint32_t>;
 
-template <typename T>
-struct AlignmentAndSize {
-  using base_type = Base<SizeType<T>>;
-  alignas(base_type) char base[sizeof(base_type)];
-  alignas(T) char first[sizeof(T)];
-};
 
 template <typename T>
 class Common : public Base<SizeType<T>> {
@@ -84,7 +79,6 @@ class Common : public Base<SizeType<T>> {
 
   Common() = delete;
 
-  [[nodiscard]] bool empty() const { return this->size() == 0U; }
   iterator begin() { return this->first_; }
   iterator end() { return this->first_ + this->size(); }
   const_iterator begin() const { return this->first_; }
@@ -112,32 +106,42 @@ class Common : public Base<SizeType<T>> {
   }
 
   reference front() {
-    assert(!empty());
+    assert(!this->empty());
     return begin()[0];
   }
   const_reference front() const {
-    assert(!empty());
+    assert(!this->empty());
     return begin()[0];
   }
 
   reference back() {
-    assert(!empty());
+    assert(!this->empty());
     return end()[-1];
   }
   const_reference back() const {
-    assert(!empty());
+    assert(!this->empty());
     return end()[-1];
   }
 
   void clear() { this->size_ = 0; }
 };
 
-template <typename T>
-class Impl : public Common<T> {};
+template <size_t NBuffer, size_t N,  typename T>
+class Impl : public Common<T> {
+using buffer_type = mem::MemoryBuffer<meta::Str("vector"), NBuffer, N, SizeType<T>, T>;
+protected:
+
+
+};
+
+constexpr size_t kDefaultNBuffer = 1;
 
 }  // namespace lps::basic::vec::details
+
+
+
 namespace lps::basic {
 template <typename T, size_t N>
-class Vector : public vec::details::Impl<T> {};
+class Vector : public vec::details::Impl<vec::details::kDefaultNBuffer, N, T> {};
 
 }  // namespace lps::basic
