@@ -42,7 +42,8 @@ class Error : public std::exception {
   std::string msg_;
 };
 
-template <meta::Str Filename, uint32_t Line, meta::Str Funcname, typename... Args>
+template <meta::Str Filename, uint32_t Line, meta::Str Funcname,
+          typename... Args>
 inline void warning(Args... args) {
   auto msg = tui::color::Shell::colorize(
       lps::basic::str::from("[File:", Filename,
@@ -54,7 +55,8 @@ inline void warning(Args... args) {
   std::cout << lps::basic::str::from(msg, args...);
 }
 
-template <meta::Str Filename, uint32_t Line, meta::Str Funcname, typename... Args>
+template <meta::Str Filename, uint32_t Line, meta::Str Funcname,
+          typename... Args>
 inline void fail(Args... args) {
   auto msg = tui::color::Shell::colorize(
       lps::basic::str::from("[File:", Filename,

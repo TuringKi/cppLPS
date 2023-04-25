@@ -23,11 +23,11 @@
 
 #pragma once
 
+#include <array>
+#include <cstdint>
 #include <iterator>
 #include <limits>
-#include <cstdint>
 #include <type_traits>
-#include <array>
 #include "meta.h"
 
 namespace lps::basic::mem {
@@ -38,15 +38,13 @@ class MemoryBuffer;
 
 }
 
-
 namespace lps::basic::vec::details {
-
-
 
 template <typename Size>
 class Base {
-public:
- Base() = delete;
+ public:
+  Base() = delete;
+
  protected:
   [[nodiscard]] size_t size() const { return size_; }
   [[nodiscard]] size_t capacity() const { return capacity_; }
@@ -60,7 +58,6 @@ public:
 template <typename T>
 using SizeType =
     std::conditional_t<sizeof(T) < 4 && sizeof(void*) >= 8, uint64_t, uint32_t>;
-
 
 template <typename T>
 class Common : public Base<SizeType<T>> {
@@ -126,22 +123,21 @@ class Common : public Base<SizeType<T>> {
   void clear() { this->size_ = 0; }
 };
 
-template <size_t NBuffer, size_t N,  typename T>
+template <size_t NBuffer, size_t N, typename T>
 class Impl : public Common<T> {
-using buffer_type = mem::MemoryBuffer<meta::Str("vector"), NBuffer, N, SizeType<T>, T>;
-protected:
+  using buffer_type =
+      mem::MemoryBuffer<meta::Str("vector"), NBuffer, N, SizeType<T>, T>;
 
-
+ protected:
 };
 
 constexpr size_t kDefaultNBuffer = 1;
 
 }  // namespace lps::basic::vec::details
 
-
-
 namespace lps::basic {
 template <typename T, size_t N>
-class Vector : public vec::details::Impl<vec::details::kDefaultNBuffer, N, T> {};
+class Vector : public vec::details::Impl<vec::details::kDefaultNBuffer, N, T> {
+};
 
 }  // namespace lps::basic

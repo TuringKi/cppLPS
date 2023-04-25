@@ -26,7 +26,4 @@
 #include "excption.h"
 #include "mem.h"
 
-namespace lps::basic::vec::details {
-
-
-}  // namespace lps::basic::vec::details
+namespace lps::basic::vec::details {}  // namespace lps::basic::vec::details

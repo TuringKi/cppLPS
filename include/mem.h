@@ -33,7 +33,9 @@ namespace details {
 template <meta::Str TagName>
 class TraceTag {
  public:
-  [[nodiscard]] virtual constexpr const char* tag() const { return TagName.value; }
+  [[nodiscard]] virtual constexpr const char* tag() const {
+    return TagName.value;
+  }
 };
 
 template <meta::Str TagName, size_t N, typename T>
@@ -148,8 +150,6 @@ class MemoryBuffer : virtual public details::TraceTag<TagName>,
  private:
   // One basic question arise: How to travel the list of `buffers_` as a whole single buffer?
 
-
-
   void expand();
   void block(BlockSizeType block_size);
 
@@ -160,20 +160,17 @@ class MemoryBuffer : virtual public details::TraceTag<TagName>,
 };
 
 template <meta::Str TagName, typename BlockSizeType, typename T>
-struct  MemoryBufferInterface{
+struct MemoryBufferInterface {
 
-public:
- template <size_t NBuffer, size_t BufferSize>
- std::unique_ptr<MemoryBuffer<TagName, NBuffer, BufferSize, BlockSizeType, T>>
- create();
+ public:
+  template <size_t NBuffer, size_t BufferSize>
+  std::unique_ptr<MemoryBuffer<TagName, NBuffer, BufferSize, BlockSizeType, T>>
+  create();
 
-private:
- void* ptr_;
- BlockSizeType size_;
-
+ private:
+  void* ptr_;
+  BlockSizeType size_;
 };
-
-
 
 void* malloc(size_t sz);
 void* realloc(void* ptr, size_t sz);
