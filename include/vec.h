@@ -32,8 +32,8 @@
 
 namespace lps::basic::mem {
 
-template <meta::Str TagName, size_t NBuffer, size_t BufferSize,
-          typename BlockSizeType, typename T>
+template <meta::Str TagName, size_t BufferSize, typename BlockSizeType,
+          typename T>
 class MemoryBuffer;
 
 }
@@ -126,7 +126,7 @@ class Common : public Base<SizeType<T>> {
 template <size_t NBuffer, size_t N, typename T>
 class Impl : public Common<T> {
   using buffer_type =
-      mem::MemoryBuffer<meta::Str("vector"), NBuffer, N, SizeType<T>, T>;
+      mem::MemoryBuffer<meta::Str("vector"), NBuffer, SizeType<T>, T>;
 
  protected:
 };

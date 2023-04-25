@@ -22,85 +22,100 @@
 */
 
 #include "mem.h"
+#include <algorithm>
 #include <cstring>
+#include <memory>
 #include "excption.h"
+#include "meta.h"
 
 namespace lps::basic::mem {
 
 namespace details {
 
-template <meta::Str TagName, typename Size>
-Size Heap<TagName, Size>::new_capacity(Size min, Size old_capacity) {
+template <meta::Str TagName, typename Size, typename T>
+Size DynamicBuffer<TagName, Size, T>::new_capacity(Size min,
+                                                   Size old_capacity) {
   constexpr auto kTheMaxSize = std::numeric_limits<Size>::max();
   if (min > kTheMaxSize) {
-    LPS_ERROR("overflow");
+    LPS_ERROR(TagName, "overflow");
   }
   if (old_capacity == kTheMaxSize) {
-    LPS_ERROR("already at maximum size");
+    LPS_ERROR(TagName, "already at maximum size");
   }
   Size new_capacity = 2 * old_capacity + 1;
   return std::clamp(new_capacity, min, kTheMaxSize);
 }
 
-template <meta::Str TagName, typename Size>
-void* Heap<TagName, Size>::malloc_grow(void* first, Size min, Size type_size,
-                                       Size& new_capacity) {
+template <meta::Str TagName, typename Size, typename T>
+typename DynamicBuffer<TagName, Size, T>::pointer
+DynamicBuffer<TagName, Size, T>::malloc_grow(pointer first, Size min,
+                                             Size& new_capacity) {
 
-  new_capacity = Heap<TagName, Size>::new_capacity(min, capacity());
+  new_capacity = DynamicBuffer<TagName, Size, T>::new_capacity(min, capacity());
 
-  void* new_first = mem::malloc(new_capacity * type_size);
+  pointer new_first = allocator_.allocate(new_capacity);
   if (new_first == first) {
-    new_first = replace(new_first, type_size, new_capacity);
+    new_first = replace(new_first, new_capacity, new_capacity);
   }
   return new_first;
 }
 
-template <meta::Str TagName, typename Size>
-void Heap<TagName, Size>::grow_pod(void* first, Size min, Size type_size) {
-  auto new_capacity = Heap<TagName, Size>::new_capacity(min, capacity());
-  void* new_first;
-  if (first == first_) {
-    new_first = mem::malloc(type_size * new_capacity);
-    if (new_first == first) {
-      new_first = replace(new_first, type_size, new_capacity);
-    }
-    std::memcpy(new_first, first_, type_size * size());
-  } else {
-    new_first = mem::realloc(first_, new_capacity * type_size);
-    if (new_first == first)
-      new_first = replace(new_first, type_size, new_capacity, size());
+template <meta::Str TagName, typename Size, typename T>
+void DynamicBuffer<TagName, Size, T>::grow_pod(pointer first, Size min) {
+  auto new_capacity =
+      DynamicBuffer<TagName, Size, T>::new_capacity(min, capacity());
+  pointer new_first;
+
+  new_first = allocator_.allocate(new_capacity);
+  if (new_first == first) {
+    new_first = replace(new_first, new_capacity, new_capacity);
   }
+  std::copy_n(first_, size(), new_first);
+
   this->first_ = new_first;
   this->capacity_ = new_capacity;
 }
 
-template <meta::Str TagName, typename Size>
-void* Heap<TagName, Size>::replace(void* first, Size type_size,
-                                   Size new_capacity, Size vsize) {
-  void* new_first = mem::malloc(new_capacity * type_size);
-  if (vsize)
-    std::memcpy(new_first, first, vsize * type_size);
-  free(first);
+template <meta::Str TagName, typename Size, typename T>
+typename DynamicBuffer<TagName, Size, T>::pointer
+DynamicBuffer<TagName, Size, T>::replace(pointer first, Size old_capacity,
+                                         Size new_capacity) {
+  pointer new_first = allocator_.allocate(new_capacity);
+  allocator_.deallocate(first, old_capacity);
   return new_first;
 }
 
 }  // namespace details
 
-template <meta::Str TagName, size_t NBuffer, size_t BufferSize,
-          typename BlockSizeType, typename T>
-void MemoryBuffer<TagName, NBuffer, BufferSize, BlockSizeType, T>::expand() {
-  bool cond = next_buffer_pos_ >= 0 && next_buffer_pos_ < NBuffer;
-  if (cond) {
-    buffer_pos_ = next_buffer_pos_;
-    buffers_[next_buffer_pos_++] =
-        MemoryBuffer<TagName, NBuffer, BufferSize, BlockSizeType,
-                     T>::buffer_type::create();
-  } else {
+template <meta::Str TagName, size_t BufferSize, typename BlockSizeType,
+          typename T>
+void MemoryBuffer<TagName, BufferSize, BlockSizeType, T>::expand() {
 
-    LPS_WARNING(
-        "buffer index is not valid, maybe the buffer is overflow.\n This will "
-        "lead `MemoryBuffer` to use the heap memory [",
-        this->tag(), "]");
+  LPS_WARNING(
+      TagName,
+      "buffer index is not valid, maybe the buffer is overflow.\n This will "
+      "lead `MemoryBuffer` to use the heap memory [",
+      this->tag(), "]");
+}
+
+template <meta::Str TagName, size_t BufferSize, typename BlockSizeType,
+          typename T>
+typename MemoryBuffer<TagName, BufferSize, BlockSizeType, T>::block_ptr_type
+MemoryBuffer<TagName, BufferSize, BlockSizeType, T>::block(
+    BlockSizeType block_size) {
+  block_ptr_type block;
+  if (location_ == Location::kStack) {
+
+    if (!this->ok(block_size)) {
+      // static buffer is full, now we need to use the heap
+      LPS_NOTE(TagName, "static buffer is full");
+
+      location_ = Location::kHeap;
+    } else {
+      block = block_ptr_type::create(*this, block_size);
+    }
+
+  } else {
   }
 }
 
@@ -109,7 +124,7 @@ void* malloc(size_t sz) {
   if (result == nullptr) {
     if (sz == 0)
       return lps::basic::mem::malloc(1);
-    LPS_ERROR("alloc failed");
+    LPS_ERROR(meta::Str("malloc"), "alloc failed");
   }
   return result;
 }
@@ -119,7 +134,7 @@ void* realloc(void* ptr, size_t sz) {
   if (result == nullptr) {
     if (sz == 0)
       return lps::basic::mem::malloc(1);
-    LPS_ERROR("alloc failed");
+    LPS_ERROR(meta::Str("realloc"), "alloc failed");
   }
   return result;
 }

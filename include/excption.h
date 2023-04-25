@@ -26,6 +26,7 @@
 #include <exception>
 #include <stdexcept>
 #include <utility>
+#include "log.h"
 #include "str.h"
 #include "tui.h"
 
@@ -41,67 +42,94 @@ class Error : public std::exception {
  private:
   std::string msg_;
 };
+namespace details {
+template <meta::Str TagName, meta::Str FileName, uint32_t Line,
+          meta::Str FuncName, typename... Args>
+inline std::string msg(Args... args) {
+  std::string msg;
+  if (decltype(TagName)::empty()) {
+    msg = tui::color::Shell::colorize(
+        lps::basic::str::from("[File:", FileName,
+                              ","
+                              "Line:",
+                              Line, ", Func: ", FuncName, "]: "),
+        lps::basic::tui::color::Shell::fgreen());
+  } else {
+    tui::color::Shell::colorize(
+        lps::basic::str::from("[Tag:", TagName, "]", msg),
+        lps::basic::tui::color::Shell::fblue());
+  }
 
-template <meta::Str Filename, uint32_t Line, meta::Str Funcname,
-          typename... Args>
+  lps::basic::str::from(msg, args...);
+  return msg;
+}
+}  // namespace details
+
+template <meta::Str TagName, meta::Str FileName, uint32_t Line,
+          meta::Str FuncName, typename... Args>
 inline void warning(Args... args) {
-  auto msg = tui::color::Shell::colorize(
-      lps::basic::str::from("[File:", Filename,
-                            ","
-                            "Line:",
-                            Line, ", Func: ", Funcname, "]: "),
-      lps::basic::tui::color::Shell::fgreen());
 
-  std::cout << lps::basic::str::from(msg, args...);
+  std::cout << details::msg<TagName, FileName, Line, FuncName, Args...>(
+      args...);
 }
 
-template <meta::Str Filename, uint32_t Line, meta::Str Funcname,
-          typename... Args>
-inline void fail(Args... args) {
-  auto msg = tui::color::Shell::colorize(
-      lps::basic::str::from("[File:", Filename,
-                            ","
-                            "Line:",
-                            Line, ", Func: ", Funcname, "]: "),
-      lps::basic::tui::color::Shell::fgreen());
+template <meta::Str TagName, meta::Str FileName, uint32_t Line,
+          meta::Str FuncName, typename... Args>
+inline void note(Args... args) {
 
-  throw Error(lps::basic::str::from(msg, args...));
+  std::cout << details::msg<TagName, FileName, Line, FuncName, Args...>(
+      args...);
+}
+
+template <meta::Str TagName, meta::Str FileName, uint32_t Line,
+          meta::Str FuncName, typename... Args>
+inline void fail(Args... args) {
+  throw Error(
+      details::msg<TagName, FileName, Line, FuncName, Args...>(args...));
 }
 
 }  // namespace lps::basic::exception
 
-#define LPS_CHECK_ERROR(COND, ...)                                     \
-  if (!(COND)) {                                                       \
-    lps::basic::exception::fail<meta::Str(__FILE__), __LINE__,         \
-                                meta::Str(__func__)>(                  \
-        lps::basic::tui::color::Shell::colorize(                       \
-            " [`" #COND "`] ", lps::basic::tui::color::Shell::fred()), \
-        "not true. ", ##__VA_ARGS__);                                  \
+#define LPS_CHECK_ERROR(COND, ...)                                            \
+  if (!(COND)) {                                                              \
+    lps::basic::exception::fail<meta::Str(""), meta::Str(__FILE__), __LINE__, \
+                                meta::Str(__func__)>(                         \
+        lps::basic::tui::color::Shell::colorize(                              \
+            " [`" #COND "`] ", lps::basic::tui::color::Shell::fred()),        \
+        "not true. ", ##__VA_ARGS__);                                         \
   }
 
 #define LPS_CHECK_WARNING(COND, ...)                                      \
   if (!(COND)) {                                                          \
-    lps::basic::exception::warning<meta::Str(__FILE__), __LINE__,         \
-                                   meta::Str(__func__)>(                  \
+    lps::basic::exception::warning<meta::Str(""), meta::Str(__FILE__),    \
+                                   __LINE__, meta::Str(__func__)>(        \
         lps::basic::tui::color::Shell::colorize(                          \
             " [`" #COND "`] ", lps::basic::tui::color::Shell::fyellow()), \
         "not true. ", ##__VA_ARGS__);                                     \
   }
 
-#define LPS_ERROR(COND, ...)                                     \
-  {                                                              \
-    lps::basic::exception::fail<meta::Str(__FILE__), __LINE__,   \
-                                meta::Str(__func__)>(            \
-        lps::basic::tui::color::Shell::colorize(                 \
-            " [ERROR] ", lps::basic::tui::color::Shell::fred()), \
-        ##__VA_ARGS__);                                          \
+#define LPS_ERROR(TagName, ...)                                         \
+  {                                                                     \
+    lps::basic::exception::fail<TagName, meta::Str(__FILE__), __LINE__, \
+                                meta::Str(__func__)>(                   \
+        lps::basic::tui::color::Shell::colorize(                        \
+            " [ERROR] ", lps::basic::tui::color::Shell::fred()),        \
+        ##__VA_ARGS__);                                                 \
   }
 
-#define LPS_WARNING(COND, ...)                                      \
-  {                                                                 \
-    lps::basic::exception::warning<meta::Str(__FILE__), __LINE__,   \
-                                   meta::Str(__func__)>(            \
-        lps::basic::tui::color::Shell::colorize(                    \
-            " [ERROR] ", lps::basic::tui::color::Shell::fyellow()), \
-        ##__VA_ARGS__);                                             \
+#define LPS_WARNING(TagName, ...)                                          \
+  {                                                                        \
+    lps::basic::exception::warning<TagName, meta::Str(__FILE__), __LINE__, \
+                                   meta::Str(__func__)>(                   \
+        lps::basic::tui::color::Shell::colorize(                           \
+            " [ERROR] ", lps::basic::tui::color::Shell::fyellow()),        \
+        ##__VA_ARGS__);                                                    \
+  }
+
+#define LPS_NOTE(TagName, ...)                                          \
+  {                                                                     \
+    lps::basic::exception::note<TagName, meta::Str(__FILE__), __LINE__, \
+                                meta::Str(__func__)>(                   \
+                                                                        \
+        " [NOTE] ", ##__VA_ARGS__);                                     \
   }

@@ -23,6 +23,7 @@
 
 #pragma once
 
+#include <cstdint>
 #include <memory>
 #include "meta.h"
 
@@ -39,16 +40,18 @@ class TraceTag {
 };
 
 template <meta::Str TagName, size_t N, typename T>
-class Buffer : virtual public TraceTag<TagName> {
-  using type = Buffer<TagName, N, T>;
+class StaticBuffer : virtual public TraceTag<TagName> {
+  using type = StaticBuffer<TagName, N, T>;
+  using pointer = T*;
 
  public:
-  static std::unique_ptr<type> create() { return std::make_unique(type()); }
-  virtual ~Buffer() = default;
-  char* ptr() { return data_; }
+  StaticBuffer() = default;
+  virtual ~StaticBuffer() = default;
+  static std::unique_ptr<type> create() { return std::make_unique<type>(); }
+  pointer ptr() { return data_; }
 
  private:
-  alignas(T) char data_[N * sizeof(T)];
+  T data_[N];
 };
 
 template <meta::Str TagName, typename BlockSizeType, typename T>
@@ -63,14 +66,27 @@ class BlockInBuffer : virtual public TraceTag<TagName> {
  protected:
   explicit BlockInBuffer(size_t buffer_size) : buffer_size_(buffer_size) {}
 
-  bool ok() { return pos_ >= 0 && pos_ < buffer_size_; }
-
-  void add(BlockSizeType block_size) {
-    pos_ = std::min(pos_ + block_size, buffer_size_);
+  [[nodiscard]] bool ok() const { return pos_ >= 0 && pos_ < buffer_size_; }
+  bool ok(BlockSizeType block_size) const {
+    return (pos_ + block_size) >= 0 && (pos_ + block_size) < buffer_size_;
   }
 
-  void remove(BlockSizeType block_size) {
+  void set_max(size_t buffer_size) { buffer_size_ = buffer_size; }
+
+  bool add(BlockSizeType block_size) {
+    if (!ok(block_size)) {
+      return false;
+    }
+    pos_ = std::min(pos_ + block_size, buffer_size_);
+    return true;
+  }
+
+  bool remove(BlockSizeType block_size) {
+    if (!ok(block_size)) {
+      return false;
+    }
     pos_ = std::max(pos_ - block_size, 0);
+    return true;
   }
 
   size_t pos_{0};  // last alloced block position on `buffer_`;
@@ -80,10 +96,11 @@ class BlockInBuffer : virtual public TraceTag<TagName> {
 template <meta::Str TagName, typename Size, typename T>
 class Block : virtual public TraceTag<TagName> {
   using manager_type = BlockInBuffer<TagName, Size, T>;
+  using pointer = T*;
 
  private:
   Size n_;
-  void* ptr_;
+  pointer ptr_;
   manager_type& manager_;
 
  public:
@@ -91,6 +108,10 @@ class Block : virtual public TraceTag<TagName> {
   Block& operator=(const Block&) = delete;
 
  private:
+  static std::unique_ptr<Block<TagName, Size, T>> create(manager_type& manager,
+                                                         pointer ptr, Size n) {
+    return std::make_unique<Block<TagName, Size, T>>(manager, ptr, n);
+  }
   explicit Block(manager_type& manager, void* ptr, Size n)
       : manager_(manager), ptr_(ptr), n_(n) {
     manager_.add(n_);
@@ -98,11 +119,15 @@ class Block : virtual public TraceTag<TagName> {
   virtual ~Block() { manager_.remove(n_); }
 };
 
-template <meta::Str TagName, typename Size>
-class Heap : virtual public TraceTag<TagName> {
+template <meta::Str TagName, typename Size, typename T>
+class DynamicBuffer : virtual public TraceTag<TagName> {
+  using pointer = T*;
+
  public:
-  Heap() = delete;
-  virtual ~Heap() = default;
+  DynamicBuffer() = delete;
+  virtual ~DynamicBuffer() = default;
+  DynamicBuffer(pointer first, Size capacity)
+      : first_(first), capacity_(capacity) {}
 
  protected:
   [[nodiscard]] size_t size() const { return size_; }
@@ -110,62 +135,66 @@ class Heap : virtual public TraceTag<TagName> {
 
   [[nodiscard]] bool empty() const { return size_; }
 
-  Heap(void* first, Size capacity) : first_(first), capacity_(capacity) {}
-
   static Size new_capacity(Size min, Size old_capacity);
 
-  void* malloc_grow(void* first, Size min, Size type_size, Size& new_capacity);
+  pointer malloc_grow(pointer first, Size min, Size& new_capacity);
 
-  void grow_pod(void* first, Size MinSize, Size type_size);
+  void grow_pod(pointer first, Size min);
 
-  void* replace(void* first, Size type_size, Size new_capacity, Size vsize = 0);
+  pointer replace(pointer first, Size old_capacity, Size new_capacity);
 
-  void* first_;
-  Size size_ = 0;
-  Size capacity_;
+  pointer first_{nullptr};
+  Size size_{0};
+  Size capacity_{0};
+  std::allocator<T> allocator_;
 };
 
 }  // namespace details
 
-template <meta::Str TagName, size_t NBuffer, size_t BufferSize,
-          typename BlockSizeType, typename T>
+template <meta::Str TagName, size_t BufferSize, typename BlockSizeType,
+          typename T>
 class MemoryBuffer : virtual public details::TraceTag<TagName>,
-                     public details::BlockInBuffer<TagName, BlockSizeType, T>,
-                     public details::Heap<TagName, BlockSizeType> {
+                     public details::BlockInBuffer<TagName, BlockSizeType, T> {
   using manager_type = details::BlockInBuffer<TagName, BlockSizeType, T>;
-  using buffer_type = details::Buffer<TagName, BufferSize, T>;
-  using buffer_ptr_type = std::unique_ptr<buffer_type>;
+  using static_buffer_type = details::StaticBuffer<TagName, BufferSize, T>;
+  using static_buffer_ptr_type = std::unique_ptr<static_buffer_type>;
   using block_type = details::Block<TagName, BlockSizeType, T>;
-  using heap_type = details::Heap<TagName, BlockSizeType>;
+  using dynamic_buffer_type = details::DynamicBuffer<TagName, BlockSizeType, T>;
+  using dynamic_buffer_ptr_type = std::unique_ptr<dynamic_buffer_type>;
   using block_ptr_type =
       std::unique_ptr<details::Block<TagName, BlockSizeType, T>>;
 
+  using pointer = T*;
+
  public:
   MemoryBuffer()
-      : manager_type(BufferSize), heap_type(heap_, 2 * BufferSize + 1) {}
+      : manager_type(BufferSize), static_(static_buffer_type::create()) {
+    top_ = static_->ptr();
+  }
   MemoryBuffer(const MemoryBuffer&) = delete;
   MemoryBuffer& operator=(const MemoryBuffer&) = delete;
   virtual ~MemoryBuffer() = default;
 
  private:
+  enum Location : uint8_t { kStack = 0, kHeap };
+
   // One basic question arise: How to travel the list of `buffers_` as a whole single buffer?
 
   void expand();
-  void block(BlockSizeType block_size);
+  block_ptr_type block(BlockSizeType block_size);
 
-  buffer_ptr_type buffers_[NBuffer];  // the specific `buffer`;
-  size_t buffer_pos_{0};
-  size_t next_buffer_pos_{0};
-  void* heap_;
+  dynamic_buffer_ptr_type dynamic_{nullptr};
+  pointer top_{nullptr};
+  static_buffer_ptr_type static_{nullptr};
+  Location location_{Location::kStack};
 };
 
 template <meta::Str TagName, typename BlockSizeType, typename T>
 struct MemoryBufferInterface {
 
  public:
-  template <size_t NBuffer, size_t BufferSize>
-  std::unique_ptr<MemoryBuffer<TagName, NBuffer, BufferSize, BlockSizeType, T>>
-  create();
+  template <size_t BufferSize>
+  std::unique_ptr<MemoryBuffer<TagName, BufferSize, BlockSizeType, T>> create();
 
  private:
   void* ptr_;

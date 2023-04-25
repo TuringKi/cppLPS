@@ -20,28 +20,13 @@
 * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 * SOFTWARE.
 */
+
 #pragma once
 
-#include <algorithm>
-#include <iostream>
+#include <cstdint>
 
-namespace meta {
+namespace lps::log {
 
-template <size_t N>
-struct Str {
-  constexpr explicit Str(const char (&str)[N]) { std::copy_n(str, N, value); }
-  constexpr Str() = default;
-  constexpr static bool empty() { return N == 0; }
+enum Level : uint8_t { kError = 0, kWarning, kNote };
 
-  char value[N];
-};
-
-template <size_t N0, size_t N1>
-constexpr Str<N1> operator+(const Str<N0>& s0, const char (&str)[N1]) {
-  Str<N0 + N1> s1;
-  std::copy_n(s0.value, N0, s1.value);
-  std::copy_n(str, N1, s1.value + N0);
-  return s1;
 }
-
-}  // namespace meta
