@@ -20,28 +20,34 @@
 * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 * SOFTWARE.
 */
-#pragma once
 
+#include "basic/mem.h"
 #include <algorithm>
-#include <iostream>
+#include <cstring>
+#include <memory>
+#include "basic/exception.h"
+#include "basic/meta.h"
 
-namespace meta {
+namespace lps::basic::mem {
 
-template <size_t N>
-struct Str {
-  constexpr explicit Str(const char (&str)[N]) { std::copy_n(str, N, value); }
-  constexpr Str() = default;
-  constexpr static bool empty() { return N == 0; }
-
-  char value[N];
-};
-
-template <size_t N0, size_t N1>
-constexpr Str<N1> operator+(const Str<N0>& s0, const char (&str)[N1]) {
-  Str<N0 + N1> s1;
-  std::copy_n(s0.value, N0, s1.value);
-  std::copy_n(str, N1, s1.value + N0);
-  return s1;
+void* malloc(size_t sz) {
+  void* result = std::malloc(sz);
+  if (result == nullptr) {
+    if (sz == 0)
+      return lps::basic::mem::malloc(1);
+    LPS_ERROR(meta::Str("malloc"), "alloc failed");
+  }
+  return result;
 }
 
-}  // namespace meta
+void* realloc(void* ptr, size_t sz) {
+  void* result = std::realloc(ptr, sz);
+  if (result == nullptr) {
+    if (sz == 0)
+      return lps::basic::mem::malloc(1);
+    LPS_ERROR(meta::Str("realloc"), "alloc failed");
+  }
+  return result;
+}
+
+}  // namespace lps::basic::mem

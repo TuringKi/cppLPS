@@ -24,9 +24,11 @@
 #pragma once
 
 #include <exception>
+#include <ostream>
 #include <stdexcept>
 #include <utility>
 #include "log.h"
+#include "meta.h"
 #include "str.h"
 #include "tui.h"
 
@@ -43,9 +45,10 @@ class Error : public std::exception {
   std::string msg_;
 };
 namespace details {
+
 template <meta::Str TagName, meta::Str FileName, uint32_t Line,
           meta::Str FuncName, typename... Args>
-inline std::string msg(Args... args) {
+std::string msg(Args... args) {
   std::string msg;
   if (decltype(TagName)::empty()) {
     msg = tui::color::Shell::colorize(
@@ -54,13 +57,22 @@ inline std::string msg(Args... args) {
                               "Line:",
                               Line, ", Func: ", FuncName, "]: "),
         lps::basic::tui::color::Shell::fgreen());
+
   } else {
-    tui::color::Shell::colorize(
-        lps::basic::str::from("[Tag:", TagName, "]", msg),
-        lps::basic::tui::color::Shell::fblue());
+    auto m0 = tui::color::Shell::colorize(
+        lps::basic::str::from(TagName), lps::basic::tui::color::Shell::fblue());
+
+    auto m1 = tui::color::Shell::colorize(
+        lps::basic::str::from(", File:", FileName,
+                              ","
+                              "Line:",
+                              Line, ", Func: ", FuncName, "]: "),
+        lps::basic::tui::color::Shell::fgreen());
+    msg = tui::color::Shell::colorize(lps::basic::str::from("[Tag:", m0, m1),
+                                      lps::basic::tui::color::Shell::fgreen());
   }
 
-  lps::basic::str::from(msg, args...);
+  msg = lps::basic::str::from(msg, args...);
   return msg;
 }
 }  // namespace details
@@ -69,16 +81,16 @@ template <meta::Str TagName, meta::Str FileName, uint32_t Line,
           meta::Str FuncName, typename... Args>
 inline void warning(Args... args) {
 
-  std::cout << details::msg<TagName, FileName, Line, FuncName, Args...>(
-      args...);
+  std::cout << details::msg<TagName, FileName, Line, FuncName, Args...>(args...)
+            << std::endl;
 }
 
 template <meta::Str TagName, meta::Str FileName, uint32_t Line,
           meta::Str FuncName, typename... Args>
 inline void note(Args... args) {
 
-  std::cout << details::msg<TagName, FileName, Line, FuncName, Args...>(
-      args...);
+  std::cout << details::msg<TagName, FileName, Line, FuncName, Args...>(args...)
+            << std::endl;
 }
 
 template <meta::Str TagName, meta::Str FileName, uint32_t Line,
@@ -86,6 +98,13 @@ template <meta::Str TagName, meta::Str FileName, uint32_t Line,
 inline void fail(Args... args) {
   throw Error(
       details::msg<TagName, FileName, Line, FuncName, Args...>(args...));
+}
+
+template <meta::Str TagName, meta::Str FileName, uint32_t Line,
+          meta::Str FuncName>
+inline void assert(bool condition, std::string&& msg) {
+  if (!condition)
+    throw Error(details::msg<TagName, FileName, Line, FuncName>(msg));
 }
 
 }  // namespace lps::basic::exception
@@ -113,7 +132,7 @@ inline void fail(Args... args) {
     lps::basic::exception::fail<TagName, meta::Str(__FILE__), __LINE__, \
                                 meta::Str(__func__)>(                   \
         lps::basic::tui::color::Shell::colorize(                        \
-            " [ERROR] ", lps::basic::tui::color::Shell::fred()),        \
+            " [ERROR]: ", lps::basic::tui::color::Shell::fred()),       \
         ##__VA_ARGS__);                                                 \
   }
 
@@ -122,7 +141,7 @@ inline void fail(Args... args) {
     lps::basic::exception::warning<TagName, meta::Str(__FILE__), __LINE__, \
                                    meta::Str(__func__)>(                   \
         lps::basic::tui::color::Shell::colorize(                           \
-            " [ERROR] ", lps::basic::tui::color::Shell::fyellow()),        \
+            " [ERROR]: ", lps::basic::tui::color::Shell::fyellow()),       \
         ##__VA_ARGS__);                                                    \
   }
 
@@ -131,5 +150,14 @@ inline void fail(Args... args) {
     lps::basic::exception::note<TagName, meta::Str(__FILE__), __LINE__, \
                                 meta::Str(__func__)>(                   \
                                                                         \
-        " [NOTE] ", ##__VA_ARGS__);                                     \
+        " [NOTE]: ", ##__VA_ARGS__);                                    \
   }
+
+#define unreachable(TagName) LPS_ERROR(TagName)
+
+#define lps_assert(TagName, COND)                                       \
+  lps::basic::exception::assert<TagName, meta::Str(__FILE__), __LINE__, \
+                                meta::Str(__func__)>(                   \
+      (COND), lps::basic::tui::color::Shell::colorize(                  \
+                  " [ASSERT FAILED]: [`" #COND "`] ",                   \
+                  lps::basic::tui::color::Shell::fred()));

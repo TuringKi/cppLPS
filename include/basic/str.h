@@ -28,7 +28,7 @@
 #include <sstream>
 #include <string>
 #include <vector>
-#include "meta.h"
+#include "basic/meta.h"
 
 namespace lps::basic::str {
 
@@ -36,7 +36,10 @@ namespace details {
 
 template <auto N>
 std::ostream& operator<<(std::ostream& s, const meta::Str<N>& arr) {
-  s << arr.value;
+  if (meta::Str<N>::empty()) {
+    return s;
+  }
+  s << std::string(arr.value, arr.value + N - 1);
   return s;
 }
 

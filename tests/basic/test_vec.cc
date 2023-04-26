@@ -21,9 +21,18 @@
 * SOFTWARE.
 */
 
-#include "vec.h"
-#include <cstring>
-#include "excption.h"
-#include "mem.h"
-
-namespace lps::basic::vec::details {}  // namespace lps::basic::vec::details
+#include <iostream>
+#include "basic/vec.h"
+int main(int argc, char** argv) {
+  lps::basic::Vector<meta::Str("test"), 0, int> v;
+  v.append(13);
+  v.append(13);
+  v.append(13);
+  v.append(13);
+  v.append(13);
+  v.append(13);
+  std::cout<< v.size()<<"\n";
+  using lps::basic::str::details::operator<<;
+  std::cout << v <<"\n";
+  return 0;
+}
