@@ -21,16 +21,12 @@
 * SOFTWARE.
 */
 
-#include <iostream>
-#include "basic/exception.h"
-#include "basic/vec.h"
-int main(int argc, char** argv) {
-  auto m = lps::basic::mem::MemoryBuffer<meta::Str("name"), 32, size_t,
-                                         float>::create();
+#pragma once
 
-  lps::basic::Vector<meta::Str("test"), 32, int> v;
-  v.append(13);
+#include <cstdint>
 
-  LPS_ERROR(meta::Str("main"), "ok", std::vector<int>(128, 0));
-  return 0;
+namespace lps::log {
+
+enum Level : uint8_t { kError = 0, kWarning, kNote };
+
 }

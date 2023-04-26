@@ -21,16 +21,33 @@
 * SOFTWARE.
 */
 
-#include <iostream>
+#include "basic/mem.h"
+#include <algorithm>
+#include <cstring>
+#include <memory>
 #include "basic/exception.h"
-#include "basic/vec.h"
-int main(int argc, char** argv) {
-  auto m = lps::basic::mem::MemoryBuffer<meta::Str("name"), 32, size_t,
-                                         float>::create();
+#include "basic/meta.h"
 
-  lps::basic::Vector<meta::Str("test"), 32, int> v;
-  v.append(13);
+namespace lps::basic::mem {
 
-  LPS_ERROR(meta::Str("main"), "ok", std::vector<int>(128, 0));
-  return 0;
+void* malloc(size_t sz) {
+  void* result = std::malloc(sz);
+  if (result == nullptr) {
+    if (sz == 0)
+      return lps::basic::mem::malloc(1);
+    LPS_ERROR(meta::Str("malloc"), "alloc failed");
+  }
+  return result;
 }
+
+void* realloc(void* ptr, size_t sz) {
+  void* result = std::realloc(ptr, sz);
+  if (result == nullptr) {
+    if (sz == 0)
+      return lps::basic::mem::malloc(1);
+    LPS_ERROR(meta::Str("realloc"), "alloc failed");
+  }
+  return result;
+}
+
+}  // namespace lps::basic::mem

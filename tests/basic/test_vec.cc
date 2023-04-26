@@ -22,15 +22,17 @@
 */
 
 #include <iostream>
-#include "basic/exception.h"
 #include "basic/vec.h"
 int main(int argc, char** argv) {
-  auto m = lps::basic::mem::MemoryBuffer<meta::Str("name"), 32, size_t,
-                                         float>::create();
-
-  lps::basic::Vector<meta::Str("test"), 32, int> v;
+  lps::basic::Vector<meta::Str("test"), 0, int> v;
   v.append(13);
-
-  LPS_ERROR(meta::Str("main"), "ok", std::vector<int>(128, 0));
+  v.append(13);
+  v.append(13);
+  v.append(13);
+  v.append(13);
+  v.append(13);
+  std::cout << v.size() << "\n";
+  using lps::basic::str::details::operator<<;
+  std::cout << v << "\n";
   return 0;
 }
