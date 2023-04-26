@@ -22,15 +22,47 @@
 */
 
 #include <iostream>
+#include "basic/arg.h"
 #include "basic/exception.h"
+#include "basic/file.h"
 #include "basic/vec.h"
+#include "parser.h"
+#include "version.h"
+
 int main(int argc, char** argv) {
-  auto m = lps::basic::mem::MemoryBuffer<meta::Str("name"), 32, size_t,
-                                         float>::create();
 
-  lps::basic::Vector<meta::Str("test"), 32, int> v;
-  v.append(13);
+  argparse::ArgumentParser program("lps", lps::version::git_hash);
 
-  LPS_ERROR(meta::Str("main"), "ok", std::vector<int>(128, 0));
+  program.add_argument("-c").required().default_value("-").help(
+      "specify the source file.");
+
+  program.add_description(
+      "A Lexer, Parser and Semantics Engine for the C++ Programming Language.");
+
+  try {
+    program.parse_args(argc, argv);
+  } catch (const std::runtime_error& err) {
+    std::cerr << err.what() << std::endl;
+    std::cerr << program;
+    std::exit(1);
+  }
+
+  auto filename = program.get<std::string>("-c");
+
+  auto file = lps::basic::File<meta::S("main_file")>::create(filename.c_str());
+
+  if (file->empty()) {
+    return 0;
+  }
+
+  auto contents = file->ref<meta::S("file_contents")>();
+
+  using lps::basic::str::details::operator<<;
+  std::cout << contents;
+
+  lps::parser::Parser parser(contents);
+
+  parser.parse();
+
   return 0;
 }

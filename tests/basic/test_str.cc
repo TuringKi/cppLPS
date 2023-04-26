@@ -20,31 +20,12 @@
 * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 * SOFTWARE.
 */
-#pragma once
 
-#include <algorithm>
 #include <iostream>
-
-namespace meta {
-
-template <size_t N>
-struct Str {
-  constexpr explicit Str(const char (&str)[N]) { std::copy_n(str, N, value); }
-  constexpr Str() = default;
-  constexpr static bool empty() { return N == 0; }
-
-  char value[N];
-};
-template <size_t N>
-constexpr Str<N> S(const char (&str)[N]) {
-  return Str<N>(str);
+#include "basic/vec.h"
+int main(int argc, char** argv) {
+  lps::basic::String s("maxiao");
+  auto ss = lps::basic::StaticString<>::from("s");
+  auto z = std::move(ss);
+  return 0;
 }
-template <size_t N0, size_t N1>
-constexpr Str<N0 + N1> operator+(const Str<N0>& s0, const char (&str)[N1]) {
-  Str<N0 + N1> s1;
-  std::copy_n(s0.value, N0, s1.value);
-  std::copy_n(str, N1, s1.value + N0);
-  return s1;
-}
-
-}  // namespace meta

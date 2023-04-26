@@ -22,6 +22,18 @@
 */
 
 #include "parser.h"
+#include "lexer.h"
+#include "token.h"
+
+namespace lps::parser {
+
+void Parser::parse() {
+
+  token::Token<meta::S("parse_start_token")> tok;
+
+  lexer::Lexer lexer(content_.data());
+  lexer.lex(tok);
+}
 
 // translation_unit:
 //  declaration_seq
@@ -35,3 +47,5 @@ void Parser::translation_unit() {
 //  declaration
 //  declaration_seq declaration
 void Parser::declaration_seq() {}
+
+}  // namespace lps::parser

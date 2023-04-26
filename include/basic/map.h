@@ -20,31 +20,27 @@
 * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 * SOFTWARE.
 */
+
 #pragma once
 
 #include <algorithm>
-#include <iostream>
+#include <array>
+#include "basic/exception.h"
 
-namespace meta {
+namespace lps::basic::map {
 
-template <size_t N>
-struct Str {
-  constexpr explicit Str(const char (&str)[N]) { std::copy_n(str, N, value); }
-  constexpr Str() = default;
-  constexpr static bool empty() { return N == 0; }
+template <typename Key, typename Value, std::size_t Size, meta::Str TagName>
+struct Map {
+  std::array<std::pair<Key, Value>, Size> data_;
 
-  char value[N];
+  [[nodiscard]] constexpr Value at(const Key& key) const {
+    const auto itr =
+        std::find_if(begin(data_), end(data_),
+                     [&key](const auto& v) { return v.first == key; });
+    if (itr != end(data_)) {
+      return itr->second;
+    }
+    LPS_ERROR(TagName, "Not Found: ", key);
+  }
 };
-template <size_t N>
-constexpr Str<N> S(const char (&str)[N]) {
-  return Str<N>(str);
-}
-template <size_t N0, size_t N1>
-constexpr Str<N0 + N1> operator+(const Str<N0>& s0, const char (&str)[N1]) {
-  Str<N0 + N1> s1;
-  std::copy_n(s0.value, N0, s1.value);
-  std::copy_n(str, N1, s1.value + N0);
-  return s1;
-}
-
-}  // namespace meta
+}  // namespace lps::basic::map

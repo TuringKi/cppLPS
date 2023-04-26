@@ -23,25 +23,27 @@
 
 #pragma once
 
-#include <assert.h>
 #include <cstdint>
+#include "basic/exception.h"
+namespace lps::token {
 
+template <meta::Str TagName = meta::S("location")>
 class Location {
 
  public:
-  using Ty = uint32_t;
-  Ty offset() const { return id & ~MASK; }
-  Location operator+(Ty l) {
-    assert(((offset() + l) & MASK) == 0 && "location overflow");
-    Location L;
-    L.id = id + l;
-    return L;
+  using id_type = uint32_t;
+  [[nodiscard]] id_type offset() const { return id_ & ~kMask_; }
+  Location<TagName> operator+(id_type l) {
+    lps_assert(TagName, ((offset() + l) & kMask_) == 0 && "location overflow");
+    Location<TagName> the_loc;
+    the_loc.id = id_ + l;
+    return the_loc;
   }
-  Ty raw() const { return id; }
+  [[nodiscard]] id_type raw() const { return id_; }
 
  private:
-  Ty id;
-  const Ty MASK = 1ULL << (8 * sizeof(Ty) - 1);
+  id_type id_;
+  const id_type kMask_ = 1ULL << (8 * sizeof(id_type) - 1);
 };
 
 namespace tok {
@@ -49,14 +51,27 @@ namespace tok {
 enum class TokenKind : uint16_t {
 #define TOK(X) X,
 #include "token/kinds.def"
-  NUM_TOKENS
+  kNumTokens
 };
 };  // namespace tok
 
-struct Token {
- private:
-  Location::Ty loc;
-  tok::TokenKind Kind;
-
-  uint16_t Flags;
+enum Flag : uint16_t {
+  kStartOfLine = 0x01,
+  kLeadingSpace = 0x02,
+  kNeedClean = 0x04
 };
+
+template <meta::Str TagName>
+struct Token {
+
+ public:
+  void set_flag(Flag flg) { flags_ |= flg; }
+
+ private:
+  typename Location<TagName + "_location">::id_type loc_;
+  tok::TokenKind Kind_;
+
+  uint16_t flags_;
+};
+
+}  // namespace lps::token
