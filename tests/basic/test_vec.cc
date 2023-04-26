@@ -31,8 +31,8 @@ int main(int argc, char** argv) {
   v.append(13);
   v.append(13);
   v.append(13);
-  std::cout<< v.size()<<"\n";
+  std::cout << v.size() << "\n";
   using lps::basic::str::details::operator<<;
-  std::cout << v <<"\n";
+  std::cout << v << "\n";
   return 0;
 }
