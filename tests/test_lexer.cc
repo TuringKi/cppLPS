@@ -21,35 +21,30 @@
 * SOFTWARE.
 */
 
-#include "parser.h"
+#include <iostream>
+#include "basic/exception.h"
 #include "lexer.h"
-#include "token.h"
+#include "src.h"
+int main(int argc, char** argv) {
 
-namespace lps::parser {
+  lps_assert(meta::S("test_lexer"), argc == 2);
 
-// cpp grammar: https://timsong-cpp.github.io/cppwp/n4868/gram
-void Parser::parse(uint32_t file_id) {
+  const char* file_path = argv[1];
 
-  auto contents = src_manager_.ref<meta::S("file_contents")>(file_id);
-  if (!contents.empty()) {
-    token::Token<meta::S("parse_start_token")> tok;
+  lps::src::Manager src_manager;
 
-    lexer::Lexer lexer(file_id, contents.data());
+  auto file_id = src_manager.append(file_path);
+  lps_assert(meta::S("test_lexer"), file_id > 0);
+
+  auto contents = src_manager.ref<meta::S("file_contents")>(file_id);
+  lps_assert(meta::S("test_lexer"), contents.capacity() > 0);
+
+  lps::lexer::Lexer lexer(file_id, contents.data());
+  while (!lexer.finish(contents.capacity())) {
+    lps::token::Token<meta::S("parse_start_token")> tok;
     lexer.lex(tok);
+    std::cout << tok << "\n";
   }
+
+  return 0;
 }
-
-// translation_unit:
-//  declaration_seq
-//  global_module_fragment[opt] module_declaration declaration_seq[opt] private_module_fragment[opt]
-void Parser::translation_unit() {
-
-  declaration_seq();
-}
-
-// declaration_seq:
-//  declaration
-//  declaration_seq declaration
-void Parser::declaration_seq() {}
-
-}  // namespace lps::parser

@@ -21,35 +21,6 @@
 * SOFTWARE.
 */
 
-#include "parser.h"
-#include "lexer.h"
 #include "token.h"
 
-namespace lps::parser {
-
-// cpp grammar: https://timsong-cpp.github.io/cppwp/n4868/gram
-void Parser::parse(uint32_t file_id) {
-
-  auto contents = src_manager_.ref<meta::S("file_contents")>(file_id);
-  if (!contents.empty()) {
-    token::Token<meta::S("parse_start_token")> tok;
-
-    lexer::Lexer lexer(file_id, contents.data());
-    lexer.lex(tok);
-  }
-}
-
-// translation_unit:
-//  declaration_seq
-//  global_module_fragment[opt] module_declaration declaration_seq[opt] private_module_fragment[opt]
-void Parser::translation_unit() {
-
-  declaration_seq();
-}
-
-// declaration_seq:
-//  declaration
-//  declaration_seq declaration
-void Parser::declaration_seq() {}
-
-}  // namespace lps::parser
+namespace lps::token::tok {}  // namespace lps::token::tok

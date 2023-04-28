@@ -27,6 +27,7 @@
 #include "basic/file.h"
 #include "basic/vec.h"
 #include "parser.h"
+#include "src.h"
 #include "version.h"
 
 int main(int argc, char** argv) {
@@ -49,20 +50,22 @@ int main(int argc, char** argv) {
 
   auto filename = program.get<std::string>("-c");
 
-  auto file = lps::basic::File<meta::S("main_file")>::create(filename.c_str());
+  lps::src::Manager src_manager;
 
-  if (file->empty()) {
+  auto file_id = src_manager.append(filename.c_str());
+
+  if (file_id == -1) {
     return 0;
   }
 
-  auto contents = file->ref<meta::S("file_contents")>();
+  auto contents = src_manager.ref<meta::S("file_contents")>(file_id);
 
   using lps::basic::str::details::operator<<;
   std::cout << contents;
 
-  lps::parser::Parser parser(contents);
+  lps::parser::Parser parser(std::move(src_manager));
 
-  parser.parse();
+  parser.parse(file_id);
 
   return 0;
 }

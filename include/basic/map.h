@@ -41,6 +41,7 @@ struct Map {
       return itr->second;
     }
     LPS_ERROR(TagName, "Not Found: ", key);
+    return Value();
   }
 };
 }  // namespace lps::basic::map

@@ -389,6 +389,12 @@ class StringRef : public vec::details::ConstCommon<TagName, char> {
     this->capacity_ = N;
   }
 
+  explicit StringRef() : base_type() {
+    this->first_ = nullptr;
+    this->size_ = 0;
+    this->capacity_ = 0;
+  }
+
   template <meta::Str TagNameOther>
   explicit StringRef(const StaticString<TagNameOther>& s) : base_type() {
     this->first_ = s.data();
@@ -438,6 +444,9 @@ std::ostream& operator<<(std::ostream& s, const String<N, TagName>& arr) {
 
 template <meta::Str TagName>
 std::ostream& operator<<(std::ostream& s, const StringRef<TagName>& arr) {
+  if (arr.empty()) {
+    return s;
+  }
   s << std::string(arr.data(), arr.size());
   return s;
 }
