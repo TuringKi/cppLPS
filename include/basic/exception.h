@@ -36,7 +36,9 @@ namespace lps::basic::exception {
 
 class Error : public std::exception {
  public:
-  explicit Error(std::string msg) : msg_(std::move(msg)) {}
+  explicit Error(std::string&& msg) : msg_(std::move(msg)) {
+    msg_.erase(std::remove(msg_.begin(), msg_.end(), 0), msg_.end());
+  }
   [[nodiscard]] const char* what() const noexcept override {
     return msg_.c_str();
   }
@@ -48,7 +50,7 @@ namespace details {
 
 template <meta::Str TagName, meta::Str FileName, uint32_t Line,
           meta::Str FuncName, typename... Args>
-std::string msg(Args... args) {
+std::string msg(const Args&... args) {
   std::string msg;
   if (decltype(TagName)::empty()) {
     msg = tui::color::Shell::colorize(
@@ -79,7 +81,7 @@ std::string msg(Args... args) {
 
 template <meta::Str TagName, meta::Str FileName, uint32_t Line,
           meta::Str FuncName, typename... Args>
-inline void warning(Args... args) {
+inline void warning(const Args&... args) {
 
   std::cout << details::msg<TagName, FileName, Line, FuncName, Args...>(args...)
             << std::endl;
@@ -87,7 +89,7 @@ inline void warning(Args... args) {
 
 template <meta::Str TagName, meta::Str FileName, uint32_t Line,
           meta::Str FuncName, typename... Args>
-inline void note(Args... args) {
+inline void note(const Args&... args) {
 
   std::cout << details::msg<TagName, FileName, Line, FuncName, Args...>(args...)
             << std::endl;
@@ -95,7 +97,7 @@ inline void note(Args... args) {
 
 template <meta::Str TagName, meta::Str FileName, uint32_t Line,
           meta::Str FuncName, typename... Args>
-inline void fail(Args... args) {
+inline void fail(const Args&... args) {
   throw Error(
       details::msg<TagName, FileName, Line, FuncName, Args...>(args...));
 }
@@ -109,22 +111,22 @@ inline void assert(bool condition, std::string&& msg) {
 
 }  // namespace lps::basic::exception
 
-#define LPS_CHECK_ERROR(COND, ...)                                            \
-  if (!(COND)) {                                                              \
-    lps::basic::exception::fail<meta::Str(""), meta::Str(__FILE__), __LINE__, \
-                                meta::Str(__func__)>(                         \
-        lps::basic::tui::color::Shell::colorize(                              \
-            " [`" #COND "`] ", lps::basic::tui::color::Shell::fred()),        \
-        "not true. ", ##__VA_ARGS__);                                         \
+#define LPS_CHECK_ERROR(TagName, COND, ...)                             \
+  if (!(COND)) {                                                        \
+    lps::basic::exception::fail<TagName, meta::Str(__FILE__), __LINE__, \
+                                meta::Str(__func__)>(                   \
+        lps::basic::tui::color::Shell::colorize(                        \
+            " [`" #COND "`] ", lps::basic::tui::color::Shell::fred()),  \
+        "not true. ", ##__VA_ARGS__);                                   \
   }
 
-#define LPS_CHECK_WARNING(COND, ...)                                      \
-  if (!(COND)) {                                                          \
-    lps::basic::exception::warning<meta::Str(""), meta::Str(__FILE__),    \
-                                   __LINE__, meta::Str(__func__)>(        \
-        lps::basic::tui::color::Shell::colorize(                          \
-            " [`" #COND "`] ", lps::basic::tui::color::Shell::fyellow()), \
-        "not true. ", ##__VA_ARGS__);                                     \
+#define LPS_CHECK_WARNING(TagName, COND, ...)                              \
+  if (!(COND)) {                                                           \
+    lps::basic::exception::warning<TagName, meta::Str(__FILE__), __LINE__, \
+                                   meta::Str(__func__)>(                   \
+        lps::basic::tui::color::Shell::colorize(                           \
+            " [`" #COND "`] ", lps::basic::tui::color::Shell::fyellow()),  \
+        "not true. ", ##__VA_ARGS__);                                      \
   }
 
 #define LPS_ERROR(TagName, ...)                                         \

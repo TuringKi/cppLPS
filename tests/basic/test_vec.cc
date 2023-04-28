@@ -24,7 +24,7 @@
 #include <iostream>
 #include "basic/vec.h"
 int main(int argc, char** argv) {
-  lps::basic::Vector<meta::Str("test"), 0, int> v;
+  lps::basic::Vector<0, int, meta::Str("test")> v;
   v.append(13);
   v.append(13);
   v.append(13);
