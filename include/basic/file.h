@@ -24,24 +24,23 @@
 #pragma once
 
 #include <cstdint>
+#include <filesystem>
 #include <fstream>
 #include "basic/exception.h"
 #include "vec.h"
 
 namespace lps::basic {
 
-template <meta::Str TagName = "file">
 class File {
-
-  using type = File<TagName>;
+ public:
+  using type = File;
   using ptr_type = std::unique_ptr<type>;
   using buffer_type =
-      mem::MemoryBuffer<char, 0, SizeType<char>, TagName + "_memory_buffer">;
+      mem::MemoryBuffer<char, 0, SizeType<char>, meta::S("file_memory_buffer")>;
   using buffer_ptr_type = std::unique_ptr<buffer_type>;
   template <meta::Str TagNameOther>
   using str_type = StringRef<TagNameOther>;
 
- public:
   template <meta::Str TagNameOther>
   explicit File(const StringRef<TagNameOther>& path) {
     set(path.data());
@@ -52,6 +51,7 @@ class File {
   File(File&& file) noexcept {
     this->buffer_ = std::move(file.buffer_);
     file.buffer_ = nullptr;
+    this->file_id_ = file.file_id_;
   }
 
   template <meta::Str TagNameOther>
@@ -65,18 +65,20 @@ class File {
 
   template <meta::Str TagNameOther>
   StringRef<TagNameOther> ref() {
-    lps_assert(TagName, buffer_->top());
+    lps_assert(meta::S("file"), buffer_->top());
     return StringRef<TagNameOther>(buffer_->top(), buffer_->capacity());
   }
 
   bool empty() { return buffer_->capacity() == 0; }
+  [[nodiscard]] std::filesystem::path path() const { return path_; }
+  [[nodiscard]] uint32_t file_id() const { return file_id_; }
 
  private:
   size_t set(const char* path) {
     std::ifstream the_file(path);
-    LPS_CHECK_ERROR(TagName, the_file.is_open(),
+    LPS_CHECK_ERROR(meta::S("file"), the_file.is_open(),
                     "the path is not exists:", path);
-
+    path_ = std::filesystem::path(path);
     the_file.seekg(0, std::ios::end);
     std::streamsize size = the_file.tellg();
     if (size == 0) {
@@ -86,10 +88,16 @@ class File {
     the_file.seekg(0, std::ios::beg);
     buffer_ = buffer_type::create(size);
     the_file.read(buffer_->top(), size);
+
+    static uint32_t k_file_id = 0;
+    file_id_ = ++k_file_id;
+
     return size;
   }
 
   buffer_ptr_type buffer_;
+  std::filesystem::path path_;
+  uint32_t file_id_;
 };
 
 }  // namespace lps::basic

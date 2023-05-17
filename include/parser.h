@@ -23,23 +23,22 @@
 
 #pragma once
 
-#include "basic/vec.h"
 #include "lexer.h"
+#include "src.h"
 
 namespace lps::parser {
 
 class Parser {
 
  public:
-  template <meta::Str TagName>
-  explicit Parser(const basic::StringRef<TagName>& a) : content_(a) {}
-  void parse();
+  explicit Parser(src::Manager&& a) : src_manager_(std::move(a)) {}
+  void parse(uint32_t file_id);
 
  private:
   void translation_unit();
   void declaration_seq();
 
-  lps::basic::StringRef<meta::S("parser_content")> content_;
+  src::Manager src_manager_;
 };
 
 }  // namespace lps::parser

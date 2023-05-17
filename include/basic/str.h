@@ -313,6 +313,10 @@ inline bool NormalChar(u_char c) {
   return c != '?' && c != '\\';
 }
 
+inline bool ASCII(u_char c) {
+  return c <= 127;
+}
+
 }  // namespace is
 
 }  // namespace ascii
