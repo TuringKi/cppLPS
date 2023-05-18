@@ -31,12 +31,11 @@ int main(int argc, char** argv) {
 
   const char* file_path = argv[1];
 
-  lps::src::Manager src_manager;
-
-  auto file_id = src_manager.append(file_path);
+  auto file_id = lps::src::Manager::instance().append(file_path);
   lps_assert(meta::S("test_lexer"), file_id > 0);
 
-  auto contents = src_manager.ref<meta::S("file_contents")>(file_id);
+  auto contents =
+      lps::src::Manager::instance().ref<meta::S("file_contents")>(file_id);
   lps_assert(meta::S("test_lexer"), contents.capacity() > 0);
 
   lps::lexer::Lexer lexer(file_id, contents.data());

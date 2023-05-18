@@ -22,48 +22,19 @@
 */
 
 #include <iostream>
-#include "basic/arg.h"
 #include "basic/exception.h"
-#include "basic/file.h"
-#include "basic/vec.h"
 #include "parser.h"
 #include "src.h"
-#include "version.h"
-
 int main(int argc, char** argv) {
 
-  argparse::ArgumentParser program("lps", lps::version::git_hash);
+  lps_assert(meta::S("test_lexer"), argc == 2);
 
-  program.add_argument("-c").required().default_value("-").help(
-      "specify the source file.");
+  const char* file_path = argv[1];
 
-  program.add_description(
-      "A Lexer, Parser and Semantics Engine for the C++ Programming Language.");
-
-  try {
-    program.parse_args(argc, argv);
-  } catch (const std::runtime_error& err) {
-    std::cerr << err.what() << std::endl;
-    std::cerr << program;
-    std::exit(1);
-  }
-
-  auto filename = program.get<std::string>("-c");
-
-  auto file_id = lps::src::Manager::instance().append(filename.c_str());
-
-  if (file_id == -1) {
-    return 0;
-  }
-
-  auto contents =
-      lps::src::Manager::instance().ref<meta::S("file_contents")>(file_id);
-
-  using lps::basic::str::details::operator<<;
-  std::cout << contents;
+  auto file_id = lps::src::Manager::instance().append(file_path);
+  lps_assert(meta::S("test_parser"), file_id > 0);
 
   lps::parser::Parser parser;
-
   parser.parse(file_id);
 
   return 0;
