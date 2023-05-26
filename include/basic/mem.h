@@ -27,6 +27,7 @@
 #include <cstdint>
 #include <limits>
 #include <memory>
+#include <type_traits>
 #include "basic/exception.h"
 #include "basic/meta.h"
 
@@ -65,9 +66,7 @@ class Data : virtual public TraceTag<TagName> {
     }
     return std::make_unique<type>(ptr, size);
   }
-  void copy(const ptr_type& other) {
-    std::copy_n(other->ptr(), other->size(), ptr());
-  }
+
   ~Data() {
     if (ptr() != nullptr) {
       std::allocator<T> allocator;
@@ -82,7 +81,7 @@ class Data : virtual public TraceTag<TagName> {
   Size size_;
 };
 
-template <meta::Str TagName, size_t N, typename T>
+template <meta::Str TagName, size_t N, typename T, class Enable = void>
 class StaticBuffer : virtual public TraceTag<TagName> {
   using pointer = T*;
   using type = StaticBuffer<TagName, N, T>;
@@ -99,6 +98,37 @@ class StaticBuffer : virtual public TraceTag<TagName> {
   StaticBuffer() = default;
 
   T data_[N];
+};
+
+template <meta::Str TagName, size_t N, typename T>
+class StaticBuffer<TagName, N, T,
+                   typename std::enable_if<!(
+                       (std::is_trivially_copy_constructible<T>::value) &&
+                       (std::is_trivially_move_constructible<T>::value) &&
+                       std::is_trivially_destructible<T>::value)>::type>
+    : virtual public TraceTag<TagName> {
+  using pointer = T*;
+  using type = StaticBuffer<TagName, N, T>;
+  using ptr_type = std::unique_ptr<type>;
+
+  friend ptr_type std::make_unique<type>();
+
+ public:
+  virtual ~StaticBuffer() {
+    lps_assert(TagName, ptr() != nullptr);
+    std::allocator<T> allocator;
+    allocator.deallocate(ptr(), N);
+  }
+  static ptr_type create() { return std::make_unique<type>(); }
+  pointer ptr() { return data_; }
+
+ private:
+  T* data_;
+  StaticBuffer() {
+    std::allocator<T> allocator;
+    data_ = allocator.allocate(N);
+    lps_assert(TagName, ptr() != nullptr);
+  }
 };
 
 template <meta::Str TagName, typename BlockSizeType, typename T>
@@ -141,6 +171,26 @@ class BlockInBuffer : virtual public TraceTag<TagName> {
   size_t pos_{0};  // last alloced block position on `buffer_`;
   size_t buffer_size_;
 };
+
+template <typename T, typename std::enable_if<
+                          ((std::is_trivially_copy_constructible<T>::value) &&
+                           (std::is_trivially_move_constructible<T>::value) &&
+                           std::is_trivially_destructible<T>::value),
+                          bool>::type = true>
+void copy(T* src, size_t size, T* dst) {
+  std::copy_n(src, size, dst);
+}
+
+template <typename T, typename std::enable_if<
+                          !((std::is_trivially_copy_constructible<T>::value) &&
+                            (std::is_trivially_move_constructible<T>::value) &&
+                            std::is_trivially_destructible<T>::value),
+                          bool>::type = true>
+void copy(T* src, size_t size, T* dst) {
+  for (size_t i = 0; i < size; i++) {
+    *(dst + i) = std::move(*(src + i));
+  }
+}
 
 template <meta::Str TagName, typename Size, typename T>
 class DynamicBuffer : virtual public TraceTag<TagName> {
@@ -186,8 +236,8 @@ class DynamicBuffer : virtual public TraceTag<TagName> {
         DynamicBuffer<TagName, Size, T>::new_capacity(min, capacity());
 
     data_ptr_type new_data = data_type::create(new_capacity);
-    new_data->copy(this->data_);
-
+    details::copy(this->data_->ptr(), this->data_->size(), new_data->ptr());
+    //std::copy_n(other->ptr(), other->size(), ptr());
     this->data_ = std::move(new_data);
   }
 
@@ -264,7 +314,7 @@ class MemoryBuffer : public details::BlockInBuffer<TagName, BlockSizeType, T> {
       dynamic_ = dynamic_buffer_type::create(BufferSize * 2 + 1);
       this->set_max(BufferSize * 2 + 1);
       this->clear();
-      std::copy_n(top_, BufferSize, dynamic_->ptr());
+      details::copy(top_, BufferSize, dynamic_->ptr());
       top_ = dynamic_->ptr();
       static_ = nullptr;  // the static buffer is useless now, we remove it.
       location_ = Location::kHeap;

@@ -46,6 +46,7 @@ class Shell {
  public:
   [[nodiscard]] Code code() const { return code_; }
   explicit Shell(Code pCode) : code_(pCode) {}
+  explicit Shell() : code_(kFgDefault) {}
   static Shell fred() { return Shell(Code::kFgRed); }
   static Shell fgreen() { return Shell(Code::kFgGreen); }
   static Shell fyellow() { return Shell(Code::kFgYellow); }

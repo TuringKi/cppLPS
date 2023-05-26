@@ -70,7 +70,8 @@ class File {
   }
 
   bool empty() { return buffer_->capacity() == 0; }
-  [[nodiscard]] std::filesystem::path path() const { return path_; }
+  [[nodiscard]] size_t size() const { return buffer_->capacity(); }
+  [[nodiscard]] const std::filesystem::path& path() const { return path_; }
   [[nodiscard]] uint32_t file_id() const { return file_id_; }
 
  private:

@@ -45,3 +45,28 @@ struct Map {
   }
 };
 }  // namespace lps::basic::map
+namespace lps::basic {
+template <typename T0, typename T1>
+struct Pair {
+  Pair() = default;
+  Pair(T0&& t0, T1&& t1) {
+    t0_ = std::move(t0);
+    t1_ = std::move(t1);
+  }
+  Pair(const T0& t0, const T1& t1) = delete;
+
+  Pair& operator=(Pair&& other) noexcept {
+    this->t0_ = std::move(other.t0_);
+    this->t1_ = std::move(other.t1_);
+    return *this;
+  }
+  Pair(Pair&& other) noexcept {
+    this->t0_ = std::move(other.t0_);
+    this->t1_ = std::move(other.t1_);
+  }
+
+  T0 t0_;
+  T1 t1_;
+};
+
+}  // namespace lps::basic

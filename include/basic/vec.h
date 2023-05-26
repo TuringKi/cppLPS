@@ -24,6 +24,7 @@
 #pragma once
 
 #include <cstdint>
+#include <cstring>
 #include <iterator>
 #include <memory>
 #include <type_traits>
@@ -203,6 +204,14 @@ class Impl : public TemplateCommon<TagName, T> {
   using block_type = mem::Block<TagName + "_block", SizeType<T>, T>;
   using block_ptr_type = std::unique_ptr<block_type>;
 
+ public:
+  void release() {
+    this->size_ = 0;
+    this->buffer_ = nullptr;
+    this->capacity_ = 0;
+    this->first_ = nullptr;
+  }
+
  protected:
   explicit Impl(const T (&d)[N]) : base_type() {
     buffer_ = Impl<TagName, N, T>::buffer_type::create();
@@ -226,7 +235,9 @@ class Impl : public TemplateCommon<TagName, T> {
     this->capacity_ = buffer_->capacity();
   }
 
-  Impl() : base_type() {
+  Impl() : base_type() { init(); }
+
+  void init() {
     buffer_ = Impl<TagName, N, T>::buffer_type::create();
     this->first_ = buffer_->top();
     this->capacity_ = buffer_->capacity();
@@ -241,21 +252,98 @@ class Impl : public TemplateCommon<TagName, T> {
 namespace lps::basic {
 template <size_t N, typename T, meta::Str TagName = meta::S("vector")>
 class Vector : public vec::details::Impl<TagName, N, T> {
+ public:
   using base_type = vec::details::Impl<TagName, N, T>;
   using common = vec::details::Common<TagName, T>;
+  using ele_type = T;
+#define SET()                           \
+  this->buffer_ = std::move(v.buffer_); \
+  this->first_ = this->buffer_->top();  \
+  this->capacity_ = v.capacity_;        \
+  this->size_ = v.size_;                \
+  v.release()
 
- public:
   explicit Vector() : base_type() {}
   Vector(Vector&& v) noexcept {
-    this->buffer_ = std::move(v.buffer_);
-    this->first_ = this->buffer_->top();
-    this->capacity_ = v.capacity_;
-    this->size_ = v.size_;
-    v.buffer_ = nullptr;
-    v.first_ = nullptr;
-    v.size_ = 0;
-    v.capacity_ = 0;
+    SET();
   }
+  template <meta::Str TagNameOther>
+  explicit Vector(Vector<N, T, TagNameOther>&& v) noexcept {
+    SET();
+  }
+
+  template <meta::Str TagNameOther>
+  explicit Vector(const Vector<N, T, TagNameOther>& v) : base_type() {
+    for (const T& a : v) {
+      this->append(a);
+    }
+  }
+
+  template <typename T2, meta::Str TagNameOther>
+  explicit Vector(const Vector<N, T2, TagNameOther>& v) : base_type() {
+    for (const T2& a : v) {
+      ele_type b(a);
+      this->append(std::move(b));
+    }
+  }
+
+  template <typename T2, meta::Str TagNameOther>
+  explicit Vector(Vector<N, T2, TagNameOther>&& v) noexcept : base_type() {
+    for (const T2& a : v) {
+      ele_type b(std::move(a));
+      this->append(std::move(b));
+    }
+  }
+
+  Vector& operator=(const Vector& v) {
+    this->init();
+    for (const T& a : v) {
+      this->append(a);
+    }
+    return *this;
+  }
+
+  template <meta::Str TagNameOther>
+  Vector& operator=(const Vector<N, T, TagNameOther>& v) {
+    this->init();
+    for (const T& a : v) {
+      this->append(a);
+    }
+    return *this;
+  }
+
+  template <typename T2, meta::Str TagNameOther>
+  Vector& operator=(const Vector<N, T2, TagNameOther>& v) {
+    this->init();
+    for (const T2& a : v) {
+      ele_type b(a);
+      this->append(std::move(b));
+    }
+    return *this;
+  }
+
+  Vector& operator=(Vector&& v) noexcept {
+    SET();
+    return *this;
+  }
+
+  template <meta::Str TagNameOther>
+  Vector& operator=(Vector<N, T, TagNameOther>&& v) noexcept {
+    SET();
+    return *this;
+  }
+
+  template <typename T2, meta::Str TagNameOther>
+  Vector& operator=(Vector<N, T2, TagNameOther>&& v) noexcept {
+    this->init();
+    for (const T2& a : v) {
+      ele_type b(std::move(a));
+      this->append(std::move(b));
+    }
+    return *this;
+  }
+
+#undef SET
   explicit Vector(const T (&d)[N]) : base_type(d) {}
   Vector& operator=(const T (&d)[N]) {
     base_type::operator=(d);
@@ -285,6 +373,13 @@ class StaticVector : public vec::details::ConstCommon<TagName, T> {
   using buffer_ptr_type = std::unique_ptr<buffer_type>;
 
  public:
+  explicit StaticVector() {
+    this->buffer_ = nullptr;
+    this->first_ = nullptr;
+    this->size_ = 0;
+    this->capacity_ = 0;
+  }
+
   template <size_t N, meta::Str TagName1>
   static StaticVector from(const Vector<N, T, TagName1>& vec) {
     return StaticVector(vec);
@@ -293,6 +388,30 @@ class StaticVector : public vec::details::ConstCommon<TagName, T> {
   template <size_t N>
   static StaticVector from(const T (&d)[N]) {
     return StaticVector(d);
+  }
+
+  explicit StaticVector(const T& val, size_t N) : base_type() {
+    lps_assert(TagName, N >= 1);
+    buffer_ = buffer_type::create(N);
+    this->first_ = buffer_->top();
+    this->capacity_ = buffer_->capacity();
+    this->size_ = N;
+    lps_assert(TagName, this->first_);
+    for (int i = 0; i < N; i++) {
+      *(this->first_ + i) = val;
+    }
+  }
+
+  StaticVector& operator=(StaticVector&& v) noexcept {
+    this->buffer_ = std::move(v.buffer_);
+    this->first_ = this->buffer_->top();
+    this->capacity_ = v.capacity_;
+    this->size_ = v.size_;
+    v.buffer_ = nullptr;
+    v.first_ = nullptr;
+    v.size_ = 0;
+    v.capacity_ = 0;
+    return *this;
   }
 
   StaticVector(StaticVector&& v) noexcept {
@@ -319,13 +438,24 @@ class StaticVector : public vec::details::ConstCommon<TagName, T> {
   }
 
   template <size_t N>
-  explicit StaticVector(const T (&d)[N])
-      : base_type(), buffer_(buffer_type::create(N)) {
+  explicit StaticVector(const T (&d)[N]) : base_type() {
+    lps_assert(TagName, N >= 1);
+    buffer_ = buffer_type::create(N - 1);
+    this->first_ = buffer_->top();
+    this->capacity_ = buffer_->capacity();
+    this->size_ = N - 1;
+    lps_assert(TagName, this->first_);
+    std::copy_n(d, N - 1, this->first_);
+  }
+
+  explicit StaticVector(const T* ptr, size_t N) {
+    lps_assert(TagName, N >= 1);
+    lps_assert(TagName, ptr != nullptr);
+    buffer_ = buffer_type::create(N);
     this->first_ = buffer_->top();
     this->capacity_ = buffer_->capacity();
     this->size_ = N;
-    lps_assert(TagName, this->first_);
-    std::copy_n(d, N, this->first_);
+    std::copy_n(ptr, N, this->first_);
   }
 
   buffer_ptr_type buffer_{nullptr};
@@ -336,12 +466,36 @@ class StaticString : public StaticVector<char, TagName> {
   using base_type = StaticVector<char, TagName>;
 
  public:
+  explicit StaticString() : base_type() {}
   StaticString(StaticString&& str) noexcept : base_type(std::move(str)) {}
+
+  explicit StaticString(const char& val, size_t N) : base_type(val, N) {}
+
+  explicit operator std::string() const { return std(); }
+  [[nodiscard]] std::string std() const {
+    std::string a(this->data(), this->size());
+    return a;
+  }
+
+  StaticString& operator=(StaticString&& v) noexcept {
+    this->buffer_ = std::move(v.buffer_);
+    this->first_ = this->buffer_->top();
+    this->capacity_ = v.capacity_;
+    this->size_ = v.size_;
+    v.buffer_ = nullptr;
+    v.first_ = nullptr;
+    v.size_ = 0;
+    v.capacity_ = 0;
+    return *this;
+  }
 
   template <size_t N, meta::Str TagName1>
   static StaticString from(const String<N, TagName1>& str) {
     return StaticString(str);
   }
+
+  static StaticString from(const std::string& str) { return StaticString(str); }
+
   template <size_t N>
   static StaticString from(const char (&d)[N]) {
     return StaticString(d);
@@ -352,6 +506,8 @@ class StaticString : public StaticVector<char, TagName> {
   explicit StaticString(const String<N, TagName1>& str) : base_type(str) {}
   template <size_t N>
   explicit StaticString(const char (&d)[N]) : base_type(d) {}
+  explicit StaticString(const std::string& str)
+      : base_type(str.c_str(), str.size()) {}
 };
 
 template <meta::Str TagName = "string_ref">
@@ -359,6 +515,29 @@ class StringRef : public vec::details::ConstCommon<TagName, char> {
   using base_type = vec::details::ConstCommon<TagName, char>;
 
  public:
+  StringRef& operator=(const StringRef& s) {
+    lps_assert(TagName, s.data() != nullptr);
+    this->first_ = (char*)s.data();
+    this->size_ = s.size();
+    this->capacity_ = s.capacity();
+    return *this;
+  }
+  explicit operator std::string() const { return std(); }
+  std::string std() {
+    std::string a(this->data(), this->size());
+    return a;
+  }
+
+  bool operator==(const StringRef<TagName>& b) const {
+    if (this->empty() || b.empty()) {
+      return false;
+    }
+    if (this->capacity() != b.capacity()) {
+      return false;
+    }
+    return std::strncmp(this->data(), b.data(), this->capacity()) == 0;
+  }
+
   template <size_t N, meta::Str TagNameOther>
   explicit StringRef(const String<N, TagNameOther>& s) : base_type() {
     lps_assert(TagName, s.data() != nullptr);
@@ -375,6 +554,28 @@ class StringRef : public vec::details::ConstCommon<TagName, char> {
     this->capacity_ = s.capacity();
   }
 
+  StringRef(const StringRef<TagName>& s) : base_type() {
+    lps_assert(TagName, s.data() != nullptr);
+    this->first_ = (char*)s.data();
+    this->size_ = s.size();
+    this->capacity_ = s.capacity();
+  }
+
+  template <meta::Str TagNameOther>
+  explicit StringRef(StringRef<TagNameOther>&& s) : base_type() {
+    lps_assert(TagName, s.data() != nullptr);
+    this->first_ = (char*)s.data();
+    this->size_ = s.size();
+    this->capacity_ = s.capacity();
+  }
+
+  StringRef(StringRef<TagName>&& s) noexcept : base_type() {
+    lps_assert(TagName, s.data() != nullptr);
+    this->first_ = (char*)s.data();
+    this->size_ = s.size();
+    this->capacity_ = s.capacity();
+  }
+
   explicit StringRef(const char* data, size_t size) : base_type() {
     lps_assert(TagName, data != nullptr);
     this->first_ = (char*)data;
@@ -384,9 +585,10 @@ class StringRef : public vec::details::ConstCommon<TagName, char> {
 
   template <size_t N>
   explicit StringRef(const char (&s)[N]) : base_type() {
+    lps_assert(TagName, N >= 1);
     this->first_ = (char*)s;
-    this->size_ = N;
-    this->capacity_ = N;
+    this->size_ = N - 1;
+    this->capacity_ = N - 1;
   }
 
   explicit StringRef() : base_type() {
@@ -397,7 +599,8 @@ class StringRef : public vec::details::ConstCommon<TagName, char> {
 
   template <meta::Str TagNameOther>
   explicit StringRef(const StaticString<TagNameOther>& s) : base_type() {
-    this->first_ = s.data();
+    lps_assert(TagNameOther, s.data() != nullptr);
+    this->first_ = (char*)s.data();
     this->size_ = s.size();
     this->capacity_ = s.capacity();
   }
@@ -405,7 +608,6 @@ class StringRef : public vec::details::ConstCommon<TagName, char> {
  private:
 };
 
-namespace str::details {
 template <size_t N, typename T, meta::Str TagName>
 std::ostream& operator<<(std::ostream& s, const Vector<N, T, TagName>& arr) {
 
@@ -436,6 +638,12 @@ std::ostream& operator<<(std::ostream& s, const StaticString<TagName>& arr) {
   return s;
 }
 
+template <meta::Str TagName>
+std::string& operator+=(std::string& s, const StaticString<TagName>& arr) {
+  s += std::string(arr.data(), arr.size());
+  return s;
+}
+
 template <size_t N, meta::Str TagName>
 std::ostream& operator<<(std::ostream& s, const String<N, TagName>& arr) {
   s << std::string(arr.data(), arr.size());
@@ -450,8 +658,6 @@ std::ostream& operator<<(std::ostream& s, const StringRef<TagName>& arr) {
   s << std::string(arr.data(), arr.size());
   return s;
 }
-
-}  // namespace str::details
 
 namespace str::ascii::is {
 

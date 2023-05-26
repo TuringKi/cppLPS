@@ -28,17 +28,155 @@
 
 namespace lps::parser {
 
+namespace details {
+
+class Context {};
+
+template <meta::Str TagName>
+struct ParseFunctionOutputs {
+
+  explicit ParseFunctionOutputs() = default;
+
+#define SET_MOVE(A, B)                            \
+  (A)->work_ = (B).work_;                         \
+  (A)->file_id_ = (B).file_id_;                   \
+  (A)->diag_inputs_(std::move((B).diag_inputs_)); \
+  (A)->start_ = (B).start_;
+
+#define SET(A, B)                       \
+  (A)->work_ = (B).work_;               \
+  (A)->file_id_ = (B).file_id_;         \
+  (A)->diag_inputs_ = (B).diag_inputs_; \
+  (A)->start_ = (B).start_;
+
+  // template <meta::Str OtherTagName>
+  // explicit ParseFunctionOutputs(
+  //     const ParseFunctionOutputs<OtherTagName>& other) {
+  //   SET(this, other);
+  // }
+
+  template <meta::Str TagNameOther>
+  explicit ParseFunctionOutputs(ParseFunctionOutputs<TagNameOther>&& other) {
+    SET_MOVE(this, other);
+  }
+
+  template <meta::Str TagNameOther>
+  ParseFunctionOutputs& operator=(
+      const ParseFunctionOutputs<TagNameOther>& other) {
+    SET(this, other);
+    return *this;
+  }
+#undef SET_MOVE
+#undef SET
+
+  void diag_record(diag::DiagInputs<TagName>&& a) {
+    diag_inputs_.append(std::move(a));
+  }
+  template <meta::Str TagNameOther>
+  void concat_diag_inputs_and_remove(
+      ParseFunctionOutputs<TagNameOther>& other) {
+    for (const auto& a : other.diag_inputs_) {
+      typename decltype(diag_inputs_)::ele_type b(a);
+      this->diag_inputs_.append(b);
+    }
+    other.diag_inputs_.release();
+  }
+
+  bool work_{false};
+  const char* start_{nullptr};
+  uint32_t file_id_{0};
+  basic::Vector<4, diag::DiagInputs<TagName>, TagName + "_DiagInputs">
+      diag_inputs_;
+};
+
+template <meta::Str TagName>
+struct ParseFunctionInputs {
+
+  explicit ParseFunctionInputs() = default;
+
+#define SET(A, B)               \
+  (A)->opt_ = (B).opt_;         \
+  (A)->file_id_ = (B).file_id_; \
+  (A)->start_ = (B).start_;
+
+  template <meta::Str OtherTagName>
+  explicit ParseFunctionInputs(const ParseFunctionInputs<OtherTagName>& other) {
+    SET(this, other);
+  }
+
+  template <meta::Str OtherTagName>
+  explicit ParseFunctionInputs(ParseFunctionInputs<OtherTagName>&& other) {
+    SET(this, other);
+  }
+
+  template <meta::Str OtherTagName>
+  ParseFunctionInputs& operator=(
+      const ParseFunctionInputs<OtherTagName>& other) {
+    SET(this, other);
+    return *this;
+  }
+
+#undef SET
+
+  bool opt_{false};
+  const char* start_{nullptr};
+  uint32_t file_id_{0};
+};
+
+template <meta::Str TagName>
+class ParseFunction {
+ public:
+  explicit ParseFunction(const ParseFunctionInputs<TagName>& param)
+      : params_(param) {}
+  explicit ParseFunction(ParseFunctionInputs<TagName>&& param)
+      : params_(std::move(param)) {}
+
+  template <meta::Str TagNameOther>
+  explicit ParseFunction(const ParseFunctionInputs<TagNameOther>& param)
+      : params_(param) {}
+  template <meta::Str TagNameOther>
+  explicit ParseFunction(ParseFunctionInputs<TagNameOther>&& param)
+      : params_(std::move(param)) {}
+
+  ParseFunctionOutputs<TagName> operator()() {}
+
+  [[nodiscard]] bool opt() const { return params_.opt_; }
+  [[nodiscard]] const char* start() const { return params_.start_; }
+  [[nodiscard]] uint32_t file_id() const { return params_.file_id_; }
+
+ protected:
+  ParseFunctionInputs<TagName> params_;
+};
+
+}  // namespace details
+
 class Parser {
 
  public:
-  explicit Parser(src::Manager&& a) : src_manager_(std::move(a)) {}
+  explicit Parser() = default;
   void parse(uint32_t file_id);
 
  private:
-  void translation_unit();
+  void translation_unit(uint32_t file_id);
   void declaration_seq();
 
-  src::Manager src_manager_;
+  // declaration
+  void block_declaration() {}
+  void nodeclspec_function_declaration() {}
+  void function_definition() {}
+  void template_declaration() {}
+  void deduction_guide() {}
+  void explicit_instantiation() {}
+  void explicit_specialization() {}
+  void export_declaration() {}
+  void linkage_specification() {}
+  void namespace_definition() {}
+  void empty_declaration() {}
+  void attribute_declaration() {}
+  void module_import_declaration() {}
+
+  void module_partition() {}
+  void attribute_specifier_seq() {}
 };
 
 }  // namespace lps::parser

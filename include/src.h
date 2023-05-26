@@ -34,45 +34,71 @@ namespace lps::src {
 class Manager {
 
  public:
+  using FilePathStaticString =
+      basic::StaticString<meta::Str("src_manager_abs_file_path")>;
+  using FilePathStringRef =
+      basic::StringRef<meta::Str("src_manager_abs_file_path")>;
+
+  static Manager& instance() {
+    static Manager mng;
+    return mng;
+  }
   uint32_t append(const char* path) {
     auto file = lps::basic::File::create(path);
     if (file == nullptr) {
       return -1;
     }
     auto file_id = file->file_id();
-    std::filesystem::path the_path(path);
-    std::string abs_path = std::filesystem::absolute(the_path).string();
-    if (!files_.contains(abs_path)) {
-      if (file_ids_.contains(file_id)) {
-        unreachable(meta::S("src_manager"));
-      }
-      files_[abs_path] = std::move(file);
-      file_ids_[file_id] = abs_path;
-    }
+    files_[file_id] = std::move(file);
+
     return file_id;
   }
 
   [[nodiscard]] bool has(uint32_t file_id) const {
-    auto ok0 = file_ids_.contains(file_id);
-    if (ok0) {
-      if (files_.contains(file_ids_.at(file_id))) {
-        return true;
-      }
+    return files_.contains(file_id);
+  }
+
+  [[nodiscard]] FilePathStringRef path(uint32_t file_id) {
+    if (!has(file_id)) {
+      LPS_ERROR(meta::Str("manager.path"), "file_id = ", file_id, "not exists");
+      return FilePathStringRef();
     }
-    return false;
+    if (!abs_file_paths_.contains(file_id)) {
+      auto the_path = std::filesystem::canonical(
+                          std::filesystem::absolute(files_.at(file_id)->path()))
+                          .string();
+      abs_file_paths_[file_id] = FilePathStaticString::from(the_path);
+    }
+    if (!abs_file_paths_.contains(file_id)) {
+      LPS_ERROR(meta::Str("manager.abs_file_paths"), "file_id = ", file_id,
+                "not exists");
+      return FilePathStringRef();
+    }
+
+    return FilePathStringRef(abs_file_paths_[file_id]);
   }
 
   template <meta::Str TagNameOther>
-  basic::StringRef<TagNameOther> ref(uint32_t file_id) {
+  basic::StringRef<TagNameOther> ref(uint32_t file_id) const {
     if (!has(file_id)) {
+      LPS_ERROR(TagNameOther, "file_id = ", file_id, "not exists");
       return basic::StringRef<TagNameOther>();
     }
-    return files_.at(file_ids_.at(file_id))->ref<TagNameOther>();
+    return files_.at(file_id)->ref<TagNameOther>();
+  }
+
+  [[nodiscard]] size_t size(uint32_t file_id) const {
+    if (!has(file_id)) {
+      LPS_ERROR(meta::Str("manager.size"), "file_id = ", file_id, "not exists");
+      return -1;
+    }
+    return files_.at(file_id)->size();
   }
 
  private:
-  std::map<std::string, basic::File::ptr_type> files_;
-  std::map<uint32_t, std::string> file_ids_;
+  explicit Manager() = default;
+  std::map<uint32_t, basic::File::ptr_type> files_;
+  std::map<uint32_t, FilePathStaticString> abs_file_paths_;
 };
 
 }  // namespace lps::src

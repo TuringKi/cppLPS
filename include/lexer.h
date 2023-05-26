@@ -94,7 +94,7 @@ class Base : virtual public lps::basic::mem::TraceTag<TagName> {
           tok->set_flag(token::Flag::kNeedClean);
         }
         if (*ptr != '\n' && *ptr != '\r' && tok) {
-          diag::doing(ptr, diag::DiagKind::kBackslashNewlineSpace);
+          // diag::doing(tok, diag::DiagKind::back_slash_new_space);
         }
         size += newline_size;
         ptr += newline_size;
@@ -154,6 +154,7 @@ class Base : virtual public lps::basic::mem::TraceTag<TagName> {
     tok.offset(offset);
     tok.file_id(file_id_);
     tok.kind(kind);
+    tok.data(this->cur());
   }
 
   MethodType type_{MethodType::kNone};
@@ -691,6 +692,12 @@ class Basic : public Base<TagName> {
 
     this->token_formulate(tok, ptr, lps::token::tok::TokenKind::raw_identifier);
     tok.data(this->cur());
+    auto ident_str = tok.template str<meta::S("ident_str")>();
+    if (lps::token::tok::IdentInfo::instance().kw_has(ident_str)) {
+      tok.kind(lps::token::tok::IdentInfo::instance().kw_at(ident_str));
+    } else {
+      tok.kind(token::tok::TokenKind::identifier);
+    }
 
     return true;
   }
@@ -704,6 +711,7 @@ class Lexer {
   template <meta::Str TagName>
   void lex(lps::token::Token<TagName>& tok,
            details::MethodType method = details::MethodType::kBasic) {
+    tok.clear();
     switch (method) {
       case details::kBasic: {
         details::Basic<TagName> m(file_id_, cur(), details::kBasic);
@@ -723,9 +731,9 @@ class Lexer {
   explicit Lexer(uint32_t start_file_id, const char* ptr)
       : file_id_(start_file_id), ptr_(ptr) {}
   [[nodiscard]] bool finish(size_t len) const { return !(pos_ < len); }
+  [[nodiscard]] const char* cur() const { return ptr_ + pos_; }
 
  private:
-  [[nodiscard]] const char* cur() const { return ptr_ + pos_; }
   void inc(size_t n) { pos_ += n; }
 
   const char* ptr_{nullptr};
