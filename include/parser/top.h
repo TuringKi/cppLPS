@@ -21,33 +21,40 @@
 * SOFTWARE.
 */
 
-#include "parser.h"
-#include "basic/exception.h"
-#include "diag.h"
-#include "lexer.h"
-#include "parser/decl.h"
-#include "parser/module.h"
-#include "parser/top.h"
-#include "token.h"
+#pragma once
 
-namespace lps::parser {
+#include "parser/function.h"
 
-// cpp grammar: https://timsong-cpp.github.io/cppwp/n4868/gram
-void Parser::parse(uint32_t file_id) {
-  auto content =
-      src::Manager::instance().ref<meta::S("file_contents")>(file_id);
-  if (!content.empty()) {
-    details::ParseFunctionInputs<meta::Str("translation_unit_param")> params;
-    params.opt_ = false;
-    params.file_id_ = file_id;
-    params.start_ = content.data();
-    details::TranslationUnit<meta::Str("translation_unit")> func(params);
-    auto output = func();
-    for (const auto& a : output.diag_inputs_) {
-      diag::doing<meta::Str("translation_unit")>(a.main_token_, a.kind_,
-                                                 a.context_tokens_);
-    }
+namespace lps::parser::details {
+
+// translation_unit:
+//  declaration_seq
+//  global_module_fragment[opt] module_declaration declaration_seq[opt] private_module_fragment[opt]
+template <meta::Str TagName>
+ParseFunctionOutputs<TagName> TranslationUnit<TagName>::operator()() {
+  auto output = base::operator()();
+  if (!this->valid()) {
+    return output;
   }
+
+  constexpr meta::Str kFistTokTag("translation_unit");
+  token::Token<kFistTokTag> tok;
+
+  lexer::Lexer lexer(this->file_id(), this->start());
+  lexer.lex(tok);
+
+  SerialParseFunctions serial_funcs(
+      ParseFunctionInputs<meta::S("module_etc")>(
+          true, nullptr, 0, token::Token<meta::S("module_etc")>()),
+      GlobalModuleFragment<>(true), ModuleDeclaration<>(false),
+      DeclarationSeq<>(true), PrivateModuleFragment<>(true));
+
+  ParseFunctionInputs<kFistTokTag> b(true, lexer.cur(), tok.file_id(), tok);
+
+  ParallelParseFunctions parallel_funcs(b, DeclarationSeq<>(true),
+                                        std::move(serial_funcs));
+
+  return parallel_funcs();
 }
 
-}  // namespace lps::parser
+}  // namespace lps::parser::details

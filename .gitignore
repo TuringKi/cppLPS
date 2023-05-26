@@ -35,3 +35,7 @@
 compile_commands.json
 .cache
 .vscode
+.release
+__pycache__
+bin
+addcopyright.sh

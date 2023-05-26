@@ -49,6 +49,11 @@ class Location {
     this->offset_id_ = other.offset();
     return *this;
   }
+  Location& operator=(const Location& other) {
+    this->file_id_ = other.file_id();
+    this->offset_id_ = other.offset();
+    return *this;
+  }
   template <meta::Str OtherTagName>
   explicit Location(const Location<OtherTagName>& other) {
     this->file_id_ = other.file_id();
@@ -158,6 +163,12 @@ struct Token : virtual public basic::mem::TraceTag<TagName> {
     SET(this, other);
     return *this;
   }
+
+  Token& operator=(const Token& other) {
+    SET(this, other);
+    return *this;
+  }
+
   Token() {}
   Token(const Token& other) {
     SET(this, other);
