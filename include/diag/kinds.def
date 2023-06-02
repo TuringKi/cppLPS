@@ -29,7 +29,11 @@ DIAG(global_module_expect_semi,
      "start of the translation unit.",
      "expected `;` after `module`.", Level::kError)
 DIAG(back_slash_new_space, "back_slash_new_space", "", Level::kError)
-DIAG(module_decl_expect_kw_module, "expected `module` after `export`.", "", Level::kError)
-DIAG(module_decl_expect_ident, "expected `identifier` after `module`.", "", Level::kError)
+DIAG(module_decl_expect_kw_module, "expected `module` after `export`.", "",
+     Level::kError)
+DIAG(module_decl_expect_ident, "expected `identifier` after `module`.", "",
+     Level::kError)
+DIAG(simple_declaration_expect_semi, "expected `;` in simple_declaration.", "",
+     Level::kError)
 
 #undef DIAG
