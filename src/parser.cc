@@ -25,9 +25,7 @@
 #include "basic/exception.h"
 #include "diag.h"
 #include "lexer.h"
-#include "parser/decl.h"
-#include "parser/module.h"
-#include "parser/top.h"
+#include "parse_function/function_impl.h"
 #include "token.h"
 
 namespace lps::parser {
@@ -39,13 +37,18 @@ void Parser::parse(uint32_t file_id) {
   if (!content.empty()) {
     details::ParseFunctionInputs<meta::Str("translation_unit_param")> params;
     params.opt_ = false;
-    params.file_id_ = file_id;
-    params.start_ = content.data();
-    details::TranslationUnit<meta::Str("translation_unit")> func(params);
+    token::Token<meta::S("first_token")> next_tok;
+    lexer::Lexer lexer(file_id, content.data());
+    lexer.lex(next_tok);
+    params.cur_token_ = next_tok;
+    if (next_tok.kind() != token::tok::TokenKind::unknown) {
+      token::TokenLists::instance().append(next_tok);
+    }
+    details::TranslationUnit func(params);
     auto output = func();
     for (const auto& a : output.diag_inputs_) {
-      diag::doing<meta::Str("translation_unit")>(a.main_token_, a.kind_,
-                                                 a.context_tokens_);
+      diag::doing<details::TranslationUnit::kTag>(a.main_token_, a.kind_,
+                                                  a.context_tokens_);
     }
   }
 }

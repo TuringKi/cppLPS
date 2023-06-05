@@ -140,38 +140,43 @@ class Summarize {
 template <meta::Str TagName>
 struct DiagInputs {
 
-#define SET(A, B)                                        \
-  (A)->main_token_ = (B).main_token_;                    \
+#define SET_R(A, B)                                      \
+  (A)->main_token_ = std::move((B).main_token_);         \
   (A)->context_tokens_ = std::move((B).context_tokens_); \
   (A)->kind_ = (B).kind_;
 
-  DiagInputs& operator=(DiagInputs&& other) noexcept {
-    SET(this, other);
+#define SET_L(A, B)                           \
+  (A)->main_token_ = (B).main_token_;         \
+  (A)->context_tokens_ = (B).context_tokens_; \
+  (A)->kind_ = (B).kind_;
+
+  DiagInputs& operator=(DiagInputs&& other) {
+    SET_R(this, other);
     return *this;
   }
 
   DiagInputs(const DiagInputs& other) {
-    SET(this, other);
+    SET_L(this, other);
   }
 
   template <meta::Str TagNameOther>
   explicit DiagInputs(const DiagInputs<TagNameOther>& other) {
-    SET(this, other);
+    SET_L(this, other);
   }
 
   template <meta::Str TagNameOther>
   explicit DiagInputs(DiagInputs<TagNameOther> const&& other) {
-    SET(this, other);
+    SET_R(this, other);
   }
 
   template <meta::Str TagNameOther>
-  DiagInputs& operator=(DiagInputs<TagNameOther> const&& other) noexcept {
-    SET(this, other);
+  DiagInputs& operator=(DiagInputs<TagNameOther> const&& other) {
+    SET_R(this, other);
     return *this;
   }
 
-  DiagInputs& operator=(const DiagInputs& other) noexcept {
-    SET(this, other);
+  DiagInputs& operator=(const DiagInputs& other) {
+    SET_L(this, other);
     return *this;
   }
 
@@ -224,7 +229,7 @@ DiagInputs<TagName> record(
     const lps::token::Token<TagNameMain>& tok, DiagKind kind,
     const lps::token::Token<TagNames>&... context_tokens) {
   LPS_CHECK_ERROR(meta::S("diag_record"), Information::instance().has(kind),
-                  "kind not valid");
+                  "kind:", kind, " not valid");
   DiagInputs<TagName> diag_inputs;
   diag_inputs.kind_ = kind;
   typename DiagInputs<TagName>::main_token_type the_main_tok;

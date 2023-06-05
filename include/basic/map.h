@@ -55,12 +55,12 @@ struct Pair {
   }
   Pair(const T0& t0, const T1& t1) = delete;
 
-  Pair& operator=(Pair&& other) noexcept {
+  Pair& operator=(Pair&& other) {
     this->t0_ = std::move(other.t0_);
     this->t1_ = std::move(other.t1_);
     return *this;
   }
-  Pair(Pair&& other) noexcept {
+  Pair(Pair&& other) {
     this->t0_ = std::move(other.t0_);
     this->t1_ = std::move(other.t1_);
   }
