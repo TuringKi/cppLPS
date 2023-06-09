@@ -23,38 +23,40 @@
 
 #pragma once
 
-#include "parser/function.h"
+#include <stack>
+#include <type_traits>
+#include "basic/exception.h"
+#include "parser.h"
 
 namespace lps::parser::details {
 
-// translation_unit:
-//  declaration_seq
-//  global_module_fragment[opt] module_declaration declaration_seq[opt] private_module_fragment[opt]
-template <meta::Str TagName>
-ParseFunctionOutputs<TagName> TranslationUnit<TagName>::operator()() {
-  auto output = base::operator()();
-  if (!this->valid()) {
-    return output;
-  }
+template <meta::Str TagName, size_t NumElements, typename... ParseFuncs>
+class ParallelParseFunctions : public ParseFunction<TagName, NumElements> {
 
-  constexpr meta::Str kFistTokTag("translation_unit");
-  token::Token<kFistTokTag> tok;
+ public:
+  using base = ParseFunction<TagName, NumElements>;
+  ParallelParseFunctions(const ParallelParseFunctions& other) = default;
+  explicit ParallelParseFunctions(const ParseFunctionInputs<TagName>& param,
+                                  ParseFuncs&&... funcs)
+      : base(param), parse_functions_(funcs...) {}
+  ParseFunctionOutputs<TagName> operator()() override;
 
-  lexer::Lexer lexer(this->file_id(), this->start());
-  lexer.lex(tok);
+ protected:
+  std::tuple<ParseFuncs...> parse_functions_;
+};
 
-  SerialParseFunctions serial_funcs(
-      ParseFunctionInputs<meta::S("module_etc")>(
-          true, nullptr, 0, token::Token<meta::S("module_etc")>()),
-      GlobalModuleFragment<>(true), ModuleDeclaration<>(false),
-      DeclarationSeq<>(true), PrivateModuleFragment<>(true));
+template <meta::Str TagName, typename... ParseFuncs>
+class SerialParseFunctions : public ParseFunction<TagName, 1> {
 
-  ParseFunctionInputs<kFistTokTag> b(true, lexer.cur(), tok.file_id(), tok);
+ public:
+  using base = ParseFunction<TagName, 1>;
+  SerialParseFunctions(const SerialParseFunctions& other) = default;
+  explicit SerialParseFunctions(const ParseFunctionInputs<TagName>& param,
+                                ParseFuncs&&... funcs)
+      : base(param), parse_functions_(funcs...) {}
+  ParseFunctionOutputs<TagName> operator()() override;
 
-  ParallelParseFunctions parallel_funcs(b, DeclarationSeq<>(true),
-                                        std::move(serial_funcs));
-
-  return parallel_funcs();
-}
-
+ protected:
+  std::tuple<ParseFuncs...> parse_functions_;
+};
 }  // namespace lps::parser::details

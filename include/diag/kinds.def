@@ -24,16 +24,1071 @@
 #define DIAG(K, D, NOTE, LEVEL)
 #endif
 
-DIAG(global_module_expect_semi,
-     "`module;` introducing a global module fragment can appear only at the "
-     "start of the translation unit.",
-     "expected `;` after `module`.", Level::kError)
-DIAG(back_slash_new_space, "back_slash_new_space", "", Level::kError)
-DIAG(module_decl_expect_kw_module, "expected `module` after `export`.", "",
+DIAG(primary_expression_expect_kw_this,
+     "expected `this` in primary_expression.", "", Level::kError)
+DIAG(primary_expression_expect_l_paren, "expected `(` in primary_expression.",
+     "", Level::kError)
+DIAG(primary_expression_expect_r_paren, "expected `)` in primary_expression.",
+     "", Level::kError)
+DIAG(unqualified_id_expect_identifier,
+     "expected `identifier` in unqualified_id.", "", Level::kError)
+DIAG(unqualified_id_expect_tilde, "expected `~` in unqualified_id.", "",
      Level::kError)
-DIAG(module_decl_expect_ident, "expected `identifier` after `module`.", "",
+DIAG(qualified_id_expect_kw_template, "expected `template` in qualified_id.",
+     "", Level::kError)
+DIAG(nested_name_specifier_expect_coloncolon,
+     "expected `::` in nested_name_specifier.", "", Level::kError)
+DIAG(nested_name_specifier_expect_identifier,
+     "expected `identifier` in nested_name_specifier.", "", Level::kError)
+DIAG(nested_name_specifier_expect_kw_template,
+     "expected `template` in nested_name_specifier.", "", Level::kError)
+DIAG(lambda_expression_expect_less, "expected `<` in lambda_expression.", "",
+     Level::kError)
+DIAG(lambda_expression_expect_greater, "expected `>` in lambda_expression.", "",
+     Level::kError)
+DIAG(lambda_introducer_expect_l_square, "expected `[` in lambda_introducer.",
+     "", Level::kError)
+DIAG(lambda_introducer_expect_r_square, "expected `]` in lambda_introducer.",
+     "", Level::kError)
+DIAG(lambda_declarator_expect_l_paren, "expected `(` in lambda_declarator.", "",
+     Level::kError)
+DIAG(lambda_declarator_expect_r_paren, "expected `)` in lambda_declarator.", "",
+     Level::kError)
+DIAG(lambda_capture_expect_comma, "expected `,` in lambda_capture.", "",
+     Level::kError)
+DIAG(capture_default_expect_amp, "expected `&` in capture_default.", "",
+     Level::kError)
+DIAG(capture_default_expect_equal, "expected `=` in capture_default.", "",
+     Level::kError)
+DIAG(capture_list_expect_comma, "expected `,` in capture_list.", "",
+     Level::kError)
+DIAG(simple_capture_expect_identifier,
+     "expected `identifier` in simple_capture.", "", Level::kError)
+DIAG(simple_capture_expect_ellipsis, "expected `...` in simple_capture.", "",
+     Level::kError)
+DIAG(simple_capture_expect_amp, "expected `&` in simple_capture.", "",
+     Level::kError)
+DIAG(simple_capture_expect_kw_this, "expected `this` in simple_capture.", "",
+     Level::kError)
+DIAG(simple_capture_expect_star, "expected `*` in simple_capture.", "",
+     Level::kError)
+DIAG(init_capture_expect_ellipsis, "expected `...` in init_capture.", "",
+     Level::kError)
+DIAG(init_capture_expect_identifier, "expected `identifier` in init_capture.",
+     "", Level::kError)
+DIAG(init_capture_expect_amp, "expected `&` in init_capture.", "",
+     Level::kError)
+DIAG(fold_expression_expect_l_paren, "expected `(` in fold_expression.", "",
+     Level::kError)
+DIAG(fold_expression_expect_ellipsis, "expected `...` in fold_expression.", "",
+     Level::kError)
+DIAG(fold_expression_expect_r_paren, "expected `)` in fold_expression.", "",
+     Level::kError)
+DIAG(fold_operator_expect_plus, "expected `+` in fold_operator.", "",
+     Level::kError)
+DIAG(fold_operator_expect_minus, "expected `-` in fold_operator.", "",
+     Level::kError)
+DIAG(fold_operator_expect_star, "expected `*` in fold_operator.", "",
+     Level::kError)
+DIAG(fold_operator_expect_slash, "expected `/` in fold_operator.", "",
+     Level::kError)
+DIAG(fold_operator_expect_percent, "expected `%` in fold_operator.", "",
+     Level::kError)
+DIAG(fold_operator_expect_caret, "expected `^` in fold_operator.", "",
+     Level::kError)
+DIAG(fold_operator_expect_amp, "expected `&` in fold_operator.", "",
+     Level::kError)
+DIAG(fold_operator_expect_pipe, "expected `|` in fold_operator.", "",
+     Level::kError)
+DIAG(fold_operator_expect_lessless, "expected `<<` in fold_operator.", "",
+     Level::kError)
+DIAG(fold_operator_expect_greatergreater, "expected `>>` in fold_operator.", "",
+     Level::kError)
+DIAG(fold_operator_expect_plusequal, "expected `+=` in fold_operator.", "",
+     Level::kError)
+DIAG(fold_operator_expect_minusequal, "expected `-=` in fold_operator.", "",
+     Level::kError)
+DIAG(fold_operator_expect_starequal, "expected `*=` in fold_operator.", "",
+     Level::kError)
+DIAG(fold_operator_expect_slashequal, "expected `/=` in fold_operator.", "",
+     Level::kError)
+DIAG(fold_operator_expect_percentequal, "expected `%=` in fold_operator.", "",
+     Level::kError)
+DIAG(fold_operator_expect_caretequal, "expected `^=` in fold_operator.", "",
+     Level::kError)
+DIAG(fold_operator_expect_ampequal, "expected `&=` in fold_operator.", "",
+     Level::kError)
+DIAG(fold_operator_expect_pipeequal, "expected `|=` in fold_operator.", "",
+     Level::kError)
+DIAG(fold_operator_expect_lesslessequal, "expected `<<=` in fold_operator.", "",
+     Level::kError)
+DIAG(fold_operator_expect_greatergreaterequal,
+     "expected `>>=` in fold_operator.", "", Level::kError)
+DIAG(fold_operator_expect_equal, "expected `=` in fold_operator.", "",
+     Level::kError)
+DIAG(fold_operator_expect_equalequal, "expected `==` in fold_operator.", "",
+     Level::kError)
+DIAG(fold_operator_expect_exclaimequal, "expected `!=` in fold_operator.", "",
+     Level::kError)
+DIAG(fold_operator_expect_less, "expected `<` in fold_operator.", "",
+     Level::kError)
+DIAG(fold_operator_expect_greater, "expected `>` in fold_operator.", "",
+     Level::kError)
+DIAG(fold_operator_expect_lessequal, "expected `<=` in fold_operator.", "",
+     Level::kError)
+DIAG(fold_operator_expect_greaterequal, "expected `>=` in fold_operator.", "",
+     Level::kError)
+DIAG(fold_operator_expect_ampamp, "expected `&&` in fold_operator.", "",
+     Level::kError)
+DIAG(fold_operator_expect_pipepipe, "expected `||` in fold_operator.", "",
+     Level::kError)
+DIAG(fold_operator_expect_comma, "expected `,` in fold_operator.", "",
+     Level::kError)
+DIAG(fold_operator_expect_periodstar, "expected `.*` in fold_operator.", "",
+     Level::kError)
+DIAG(fold_operator_expect_arrowstar, "expected `->*` in fold_operator.", "",
+     Level::kError)
+DIAG(requires_expression_expect_kw_requires,
+     "expected `requires` in requires_expression.", "", Level::kError)
+DIAG(requirement_parameter_list_expect_l_paren,
+     "expected `(` in requirement_parameter_list.", "", Level::kError)
+DIAG(requirement_parameter_list_expect_r_paren,
+     "expected `)` in requirement_parameter_list.", "", Level::kError)
+DIAG(requirement_body_expect_l_brace, "expected `{` in requirement_body.", "",
+     Level::kError)
+DIAG(requirement_body_expect_r_brace, "expected `}` in requirement_body.", "",
+     Level::kError)
+DIAG(simple_requirement_expect_semi, "expected `;` in simple_requirement.", "",
+     Level::kError)
+DIAG(type_requirement_expect_kw_typename,
+     "expected `typename` in type_requirement.", "", Level::kError)
+DIAG(type_requirement_expect_semi, "expected `;` in type_requirement.", "",
+     Level::kError)
+DIAG(compound_requirement_expect_l_brace,
+     "expected `{` in compound_requirement.", "", Level::kError)
+DIAG(compound_requirement_expect_r_brace,
+     "expected `}` in compound_requirement.", "", Level::kError)
+DIAG(compound_requirement_expect_kw_noexcept,
+     "expected `noexcept` in compound_requirement.", "", Level::kError)
+DIAG(compound_requirement_expect_semi, "expected `;` in compound_requirement.",
+     "", Level::kError)
+DIAG(return_type_requirement_expect_arrow,
+     "expected `->` in return_type_requirement.", "", Level::kError)
+DIAG(nested_requirement_expect_kw_requires,
+     "expected `requires` in nested_requirement.", "", Level::kError)
+DIAG(nested_requirement_expect_semi, "expected `;` in nested_requirement.", "",
+     Level::kError)
+DIAG(postfix_expression_expect_l_square, "expected `[` in postfix_expression.",
+     "", Level::kError)
+DIAG(postfix_expression_expect_r_square, "expected `]` in postfix_expression.",
+     "", Level::kError)
+DIAG(postfix_expression_expect_l_paren, "expected `(` in postfix_expression.",
+     "", Level::kError)
+DIAG(postfix_expression_expect_r_paren, "expected `)` in postfix_expression.",
+     "", Level::kError)
+DIAG(postfix_expression_expect_period, "expected `.` in postfix_expression.",
+     "", Level::kError)
+DIAG(postfix_expression_expect_kw_template,
+     "expected `template` in postfix_expression.", "", Level::kError)
+DIAG(postfix_expression_expect_arrow, "expected `->` in postfix_expression.",
+     "", Level::kError)
+DIAG(postfix_expression_expect_plusplus, "expected `++` in postfix_expression.",
+     "", Level::kError)
+DIAG(postfix_expression_expect_minusminus,
+     "expected `--` in postfix_expression.", "", Level::kError)
+DIAG(postfix_expression_expect_kw_dynamic_cast,
+     "expected `dynamic_cast` in postfix_expression.", "", Level::kError)
+DIAG(postfix_expression_expect_less, "expected `<` in postfix_expression.", "",
+     Level::kError)
+DIAG(postfix_expression_expect_greater, "expected `>` in postfix_expression.",
+     "", Level::kError)
+DIAG(postfix_expression_expect_kw_static_cast,
+     "expected `static_cast` in postfix_expression.", "", Level::kError)
+DIAG(postfix_expression_expect_kw_reinterpret_cast,
+     "expected `reinterpret_cast` in postfix_expression.", "", Level::kError)
+DIAG(postfix_expression_expect_kw_const_cast,
+     "expected `const_cast` in postfix_expression.", "", Level::kError)
+DIAG(postfix_expression_expect_kw_typeid,
+     "expected `typeid` in postfix_expression.", "", Level::kError)
+DIAG(unary_expression_expect_plusplus, "expected `++` in unary_expression.", "",
+     Level::kError)
+DIAG(unary_expression_expect_minusminus, "expected `--` in unary_expression.",
+     "", Level::kError)
+DIAG(unary_expression_expect_kw_sizeof,
+     "expected `sizeof` in unary_expression.", "", Level::kError)
+DIAG(unary_expression_expect_l_paren, "expected `(` in unary_expression.", "",
+     Level::kError)
+DIAG(unary_expression_expect_r_paren, "expected `)` in unary_expression.", "",
+     Level::kError)
+DIAG(unary_expression_expect_ellipsis, "expected `...` in unary_expression.",
+     "", Level::kError)
+DIAG(unary_expression_expect_identifier,
+     "expected `identifier` in unary_expression.", "", Level::kError)
+DIAG(unary_expression_expect_kw_alignof,
+     "expected `alignof` in unary_expression.", "", Level::kError)
+DIAG(unary_operator_expect_star, "expected `*` in unary_operator.", "",
+     Level::kError)
+DIAG(unary_operator_expect_amp, "expected `&` in unary_operator.", "",
+     Level::kError)
+DIAG(unary_operator_expect_plus, "expected `+` in unary_operator.", "",
+     Level::kError)
+DIAG(unary_operator_expect_minus, "expected `-` in unary_operator.", "",
+     Level::kError)
+DIAG(unary_operator_expect_exclaim, "expected `!` in unary_operator.", "",
+     Level::kError)
+DIAG(unary_operator_expect_tilde, "expected `~` in unary_operator.", "",
+     Level::kError)
+DIAG(await_expression_expect_kw_co_await,
+     "expected `co_await` in await_expression.", "", Level::kError)
+DIAG(noexcept_expression_expect_kw_noexcept,
+     "expected `noexcept` in noexcept_expression.", "", Level::kError)
+DIAG(noexcept_expression_expect_l_paren, "expected `(` in noexcept_expression.",
+     "", Level::kError)
+DIAG(noexcept_expression_expect_r_paren, "expected `)` in noexcept_expression.",
+     "", Level::kError)
+DIAG(new_expression_expect_coloncolon, "expected `::` in new_expression.", "",
+     Level::kError)
+DIAG(new_expression_expect_kw_new, "expected `new` in new_expression.", "",
+     Level::kError)
+DIAG(new_expression_expect_l_paren, "expected `(` in new_expression.", "",
+     Level::kError)
+DIAG(new_expression_expect_r_paren, "expected `)` in new_expression.", "",
+     Level::kError)
+DIAG(new_placement_expect_l_paren, "expected `(` in new_placement.", "",
+     Level::kError)
+DIAG(new_placement_expect_r_paren, "expected `)` in new_placement.", "",
+     Level::kError)
+DIAG(noptr_new_declarator_expect_l_square,
+     "expected `[` in noptr_new_declarator.", "", Level::kError)
+DIAG(noptr_new_declarator_expect_r_square,
+     "expected `]` in noptr_new_declarator.", "", Level::kError)
+DIAG(new_initializer_expect_l_paren, "expected `(` in new_initializer.", "",
+     Level::kError)
+DIAG(new_initializer_expect_r_paren, "expected `)` in new_initializer.", "",
+     Level::kError)
+DIAG(delete_expression_expect_coloncolon, "expected `::` in delete_expression.",
+     "", Level::kError)
+DIAG(delete_expression_expect_kw_delete,
+     "expected `delete` in delete_expression.", "", Level::kError)
+DIAG(delete_expression_expect_l_square, "expected `[` in delete_expression.",
+     "", Level::kError)
+DIAG(delete_expression_expect_r_square, "expected `]` in delete_expression.",
+     "", Level::kError)
+DIAG(cast_expression_expect_l_paren, "expected `(` in cast_expression.", "",
+     Level::kError)
+DIAG(cast_expression_expect_r_paren, "expected `)` in cast_expression.", "",
+     Level::kError)
+DIAG(pm_expression_expect_periodstar, "expected `.*` in pm_expression.", "",
+     Level::kError)
+DIAG(pm_expression_expect_arrowstar, "expected `->*` in pm_expression.", "",
+     Level::kError)
+DIAG(multiplicative_expression_expect_star,
+     "expected `*` in multiplicative_expression.", "", Level::kError)
+DIAG(multiplicative_expression_expect_slash,
+     "expected `/` in multiplicative_expression.", "", Level::kError)
+DIAG(multiplicative_expression_expect_percent,
+     "expected `%` in multiplicative_expression.", "", Level::kError)
+DIAG(additive_expression_expect_plus, "expected `+` in additive_expression.",
+     "", Level::kError)
+DIAG(additive_expression_expect_minus, "expected `-` in additive_expression.",
+     "", Level::kError)
+DIAG(shift_expression_expect_lessless, "expected `<<` in shift_expression.", "",
+     Level::kError)
+DIAG(shift_expression_expect_greatergreater,
+     "expected `>>` in shift_expression.", "", Level::kError)
+DIAG(compare_expression_expect_spaceship,
+     "expected `<=>` in compare_expression.", "", Level::kError)
+DIAG(relational_expression_expect_less,
+     "expected `<` in relational_expression.", "", Level::kError)
+DIAG(relational_expression_expect_greater,
+     "expected `>` in relational_expression.", "", Level::kError)
+DIAG(relational_expression_expect_lessequal,
+     "expected `<=` in relational_expression.", "", Level::kError)
+DIAG(relational_expression_expect_greaterequal,
+     "expected `>=` in relational_expression.", "", Level::kError)
+DIAG(equality_expression_expect_equalequal,
+     "expected `==` in equality_expression.", "", Level::kError)
+DIAG(equality_expression_expect_exclaimequal,
+     "expected `!=` in equality_expression.", "", Level::kError)
+DIAG(and_expression_expect_amp, "expected `&` in and_expression.", "",
+     Level::kError)
+DIAG(exclusive_or_expression_expect_caret,
+     "expected `^` in exclusive_or_expression.", "", Level::kError)
+DIAG(inclusive_or_expression_expect_pipe,
+     "expected `|` in inclusive_or_expression.", "", Level::kError)
+DIAG(logical_and_expression_expect_ampamp,
+     "expected `&&` in logical_and_expression.", "", Level::kError)
+DIAG(logical_or_expression_expect_pipepipe,
+     "expected `||` in logical_or_expression.", "", Level::kError)
+DIAG(conditional_expression_expect_question,
+     "expected `?` in conditional_expression.", "", Level::kError)
+DIAG(conditional_expression_expect_colon,
+     "expected `:` in conditional_expression.", "", Level::kError)
+DIAG(yield_expression_expect_kw_co_yield,
+     "expected `co_yield` in yield_expression.", "", Level::kError)
+DIAG(throw_expression_expect_kw_throw, "expected `throw` in throw_expression.",
+     "", Level::kError)
+DIAG(assignment_operator_expect_equal, "expected `=` in assignment_operator.",
+     "", Level::kError)
+DIAG(assignment_operator_expect_starequal,
+     "expected `*=` in assignment_operator.", "", Level::kError)
+DIAG(assignment_operator_expect_slashequal,
+     "expected `/=` in assignment_operator.", "", Level::kError)
+DIAG(assignment_operator_expect_percentequal,
+     "expected `%=` in assignment_operator.", "", Level::kError)
+DIAG(assignment_operator_expect_plusequal,
+     "expected `+=` in assignment_operator.", "", Level::kError)
+DIAG(assignment_operator_expect_minusequal,
+     "expected `-=` in assignment_operator.", "", Level::kError)
+DIAG(assignment_operator_expect_greatergreaterequal,
+     "expected `>>=` in assignment_operator.", "", Level::kError)
+DIAG(assignment_operator_expect_lesslessequal,
+     "expected `<<=` in assignment_operator.", "", Level::kError)
+DIAG(assignment_operator_expect_ampequal,
+     "expected `&=` in assignment_operator.", "", Level::kError)
+DIAG(assignment_operator_expect_caretequal,
+     "expected `^=` in assignment_operator.", "", Level::kError)
+DIAG(assignment_operator_expect_pipeequal,
+     "expected `|=` in assignment_operator.", "", Level::kError)
+DIAG(expression_expect_comma, "expected `,` in expression.", "", Level::kError)
+DIAG(labeled_statement_expect_identifier,
+     "expected `identifier` in labeled_statement.", "", Level::kError)
+DIAG(labeled_statement_expect_colon, "expected `:` in labeled_statement.", "",
+     Level::kError)
+DIAG(labeled_statement_expect_kw_case, "expected `case` in labeled_statement.",
+     "", Level::kError)
+DIAG(labeled_statement_expect_kw_default,
+     "expected `default` in labeled_statement.", "", Level::kError)
+DIAG(expression_statement_expect_semi, "expected `;` in expression_statement.",
+     "", Level::kError)
+DIAG(compound_statement_expect_l_brace, "expected `{` in compound_statement.",
+     "", Level::kError)
+DIAG(compound_statement_expect_r_brace, "expected `}` in compound_statement.",
+     "", Level::kError)
+DIAG(selection_statement_expect_kw_if, "expected `if` in selection_statement.",
+     "", Level::kError)
+DIAG(selection_statement_expect_kw_constexpr,
+     "expected `constexpr` in selection_statement.", "", Level::kError)
+DIAG(selection_statement_expect_l_paren, "expected `(` in selection_statement.",
+     "", Level::kError)
+DIAG(selection_statement_expect_r_paren, "expected `)` in selection_statement.",
+     "", Level::kError)
+DIAG(selection_statement_expect_kw_else,
+     "expected `else` in selection_statement.", "", Level::kError)
+DIAG(selection_statement_expect_kw_switch,
+     "expected `switch` in selection_statement.", "", Level::kError)
+DIAG(iteration_statement_expect_kw_while,
+     "expected `while` in iteration_statement.", "", Level::kError)
+DIAG(iteration_statement_expect_l_paren, "expected `(` in iteration_statement.",
+     "", Level::kError)
+DIAG(iteration_statement_expect_r_paren, "expected `)` in iteration_statement.",
+     "", Level::kError)
+DIAG(iteration_statement_expect_kw_do, "expected `do` in iteration_statement.",
+     "", Level::kError)
+DIAG(iteration_statement_expect_semi, "expected `;` in iteration_statement.",
+     "", Level::kError)
+DIAG(iteration_statement_expect_kw_for,
+     "expected `for` in iteration_statement.", "", Level::kError)
+DIAG(iteration_statement_expect_colon, "expected `:` in iteration_statement.",
+     "", Level::kError)
+DIAG(for_range_declaration_expect_l_square,
+     "expected `[` in for_range_declaration.", "", Level::kError)
+DIAG(for_range_declaration_expect_r_square,
+     "expected `]` in for_range_declaration.", "", Level::kError)
+DIAG(jump_statement_expect_kw_break, "expected `break` in jump_statement.", "",
+     Level::kError)
+DIAG(jump_statement_expect_semi, "expected `;` in jump_statement.", "",
+     Level::kError)
+DIAG(jump_statement_expect_kw_continue,
+     "expected `continue` in jump_statement.", "", Level::kError)
+DIAG(jump_statement_expect_kw_return, "expected `return` in jump_statement.",
+     "", Level::kError)
+DIAG(jump_statement_expect_kw_goto, "expected `goto` in jump_statement.", "",
+     Level::kError)
+DIAG(jump_statement_expect_identifier,
+     "expected `identifier` in jump_statement.", "", Level::kError)
+DIAG(coroutine_return_statement_expect_kw_co_return,
+     "expected `co_return` in coroutine_return_statement.", "", Level::kError)
+DIAG(coroutine_return_statement_expect_semi,
+     "expected `;` in coroutine_return_statement.", "", Level::kError)
+DIAG(nodeclspec_function_declaration_expect_semi,
+     "expected `;` in nodeclspec_function_declaration.", "", Level::kError)
+DIAG(alias_declaration_expect_kw_using,
+     "expected `using` in alias_declaration.", "", Level::kError)
+DIAG(alias_declaration_expect_identifier,
+     "expected `identifier` in alias_declaration.", "", Level::kError)
+DIAG(alias_declaration_expect_equal, "expected `=` in alias_declaration.", "",
+     Level::kError)
+DIAG(alias_declaration_expect_semi, "expected `;` in alias_declaration.", "",
      Level::kError)
 DIAG(simple_declaration_expect_semi, "expected `;` in simple_declaration.", "",
+     Level::kError)
+DIAG(simple_declaration_expect_l_square, "expected `[` in simple_declaration.",
+     "", Level::kError)
+DIAG(simple_declaration_expect_r_square, "expected `]` in simple_declaration.",
+     "", Level::kError)
+DIAG(static_assert_declaration_expect_kw_static_assert,
+     "expected `static_assert` in static_assert_declaration.", "",
+     Level::kError)
+DIAG(static_assert_declaration_expect_l_paren,
+     "expected `(` in static_assert_declaration.", "", Level::kError)
+DIAG(static_assert_declaration_expect_r_paren,
+     "expected `)` in static_assert_declaration.", "", Level::kError)
+DIAG(static_assert_declaration_expect_semi,
+     "expected `;` in static_assert_declaration.", "", Level::kError)
+DIAG(static_assert_declaration_expect_comma,
+     "expected `,` in static_assert_declaration.", "", Level::kError)
+DIAG(empty_declaration_expect_semi, "expected `;` in empty_declaration.", "",
+     Level::kError)
+DIAG(attribute_declaration_expect_semi,
+     "expected `;` in attribute_declaration.", "", Level::kError)
+DIAG(decl_specifier_expect_kw_friend, "expected `friend` in decl_specifier.",
+     "", Level::kError)
+DIAG(decl_specifier_expect_kw_typedef, "expected `typedef` in decl_specifier.",
+     "", Level::kError)
+DIAG(decl_specifier_expect_kw_constexpr,
+     "expected `constexpr` in decl_specifier.", "", Level::kError)
+DIAG(decl_specifier_expect_kw_consteval,
+     "expected `consteval` in decl_specifier.", "", Level::kError)
+DIAG(decl_specifier_expect_kw_constinit,
+     "expected `constinit` in decl_specifier.", "", Level::kError)
+DIAG(decl_specifier_expect_kw_inline, "expected `inline` in decl_specifier.",
+     "", Level::kError)
+DIAG(storage_class_specifier_expect_kw_static,
+     "expected `static` in storage_class_specifier.", "", Level::kError)
+DIAG(storage_class_specifier_expect_kw_thread_local,
+     "expected `thread_local` in storage_class_specifier.", "", Level::kError)
+DIAG(storage_class_specifier_expect_kw_extern,
+     "expected `extern` in storage_class_specifier.", "", Level::kError)
+DIAG(storage_class_specifier_expect_kw_mutable,
+     "expected `mutable` in storage_class_specifier.", "", Level::kError)
+DIAG(function_specifier_expect_kw_virtual,
+     "expected `virtual` in function_specifier.", "", Level::kError)
+DIAG(explicit_specifier_expect_kw_explicit,
+     "expected `explicit` in explicit_specifier.", "", Level::kError)
+DIAG(explicit_specifier_expect_l_paren, "expected `(` in explicit_specifier.",
+     "", Level::kError)
+DIAG(explicit_specifier_expect_r_paren, "expected `)` in explicit_specifier.",
+     "", Level::kError)
+DIAG(typedef_name_expect_identifier, "expected `identifier` in typedef_name.",
+     "", Level::kError)
+DIAG(simple_type_specifier_expect_kw_template,
+     "expected `template` in simple_type_specifier.", "", Level::kError)
+DIAG(simple_type_specifier_expect_kw_char,
+     "expected `char` in simple_type_specifier.", "", Level::kError)
+DIAG(simple_type_specifier_expect_kw_char8_t,
+     "expected `char8_t` in simple_type_specifier.", "", Level::kError)
+DIAG(simple_type_specifier_expect_kw_char16_t,
+     "expected `char16_t` in simple_type_specifier.", "", Level::kError)
+DIAG(simple_type_specifier_expect_kw_char32_t,
+     "expected `char32_t` in simple_type_specifier.", "", Level::kError)
+DIAG(simple_type_specifier_expect_kw_wchar_t,
+     "expected `wchar_t` in simple_type_specifier.", "", Level::kError)
+DIAG(simple_type_specifier_expect_kw_bool,
+     "expected `bool` in simple_type_specifier.", "", Level::kError)
+DIAG(simple_type_specifier_expect_kw_short,
+     "expected `short` in simple_type_specifier.", "", Level::kError)
+DIAG(simple_type_specifier_expect_kw_int,
+     "expected `int` in simple_type_specifier.", "", Level::kError)
+DIAG(simple_type_specifier_expect_kw_long,
+     "expected `long` in simple_type_specifier.", "", Level::kError)
+DIAG(simple_type_specifier_expect_kw_signed,
+     "expected `signed` in simple_type_specifier.", "", Level::kError)
+DIAG(simple_type_specifier_expect_kw_unsigned,
+     "expected `unsigned` in simple_type_specifier.", "", Level::kError)
+DIAG(simple_type_specifier_expect_kw_float,
+     "expected `float` in simple_type_specifier.", "", Level::kError)
+DIAG(simple_type_specifier_expect_kw_double,
+     "expected `double` in simple_type_specifier.", "", Level::kError)
+DIAG(simple_type_specifier_expect_kw_void,
+     "expected `void` in simple_type_specifier.", "", Level::kError)
+DIAG(elaborated_type_specifier_expect_identifier,
+     "expected `identifier` in elaborated_type_specifier.", "", Level::kError)
+DIAG(elaborated_type_specifier_expect_kw_template,
+     "expected `template` in elaborated_type_specifier.", "", Level::kError)
+DIAG(elaborated_enum_specifier_expect_kw_enum,
+     "expected `enum` in elaborated_enum_specifier.", "", Level::kError)
+DIAG(elaborated_enum_specifier_expect_identifier,
+     "expected `identifier` in elaborated_enum_specifier.", "", Level::kError)
+DIAG(decltype_specifier_expect_kw_decltype,
+     "expected `decltype` in decltype_specifier.", "", Level::kError)
+DIAG(decltype_specifier_expect_l_paren, "expected `(` in decltype_specifier.",
+     "", Level::kError)
+DIAG(decltype_specifier_expect_r_paren, "expected `)` in decltype_specifier.",
+     "", Level::kError)
+DIAG(placeholder_type_specifier_expect_kw_auto,
+     "expected `auto` in placeholder_type_specifier.", "", Level::kError)
+DIAG(placeholder_type_specifier_expect_kw_decltype,
+     "expected `decltype` in placeholder_type_specifier.", "", Level::kError)
+DIAG(placeholder_type_specifier_expect_l_paren,
+     "expected `(` in placeholder_type_specifier.", "", Level::kError)
+DIAG(placeholder_type_specifier_expect_r_paren,
+     "expected `)` in placeholder_type_specifier.", "", Level::kError)
+DIAG(init_declarator_list_expect_comma, "expected `,` in init_declarator_list.",
+     "", Level::kError)
+DIAG(noptr_declarator_expect_l_square, "expected `[` in noptr_declarator.", "",
+     Level::kError)
+DIAG(noptr_declarator_expect_r_square, "expected `]` in noptr_declarator.", "",
+     Level::kError)
+DIAG(noptr_declarator_expect_l_paren, "expected `(` in noptr_declarator.", "",
+     Level::kError)
+DIAG(noptr_declarator_expect_r_paren, "expected `)` in noptr_declarator.", "",
+     Level::kError)
+DIAG(parameters_and_qualifiers_expect_l_paren,
+     "expected `(` in parameters_and_qualifiers.", "", Level::kError)
+DIAG(parameters_and_qualifiers_expect_r_paren,
+     "expected `)` in parameters_and_qualifiers.", "", Level::kError)
+DIAG(trailing_return_type_expect_arrow,
+     "expected `->` in trailing_return_type.", "", Level::kError)
+DIAG(ptr_operator_expect_star, "expected `*` in ptr_operator.", "",
+     Level::kError)
+DIAG(ptr_operator_expect_amp, "expected `&` in ptr_operator.", "",
+     Level::kError)
+DIAG(ptr_operator_expect_ampamp, "expected `&&` in ptr_operator.", "",
+     Level::kError)
+DIAG(cv_qualifier_expect_kw_const, "expected `const` in cv_qualifier.", "",
+     Level::kError)
+DIAG(cv_qualifier_expect_kw_volatile, "expected `volatile` in cv_qualifier.",
+     "", Level::kError)
+DIAG(ref_qualifier_expect_amp, "expected `&` in ref_qualifier.", "",
+     Level::kError)
+DIAG(ref_qualifier_expect_ampamp, "expected `&&` in ref_qualifier.", "",
+     Level::kError)
+DIAG(declarator_id_expect_ellipsis, "expected `...` in declarator_id.", "",
+     Level::kError)
+DIAG(noptr_abstract_declarator_expect_l_square,
+     "expected `[` in noptr_abstract_declarator.", "", Level::kError)
+DIAG(noptr_abstract_declarator_expect_r_square,
+     "expected `]` in noptr_abstract_declarator.", "", Level::kError)
+DIAG(noptr_abstract_declarator_expect_l_paren,
+     "expected `(` in noptr_abstract_declarator.", "", Level::kError)
+DIAG(noptr_abstract_declarator_expect_r_paren,
+     "expected `)` in noptr_abstract_declarator.", "", Level::kError)
+DIAG(noptr_abstract_pack_declarator_expect_l_square,
+     "expected `[` in noptr_abstract_pack_declarator.", "", Level::kError)
+DIAG(noptr_abstract_pack_declarator_expect_r_square,
+     "expected `]` in noptr_abstract_pack_declarator.", "", Level::kError)
+DIAG(noptr_abstract_pack_declarator_expect_ellipsis,
+     "expected `...` in noptr_abstract_pack_declarator.", "", Level::kError)
+DIAG(parameter_declaration_clause_expect_ellipsis,
+     "expected `...` in parameter_declaration_clause.", "", Level::kError)
+DIAG(parameter_declaration_clause_expect_comma,
+     "expected `,` in parameter_declaration_clause.", "", Level::kError)
+DIAG(parameter_declaration_list_expect_comma,
+     "expected `,` in parameter_declaration_list.", "", Level::kError)
+DIAG(parameter_declaration_expect_equal,
+     "expected `=` in parameter_declaration.", "", Level::kError)
+DIAG(initializer_expect_l_paren, "expected `(` in initializer.", "",
+     Level::kError)
+DIAG(initializer_expect_r_paren, "expected `)` in initializer.", "",
+     Level::kError)
+DIAG(brace_or_equal_initializer_expect_equal,
+     "expected `=` in brace_or_equal_initializer.", "", Level::kError)
+DIAG(braced_init_list_expect_l_brace, "expected `{` in braced_init_list.", "",
+     Level::kError)
+DIAG(braced_init_list_expect_comma, "expected `,` in braced_init_list.", "",
+     Level::kError)
+DIAG(braced_init_list_expect_r_brace, "expected `}` in braced_init_list.", "",
+     Level::kError)
+DIAG(initializer_list_expect_ellipsis, "expected `...` in initializer_list.",
+     "", Level::kError)
+DIAG(initializer_list_expect_comma, "expected `,` in initializer_list.", "",
+     Level::kError)
+DIAG(designated_initializer_list_expect_comma,
+     "expected `,` in designated_initializer_list.", "", Level::kError)
+DIAG(designator_expect_period, "expected `.` in designator.", "", Level::kError)
+DIAG(designator_expect_identifier, "expected `identifier` in designator.", "",
+     Level::kError)
+DIAG(function_body_expect_equal, "expected `=` in function_body.", "",
+     Level::kError)
+DIAG(function_body_expect_kw_default, "expected `default` in function_body.",
+     "", Level::kError)
+DIAG(function_body_expect_semi, "expected `;` in function_body.", "",
+     Level::kError)
+DIAG(function_body_expect_kw_delete, "expected `delete` in function_body.", "",
+     Level::kError)
+DIAG(enum_name_expect_identifier, "expected `identifier` in enum_name.", "",
+     Level::kError)
+DIAG(enum_specifier_expect_l_brace, "expected `{` in enum_specifier.", "",
+     Level::kError)
+DIAG(enum_specifier_expect_r_brace, "expected `}` in enum_specifier.", "",
+     Level::kError)
+DIAG(enum_specifier_expect_comma, "expected `,` in enum_specifier.", "",
+     Level::kError)
+DIAG(enum_head_name_expect_identifier,
+     "expected `identifier` in enum_head_name.", "", Level::kError)
+DIAG(opaque_enum_declaration_expect_semi,
+     "expected `;` in opaque_enum_declaration.", "", Level::kError)
+DIAG(enum_key_expect_kw_enum, "expected `enum` in enum_key.", "", Level::kError)
+DIAG(enum_key_expect_kw_class, "expected `class` in enum_key.", "",
+     Level::kError)
+DIAG(enum_key_expect_kw_struct, "expected `struct` in enum_key.", "",
+     Level::kError)
+DIAG(enum_base_expect_colon, "expected `:` in enum_base.", "", Level::kError)
+DIAG(enumerator_list_expect_comma, "expected `,` in enumerator_list.", "",
+     Level::kError)
+DIAG(enumerator_definition_expect_equal,
+     "expected `=` in enumerator_definition.", "", Level::kError)
+DIAG(enumerator_expect_identifier, "expected `identifier` in enumerator.", "",
+     Level::kError)
+DIAG(using_enum_declaration_expect_kw_using,
+     "expected `using` in using_enum_declaration.", "", Level::kError)
+DIAG(using_enum_declaration_expect_semi,
+     "expected `;` in using_enum_declaration.", "", Level::kError)
+DIAG(namespace_name_expect_identifier,
+     "expected `identifier` in namespace_name.", "", Level::kError)
+DIAG(named_namespace_definition_expect_kw_inline,
+     "expected `inline` in named_namespace_definition.", "", Level::kError)
+DIAG(named_namespace_definition_expect_kw_namespace,
+     "expected `namespace` in named_namespace_definition.", "", Level::kError)
+DIAG(named_namespace_definition_expect_identifier,
+     "expected `identifier` in named_namespace_definition.", "", Level::kError)
+DIAG(named_namespace_definition_expect_l_brace,
+     "expected `{` in named_namespace_definition.", "", Level::kError)
+DIAG(named_namespace_definition_expect_r_brace,
+     "expected `}` in named_namespace_definition.", "", Level::kError)
+DIAG(unnamed_namespace_definition_expect_kw_inline,
+     "expected `inline` in unnamed_namespace_definition.", "", Level::kError)
+DIAG(unnamed_namespace_definition_expect_kw_namespace,
+     "expected `namespace` in unnamed_namespace_definition.", "", Level::kError)
+DIAG(unnamed_namespace_definition_expect_l_brace,
+     "expected `{` in unnamed_namespace_definition.", "", Level::kError)
+DIAG(unnamed_namespace_definition_expect_r_brace,
+     "expected `}` in unnamed_namespace_definition.", "", Level::kError)
+DIAG(nested_namespace_definition_expect_kw_namespace,
+     "expected `namespace` in nested_namespace_definition.", "", Level::kError)
+DIAG(nested_namespace_definition_expect_coloncolon,
+     "expected `::` in nested_namespace_definition.", "", Level::kError)
+DIAG(nested_namespace_definition_expect_kw_inline,
+     "expected `inline` in nested_namespace_definition.", "", Level::kError)
+DIAG(nested_namespace_definition_expect_identifier,
+     "expected `identifier` in nested_namespace_definition.", "", Level::kError)
+DIAG(nested_namespace_definition_expect_l_brace,
+     "expected `{` in nested_namespace_definition.", "", Level::kError)
+DIAG(nested_namespace_definition_expect_r_brace,
+     "expected `}` in nested_namespace_definition.", "", Level::kError)
+DIAG(enclosing_namespace_specifier_expect_identifier,
+     "expected `identifier` in enclosing_namespace_specifier.", "",
+     Level::kError)
+DIAG(enclosing_namespace_specifier_expect_coloncolon,
+     "expected `::` in enclosing_namespace_specifier.", "", Level::kError)
+DIAG(enclosing_namespace_specifier_expect_kw_inline,
+     "expected `inline` in enclosing_namespace_specifier.", "", Level::kError)
+DIAG(namespace_alias_expect_identifier,
+     "expected `identifier` in namespace_alias.", "", Level::kError)
+DIAG(namespace_alias_definition_expect_kw_namespace,
+     "expected `namespace` in namespace_alias_definition.", "", Level::kError)
+DIAG(namespace_alias_definition_expect_identifier,
+     "expected `identifier` in namespace_alias_definition.", "", Level::kError)
+DIAG(namespace_alias_definition_expect_equal,
+     "expected `=` in namespace_alias_definition.", "", Level::kError)
+DIAG(namespace_alias_definition_expect_semi,
+     "expected `;` in namespace_alias_definition.", "", Level::kError)
+DIAG(using_directive_expect_kw_using, "expected `using` in using_directive.",
+     "", Level::kError)
+DIAG(using_directive_expect_kw_namespace,
+     "expected `namespace` in using_directive.", "", Level::kError)
+DIAG(using_directive_expect_semi, "expected `;` in using_directive.", "",
+     Level::kError)
+DIAG(using_declaration_expect_kw_using,
+     "expected `using` in using_declaration.", "", Level::kError)
+DIAG(using_declaration_expect_semi, "expected `;` in using_declaration.", "",
+     Level::kError)
+DIAG(using_declarator_list_expect_ellipsis,
+     "expected `...` in using_declarator_list.", "", Level::kError)
+DIAG(using_declarator_list_expect_comma,
+     "expected `,` in using_declarator_list.", "", Level::kError)
+DIAG(using_declarator_expect_kw_typename,
+     "expected `typename` in using_declarator.", "", Level::kError)
+DIAG(asm_declaration_expect_kw_asm, "expected `asm` in asm_declaration.", "",
+     Level::kError)
+DIAG(asm_declaration_expect_l_paren, "expected `(` in asm_declaration.", "",
+     Level::kError)
+DIAG(asm_declaration_expect_r_paren, "expected `)` in asm_declaration.", "",
+     Level::kError)
+DIAG(asm_declaration_expect_semi, "expected `;` in asm_declaration.", "",
+     Level::kError)
+DIAG(linkage_specification_expect_kw_extern,
+     "expected `extern` in linkage_specification.", "", Level::kError)
+DIAG(linkage_specification_expect_l_brace,
+     "expected `{` in linkage_specification.", "", Level::kError)
+DIAG(linkage_specification_expect_r_brace,
+     "expected `}` in linkage_specification.", "", Level::kError)
+DIAG(attribute_specifier_expect_l_square,
+     "expected `[` in attribute_specifier.", "", Level::kError)
+DIAG(attribute_specifier_expect_r_square,
+     "expected `]` in attribute_specifier.", "", Level::kError)
+DIAG(alignment_specifier_expect_kw_alignas,
+     "expected `alignas` in alignment_specifier.", "", Level::kError)
+DIAG(alignment_specifier_expect_l_paren, "expected `(` in alignment_specifier.",
+     "", Level::kError)
+DIAG(alignment_specifier_expect_ellipsis,
+     "expected `...` in alignment_specifier.", "", Level::kError)
+DIAG(alignment_specifier_expect_r_paren, "expected `)` in alignment_specifier.",
+     "", Level::kError)
+DIAG(attribute_using_prefix_expect_kw_using,
+     "expected `using` in attribute_using_prefix.", "", Level::kError)
+DIAG(attribute_using_prefix_expect_colon,
+     "expected `:` in attribute_using_prefix.", "", Level::kError)
+DIAG(attribute_list_expect_comma, "expected `,` in attribute_list.", "",
+     Level::kError)
+DIAG(attribute_list_expect_ellipsis, "expected `...` in attribute_list.", "",
+     Level::kError)
+DIAG(attribute_token_expect_identifier,
+     "expected `identifier` in attribute_token.", "", Level::kError)
+DIAG(attribute_scoped_token_expect_coloncolon,
+     "expected `::` in attribute_scoped_token.", "", Level::kError)
+DIAG(attribute_scoped_token_expect_identifier,
+     "expected `identifier` in attribute_scoped_token.", "", Level::kError)
+DIAG(attribute_namespace_expect_identifier,
+     "expected `identifier` in attribute_namespace.", "", Level::kError)
+DIAG(attribute_argument_clause_expect_l_paren,
+     "expected `(` in attribute_argument_clause.", "", Level::kError)
+DIAG(attribute_argument_clause_expect_r_paren,
+     "expected `)` in attribute_argument_clause.", "", Level::kError)
+DIAG(balanced_token_expect_l_paren, "expected `(` in balanced_token.", "",
+     Level::kError)
+DIAG(balanced_token_expect_r_paren, "expected `)` in balanced_token.", "",
+     Level::kError)
+DIAG(balanced_token_expect_l_square, "expected `[` in balanced_token.", "",
+     Level::kError)
+DIAG(balanced_token_expect_r_square, "expected `]` in balanced_token.", "",
+     Level::kError)
+DIAG(balanced_token_expect_l_brace, "expected `{` in balanced_token.", "",
+     Level::kError)
+DIAG(balanced_token_expect_r_brace, "expected `}` in balanced_token.", "",
+     Level::kError)
+DIAG(balanced_token_expect_identifier,
+     "expected `identifier` in balanced_token.", "", Level::kError)
+DIAG(module_declaration_expect_kw_export,
+     "expected `export` in module_declaration.", "", Level::kError)
+DIAG(module_declaration_expect_kw_module,
+     "expected `module` in module_declaration.", "", Level::kError)
+DIAG(module_declaration_expect_semi, "expected `;` in module_declaration.", "",
+     Level::kError)
+DIAG(module_name_expect_identifier, "expected `identifier` in module_name.", "",
+     Level::kError)
+DIAG(module_partition_expect_colon, "expected `:` in module_partition.", "",
+     Level::kError)
+DIAG(module_partition_expect_identifier,
+     "expected `identifier` in module_partition.", "", Level::kError)
+DIAG(module_name_qualifier_expect_identifier,
+     "expected `identifier` in module_name_qualifier.", "", Level::kError)
+DIAG(module_name_qualifier_expect_period,
+     "expected `.` in module_name_qualifier.", "", Level::kError)
+DIAG(export_declaration_expect_kw_export,
+     "expected `export` in export_declaration.", "", Level::kError)
+DIAG(export_declaration_expect_l_brace, "expected `{` in export_declaration.",
+     "", Level::kError)
+DIAG(export_declaration_expect_r_brace, "expected `}` in export_declaration.",
+     "", Level::kError)
+DIAG(module_import_declaration_expect_kw_import,
+     "expected `import` in module_import_declaration.", "", Level::kError)
+DIAG(global_module_fragment_expect_kw_module,
+     "expected `module` in global_module_fragment.", "", Level::kError)
+DIAG(global_module_fragment_expect_semi,
+     "expected `;` in global_module_fragment.", "", Level::kError)
+DIAG(private_module_fragment_expect_kw_module,
+     "expected `module` in private_module_fragment.", "", Level::kError)
+DIAG(private_module_fragment_expect_colon,
+     "expected `:` in private_module_fragment.", "", Level::kError)
+DIAG(private_module_fragment_expect_kw_private,
+     "expected `private` in private_module_fragment.", "", Level::kError)
+DIAG(private_module_fragment_expect_semi,
+     "expected `;` in private_module_fragment.", "", Level::kError)
+DIAG(class_name_expect_identifier, "expected `identifier` in class_name.", "",
+     Level::kError)
+DIAG(class_specifier_expect_l_brace, "expected `{` in class_specifier.", "",
+     Level::kError)
+DIAG(class_specifier_expect_r_brace, "expected `}` in class_specifier.", "",
+     Level::kError)
+DIAG(class_virt_specifier_expect_kw_final,
+     "expected `final` in class_virt_specifier.", "", Level::kError)
+DIAG(class_key_expect_kw_class, "expected `class` in class_key.", "",
+     Level::kError)
+DIAG(class_key_expect_kw_struct, "expected `struct` in class_key.", "",
+     Level::kError)
+DIAG(class_key_expect_kw_union, "expected `union` in class_key.", "",
+     Level::kError)
+DIAG(member_specification_expect_colon, "expected `:` in member_specification.",
+     "", Level::kError)
+DIAG(member_declaration_expect_semi, "expected `;` in member_declaration.", "",
+     Level::kError)
+DIAG(member_declarator_list_expect_comma,
+     "expected `,` in member_declarator_list.", "", Level::kError)
+DIAG(member_declarator_expect_identifier,
+     "expected `identifier` in member_declarator.", "", Level::kError)
+DIAG(member_declarator_expect_colon, "expected `:` in member_declarator.", "",
+     Level::kError)
+DIAG(virt_specifier_expect_kw_override,
+     "expected `override` in virt_specifier.", "", Level::kError)
+DIAG(virt_specifier_expect_kw_final, "expected `final` in virt_specifier.", "",
+     Level::kError)
+DIAG(pure_specifier_expect_equal, "expected `=` in pure_specifier.", "",
+     Level::kError)
+DIAG(conversion_function_id_expect_kw_operator,
+     "expected `operator` in conversion_function_id.", "", Level::kError)
+DIAG(base_clause_expect_colon, "expected `:` in base_clause.", "",
+     Level::kError)
+DIAG(base_specifier_list_expect_ellipsis,
+     "expected `...` in base_specifier_list.", "", Level::kError)
+DIAG(base_specifier_list_expect_comma, "expected `,` in base_specifier_list.",
+     "", Level::kError)
+DIAG(base_specifier_expect_kw_virtual, "expected `virtual` in base_specifier.",
+     "", Level::kError)
+DIAG(class_or_decltype_expect_kw_template,
+     "expected `template` in class_or_decltype.", "", Level::kError)
+DIAG(access_specifier_expect_kw_private,
+     "expected `private` in access_specifier.", "", Level::kError)
+DIAG(access_specifier_expect_kw_protected,
+     "expected `protected` in access_specifier.", "", Level::kError)
+DIAG(access_specifier_expect_kw_public,
+     "expected `public` in access_specifier.", "", Level::kError)
+DIAG(ctor_initializer_expect_colon, "expected `:` in ctor_initializer.", "",
+     Level::kError)
+DIAG(mem_initializer_list_expect_ellipsis,
+     "expected `...` in mem_initializer_list.", "", Level::kError)
+DIAG(mem_initializer_expect_l_paren, "expected `(` in mem_initializer.", "",
+     Level::kError)
+DIAG(mem_initializer_expect_r_paren, "expected `)` in mem_initializer.", "",
+     Level::kError)
+DIAG(mem_initializer_id_expect_identifier,
+     "expected `identifier` in mem_initializer_id.", "", Level::kError)
+DIAG(operator_function_id_expect_kw_operator,
+     "expected `operator` in operator_function_id.", "", Level::kError)
+DIAG(the_operator_expect_kw_new, "expected `new` in the_operator.", "",
+     Level::kError)
+DIAG(the_operator_expect_kw_delete, "expected `delete` in the_operator.", "",
+     Level::kError)
+DIAG(literal_operator_id_expect_kw_operator,
+     "expected `operator` in literal_operator_id.", "", Level::kError)
+DIAG(literal_operator_id_expect_identifier,
+     "expected `identifier` in literal_operator_id.", "", Level::kError)
+DIAG(template_head_expect_kw_template, "expected `template` in template_head.",
+     "", Level::kError)
+DIAG(template_head_expect_less, "expected `<` in template_head.", "",
+     Level::kError)
+DIAG(template_head_expect_greater, "expected `>` in template_head.", "",
+     Level::kError)
+DIAG(template_parameter_list_expect_comma,
+     "expected `,` in template_parameter_list.", "", Level::kError)
+DIAG(requires_clause_expect_kw_requires,
+     "expected `requires` in requires_clause.", "", Level::kError)
+DIAG(constraint_logical_or_expression_expect_pipepipe,
+     "expected `||` in constraint_logical_or_expression.", "", Level::kError)
+DIAG(constraint_logical_and_expression_expect_ampamp,
+     "expected `&&` in constraint_logical_and_expression.", "", Level::kError)
+DIAG(type_parameter_expect_ellipsis, "expected `...` in type_parameter.", "",
+     Level::kError)
+DIAG(type_parameter_expect_identifier,
+     "expected `identifier` in type_parameter.", "", Level::kError)
+DIAG(type_parameter_expect_equal, "expected `=` in type_parameter.", "",
+     Level::kError)
+DIAG(type_parameter_key_expect_kw_class,
+     "expected `class` in type_parameter_key.", "", Level::kError)
+DIAG(type_parameter_key_expect_kw_typename,
+     "expected `typename` in type_parameter_key.", "", Level::kError)
+DIAG(type_constraint_expect_less, "expected `<` in type_constraint.", "",
+     Level::kError)
+DIAG(type_constraint_expect_greater, "expected `>` in type_constraint.", "",
+     Level::kError)
+DIAG(simple_template_id_expect_less, "expected `<` in simple_template_id.", "",
+     Level::kError)
+DIAG(simple_template_id_expect_greater, "expected `>` in simple_template_id.",
+     "", Level::kError)
+DIAG(template_id_expect_less, "expected `<` in template_id.", "", Level::kError)
+DIAG(template_id_expect_greater, "expected `>` in template_id.", "",
+     Level::kError)
+DIAG(template_name_expect_identifier, "expected `identifier` in template_name.",
+     "", Level::kError)
+DIAG(template_argument_list_expect_ellipsis,
+     "expected `...` in template_argument_list.", "", Level::kError)
+DIAG(template_argument_list_expect_comma,
+     "expected `,` in template_argument_list.", "", Level::kError)
+DIAG(deduction_guide_expect_l_paren, "expected `(` in deduction_guide.", "",
+     Level::kError)
+DIAG(deduction_guide_expect_r_paren, "expected `)` in deduction_guide.", "",
+     Level::kError)
+DIAG(deduction_guide_expect_arrow, "expected `->` in deduction_guide.", "",
+     Level::kError)
+DIAG(deduction_guide_expect_semi, "expected `;` in deduction_guide.", "",
+     Level::kError)
+DIAG(concept_definition_expect_kw_concept,
+     "expected `concept` in concept_definition.", "", Level::kError)
+DIAG(concept_definition_expect_equal, "expected `=` in concept_definition.", "",
+     Level::kError)
+DIAG(concept_definition_expect_semi, "expected `;` in concept_definition.", "",
+     Level::kError)
+DIAG(concept_name_expect_identifier, "expected `identifier` in concept_name.",
+     "", Level::kError)
+DIAG(typename_specifier_expect_kw_typename,
+     "expected `typename` in typename_specifier.", "", Level::kError)
+DIAG(typename_specifier_expect_identifier,
+     "expected `identifier` in typename_specifier.", "", Level::kError)
+DIAG(typename_specifier_expect_kw_template,
+     "expected `template` in typename_specifier.", "", Level::kError)
+DIAG(explicit_instantiation_expect_kw_extern,
+     "expected `extern` in explicit_instantiation.", "", Level::kError)
+DIAG(explicit_instantiation_expect_kw_template,
+     "expected `template` in explicit_instantiation.", "", Level::kError)
+DIAG(explicit_specialization_expect_kw_template,
+     "expected `template` in explicit_specialization.", "", Level::kError)
+DIAG(explicit_specialization_expect_less,
+     "expected `<` in explicit_specialization.", "", Level::kError)
+DIAG(explicit_specialization_expect_greater,
+     "expected `>` in explicit_specialization.", "", Level::kError)
+DIAG(try_block_expect_kw_try, "expected `try` in try_block.", "", Level::kError)
+DIAG(function_try_block_expect_kw_try, "expected `try` in function_try_block.",
+     "", Level::kError)
+DIAG(handler_expect_kw_catch, "expected `catch` in handler.", "", Level::kError)
+DIAG(handler_expect_l_paren, "expected `(` in handler.", "", Level::kError)
+DIAG(handler_expect_r_paren, "expected `)` in handler.", "", Level::kError)
+DIAG(exception_declaration_expect_ellipsis,
+     "expected `...` in exception_declaration.", "", Level::kError)
+DIAG(noexcept_specifier_expect_kw_noexcept,
+     "expected `noexcept` in noexcept_specifier.", "", Level::kError)
+DIAG(noexcept_specifier_expect_l_paren, "expected `(` in noexcept_specifier.",
+     "", Level::kError)
+DIAG(noexcept_specifier_expect_r_paren, "expected `)` in noexcept_specifier.",
+     "", Level::kError)
+DIAG(pp_global_module_fragment_expect_kw_module,
+     "expected `module` in pp_global_module_fragment.", "", Level::kError)
+DIAG(pp_global_module_fragment_expect_semi,
+     "expected `;` in pp_global_module_fragment.", "", Level::kError)
+DIAG(pp_private_module_fragment_expect_kw_module,
+     "expected `module` in pp_private_module_fragment.", "", Level::kError)
+DIAG(pp_private_module_fragment_expect_colon,
+     "expected `:` in pp_private_module_fragment.", "", Level::kError)
+DIAG(pp_private_module_fragment_expect_kw_private,
+     "expected `private` in pp_private_module_fragment.", "", Level::kError)
+DIAG(pp_private_module_fragment_expect_semi,
+     "expected `;` in pp_private_module_fragment.", "", Level::kError)
+DIAG(group_part_expect_hash, "expected `#` in group_part.", "", Level::kError)
+DIAG(control_line_expect_hash, "expected `#` in control_line.", "",
+     Level::kError)
+DIAG(control_line_expect_kw_include, "expected `include` in control_line.", "",
+     Level::kError)
+DIAG(control_line_expect_kw_define, "expected `define` in control_line.", "",
+     Level::kError)
+DIAG(control_line_expect_identifier, "expected `identifier` in control_line.",
+     "", Level::kError)
+DIAG(control_line_expect_r_paren, "expected `)` in control_line.", "",
+     Level::kError)
+DIAG(control_line_expect_ellipsis, "expected `...` in control_line.", "",
+     Level::kError)
+DIAG(control_line_expect_kw_undef, "expected `undef` in control_line.", "",
+     Level::kError)
+DIAG(control_line_expect_kw_line, "expected `line` in control_line.", "",
+     Level::kError)
+DIAG(control_line_expect_kw_error, "expected `error` in control_line.", "",
+     Level::kError)
+DIAG(control_line_expect_kw_pragma, "expected `pragma` in control_line.", "",
+     Level::kError)
+DIAG(if_group_expect_hash, "expected `#` in if_group.", "", Level::kError)
+DIAG(if_group_expect_kw_if, "expected `if` in if_group.", "", Level::kError)
+DIAG(if_group_expect_kw_ifdef, "expected `ifdef` in if_group.", "",
+     Level::kError)
+DIAG(if_group_expect_identifier, "expected `identifier` in if_group.", "",
+     Level::kError)
+DIAG(if_group_expect_kw_ifndef, "expected `ifndef` in if_group.", "",
+     Level::kError)
+DIAG(elif_group_expect_hash, "expected `#` in elif_group.", "", Level::kError)
+DIAG(elif_group_expect_kw_elif, "expected `elif` in elif_group.", "",
+     Level::kError)
+DIAG(else_group_expect_hash, "expected `#` in else_group.", "", Level::kError)
+DIAG(else_group_expect_kw_else, "expected `else` in else_group.", "",
+     Level::kError)
+DIAG(endif_line_expect_hash, "expected `#` in endif_line.", "", Level::kError)
+DIAG(endif_line_expect_kw_endif, "expected `endif` in endif_line.", "",
+     Level::kError)
+DIAG(identifier_list_expect_identifier,
+     "expected `identifier` in identifier_list.", "", Level::kError)
+DIAG(identifier_list_expect_comma, "expected `,` in identifier_list.", "",
+     Level::kError)
+DIAG(defined_macro_expression_expect_kw_defined,
+     "expected `defined` in defined_macro_expression.", "", Level::kError)
+DIAG(defined_macro_expression_expect_identifier,
+     "expected `identifier` in defined_macro_expression.", "", Level::kError)
+DIAG(defined_macro_expression_expect_l_paren,
+     "expected `(` in defined_macro_expression.", "", Level::kError)
+DIAG(defined_macro_expression_expect_r_paren,
+     "expected `)` in defined_macro_expression.", "", Level::kError)
+DIAG(header_name_tokens_expect_less, "expected `<` in header_name_tokens.", "",
+     Level::kError)
+DIAG(header_name_tokens_expect_greater, "expected `>` in header_name_tokens.",
+     "", Level::kError)
+DIAG(has_include_expression_expect_kw___has_include,
+     "expected `__has_include` in has_include_expression.", "", Level::kError)
+DIAG(has_include_expression_expect_l_paren,
+     "expected `(` in has_include_expression.", "", Level::kError)
+DIAG(has_include_expression_expect_r_paren,
+     "expected `)` in has_include_expression.", "", Level::kError)
+DIAG(has_attribute_expression_expect_kw___has_cpp_attribute,
+     "expected `__has_cpp_attribute` in has_attribute_expression.", "",
+     Level::kError)
+DIAG(has_attribute_expression_expect_l_paren,
+     "expected `(` in has_attribute_expression.", "", Level::kError)
+DIAG(has_attribute_expression_expect_r_paren,
+     "expected `)` in has_attribute_expression.", "", Level::kError)
+DIAG(pp_module_expect_kw_export, "expected `export` in pp_module.", "",
+     Level::kError)
+DIAG(pp_module_expect_kw_module, "expected `module` in pp_module.", "",
+     Level::kError)
+DIAG(pp_module_expect_semi, "expected `;` in pp_module.", "", Level::kError)
+DIAG(pp_import_expect_kw_export, "expected `export` in pp_import.", "",
+     Level::kError)
+DIAG(pp_import_expect_kw_import, "expected `import` in pp_import.", "",
+     Level::kError)
+DIAG(pp_import_expect_semi, "expected `;` in pp_import.", "", Level::kError)
+DIAG(va_opt_replacement_expect_kw___va_opt__,
+     "expected `__va_opt__` in va_opt_replacement.", "", Level::kError)
+DIAG(va_opt_replacement_expect_l_paren, "expected `(` in va_opt_replacement.",
+     "", Level::kError)
+DIAG(va_opt_replacement_expect_r_paren, "expected `)` in va_opt_replacement.",
+     "", Level::kError)
+DIAG(preprocessing_token_expect_kw_import,
+     "expected `import` in preprocessing_token.", "", Level::kError)
+DIAG(preprocessing_token_expect_kw_module,
+     "expected `module` in preprocessing_token.", "", Level::kError)
+DIAG(preprocessing_token_expect_kw_export,
+     "expected `export` in preprocessing_token.", "", Level::kError)
+DIAG(preprocessing_token_expect_identifier,
+     "expected `identifier` in preprocessing_token.", "", Level::kError)
+DIAG(token_expect_identifier, "expected `identifier` in token.", "",
+     Level::kError)
+DIAG(header_name_expect_less, "expected `<` in header_name.", "", Level::kError)
+DIAG(header_name_expect_greater, "expected `>` in header_name.", "",
+     Level::kError)
+DIAG(pp_number_expect_period, "expected `.` in pp_number.", "", Level::kError)
+DIAG(preprocessing_operator_expect_hash,
+     "expected `#` in preprocessing_operator.", "", Level::kError)
+DIAG(preprocessing_operator_expect_hashhash,
+     "expected `##` in preprocessing_operator.", "", Level::kError)
+DIAG(operator_or_punctuator_expect_l_brace,
+     "expected `{` in operator_or_punctuator.", "", Level::kError)
+DIAG(operator_or_punctuator_expect_r_brace,
+     "expected `}` in operator_or_punctuator.", "", Level::kError)
+DIAG(operator_or_punctuator_expect_l_square,
+     "expected `[` in operator_or_punctuator.", "", Level::kError)
+DIAG(operator_or_punctuator_expect_r_square,
+     "expected `]` in operator_or_punctuator.", "", Level::kError)
+DIAG(operator_or_punctuator_expect_l_paren,
+     "expected `(` in operator_or_punctuator.", "", Level::kError)
+DIAG(operator_or_punctuator_expect_r_paren,
+     "expected `)` in operator_or_punctuator.", "", Level::kError)
+DIAG(fractional_constant_expect_period, "expected `.` in fractional_constant.",
+     "", Level::kError)
+DIAG(hexadecimal_fractional_constant_expect_period,
+     "expected `.` in hexadecimal_fractional_constant.", "", Level::kError)
+DIAG(sign_expect_plus, "expected `+` in sign.", "", Level::kError)
+DIAG(sign_expect_minus, "expected `-` in sign.", "", Level::kError)
+DIAG(boolean_literal_expect_kw_false, "expected `false` in boolean_literal.",
+     "", Level::kError)
+DIAG(boolean_literal_expect_kw_true, "expected `true` in boolean_literal.", "",
+     Level::kError)
+DIAG(pointer_literal_expect_kw_nullptr,
+     "expected `nullptr` in pointer_literal.", "", Level::kError)
+DIAG(ud_suffix_expect_identifier, "expected `identifier` in ud_suffix.", "",
      Level::kError)
 
 #undef DIAG

@@ -112,7 +112,7 @@ class IdentInfo {
       if (k.empty()) {
         return 0;
       }
-      return std::_Hash_impl::hash(k.data(), k.size());
+      return std::hash<std::string>()(std::string(k.data(), k.size()));
     }
   };
 

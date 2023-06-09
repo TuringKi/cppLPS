@@ -45,6 +45,46 @@ class TraceTag {
 
 namespace details {
 
+template <
+    typename T, typename Size,
+    typename std::enable_if<((std::is_trivially_copy_constructible<T>::value) &&
+                             (std::is_trivially_move_constructible<T>::value) &&
+                             std::is_trivially_destructible<T>::value),
+                            bool>::type = true>
+void val_init(T* ptr, Size size) {}
+
+template <typename T, typename Size,
+          typename std::enable_if<
+              !((std::is_trivially_copy_constructible<T>::value) &&
+                (std::is_trivially_move_constructible<T>::value) &&
+                std::is_trivially_destructible<T>::value),
+              bool>::type = true>
+void val_init(T* ptr, Size size) {
+  for (size_t i = 0; i < size; i++) {
+    new (ptr + i) T();
+  }
+}
+
+template <
+    typename T, typename Size,
+    typename std::enable_if<((std::is_trivially_copy_constructible<T>::value) &&
+                             (std::is_trivially_move_constructible<T>::value) &&
+                             std::is_trivially_destructible<T>::value),
+                            bool>::type = true>
+void val_remove(T* ptr, Size size) {}
+
+template <typename T, typename Size,
+          typename std::enable_if<
+              !((std::is_trivially_copy_constructible<T>::value) &&
+                (std::is_trivially_move_constructible<T>::value) &&
+                std::is_trivially_destructible<T>::value),
+              bool>::type = true>
+void val_remove(T* ptr, Size size) {
+  for (size_t i = 0; i < size; i++) {
+    ptr[i].~T();
+  }
+}
+
 template <meta::Str TagName, typename Size, typename T>
 class Data : virtual public TraceTag<TagName> {
 
@@ -58,18 +98,21 @@ class Data : virtual public TraceTag<TagName> {
  public:
   pointer ptr() { return data_; }
   Size size() const { return size_; }
+
   static ptr_type create(Size size) {
     std::allocator<T> allocator;
     auto ptr = allocator.allocate(size);
     if (ptr == nullptr) {
       LPS_ERROR(TagName, "allocate memory failed");
     }
+    val_init(ptr, size);
     return std::make_unique<type>(ptr, size);
   }
 
   ~Data() {
     if (ptr() != nullptr) {
       std::allocator<T> allocator;
+      val_remove(ptr(), size());
       allocator.deallocate(ptr(), size());
     }
   }
@@ -116,6 +159,7 @@ class StaticBuffer<TagName, N, T,
  public:
   virtual ~StaticBuffer() {
     lps_assert(TagName, ptr() != nullptr);
+    val_remove(ptr(), N);
     std::allocator<T> allocator;
     allocator.deallocate(ptr(), N);
   }
@@ -128,6 +172,7 @@ class StaticBuffer<TagName, N, T,
     std::allocator<T> allocator;
     data_ = allocator.allocate(N);
     lps_assert(TagName, ptr() != nullptr);
+    val_init(data_, N);
   }
 };
 
@@ -374,8 +419,5 @@ class MemoryBuffer : public details::BlockInBuffer<TagName, BlockSizeType, T> {
   static_buffer_ptr_type static_{nullptr};
   Location location_{Location::kStack};
 };
-
-void* malloc(size_t sz);
-void* realloc(void* ptr, size_t sz);
 
 }  // namespace lps::basic::mem

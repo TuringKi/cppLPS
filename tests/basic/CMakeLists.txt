@@ -1,8 +1,8 @@
 add_executable(test_vec test_vec.cc)
-target_link_libraries(test_vec basic)
+target_link_libraries(test_vec)
 
 add_executable(test_str test_str.cc)
-target_link_libraries(test_str basic)
+target_link_libraries(test_str)
 
 enable_testing()
 

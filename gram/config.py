@@ -22,170 +22,169 @@
 #
 
 sp_tokens = {
-    "`this`":None,
-    "`(`":None,
-    "`)`":None,
-    "`~`":None,
-    "`::`":None,
-    "`<`":None,
-    "`>`":None,
-    "`[`":None,
-    "`]`":None,
-    "`,`":None,
-    "`&`":None,
-    "`=`":None,
-    "`...`[opt]":None,
-    "`*`":None,
-    "`...`":None,
-    "`+`":None,
-    "`-`":None,
-    "`/`":None,
-    "`%`":None,
-    "`^`":None,
-    "`|`":None,
-    "`<<`":None,
-    "`>>`":None,
-    "`+=`":None,
-    "`-=`":None,
-    "`*=`":None,
-    "`/=`":None,
-    "`%=`":None,
-    "`^=`":None,
-    "`&=`":None,
-    "`|=`":None,
-    "`<<=`":None,
-    "`>>=`":None,
-    "`==`":None,
-    "`!=`":None,
-    "`<=`":None,
-    "`>=`":None,
-    "`&&`":None,
-    "`||`":None,
-    "`.*`":None,
-    "`->*`":None,
-    "`requires`":None,
-    "`{`":None,
-    "`}`":None,
-    "`;`":None,
-    "`typename`":None,
-    "`noexcept`[opt]":None,
-    "`->`":None,
-    "`.`":None,
-    "`template`[opt]":None,
-    "`++`":None,
-    "`--`":None,
-    "`dynamic_cast`":None,
-    "`static_cast`":None,
-    "`reinterpret_cast`":None,
-    "`const_cast`":None,
-    "`typeid`":None,
-    "`sizeof`":None,
-    "`identifier`":None,
-    "`alignof`":None,
-    "`!`":None,
-    "`co_await`":None,
-    "`noexcept`":None,
-    "`::`[opt]":None,
-    "`new`":None,
-    "`delete`":None,
-    "`<=>`":None,
-    "`?`":None,
-    "`:`":None,
-    "`co_yield`":None,
-    "`throw`":None,
-    "`case`":None,
-    "`default`":None,
-    "`if`":None,
-    "`constexpr`[opt]":None,
-    "`else`":None,
-    "`switch`":None,
-    "`while`":None,
-    "`do`":None,
-    "`for`":None,
-    "`break`":None,
-    "`continue`":None,
-    "`return`":None,
-    "`goto`":None,
-    "`co_return`":None,
-    "`using`":None,
-    "`static_assert`":None,
-    "`string-literal`":None,
-    "`friend`":None,
-    "`typedef`":None,
-    "`constexpr`":None,
-    "`consteval`":None,
-    "`constinit`":None,
-    "`inline`":None,
-    "`static`":None,
-    "`thread_local`":None,
-    "`extern`":None,
-    "`mutable`":None,
-    "`virtual`":None,
-    "`explicit`":None,
-    "`template`":None,
-    "`char`":None,
-    "`char8_t`":None,
-    "`char16_t`":None,
-    "`char32_t`":None,
-    "`wchar_t`":None,
-    "`bool`":None,
-    "`short`":None,
-    "`int`":None,
-    "`long`":None,
-    "`signed`":None,
-    "`unsigned`":None,
-    "`float`":None,
-    "`double`":None,
-    "`void`":None,
-    "`decltype`":None,
-    "`auto`":None,
-    "`const`":None,
-    "`volatile`":None,
-    "`,`[opt]":None,
-    "`enum`":None,
-    "`class`":None,
-    "`struct`":None,
-    "`inline`[opt]":None,
-    "`namespace`":None,
-    "`typename`[opt]":None,
-    "`asm`":None,
-    "`alignas`":None,
-    "`module`":None,
-    "`export`":None,
-    "`import`":None,
-    "`private`":None,
-    "`final`":None,
-    "`union`":None,
-    "`override`":None,
-    "`0`":None,
-    "`operator`":None,
-    "`virtual`[opt]":None,
-    "`protected`":None,
-    "`public`":None,
-    "`new[]`":None,
-    "`delete[]`":None,
-    "`()`":None,
-    "`[]`":None,
-    "`concept`":None,
-    "`extern`[opt]":None,
-    "`try`":None,
-    "`catch`":None,
-    "`#`":None,
-    "`include`":None,
-    "`define`":None,
-    "`undef`":None,
-    "`line`":None,
-    "`error`":None,
-    "`pragma`":None,
-    "`ifdef`":None,
-    "`ifndef`":None,
-    "`elif`":None,
-    "`endif`":None,
-    "`defined`":None,
-    "`__has_include`":None,
-    "`__has_pp_attribute`":None,
-    "`export`[opt]":None,
-    "`__VA_PT__`":None,
+    "`this`":"kw_this",
+    "`(`":"l_paren",
+    "`)`":"r_paren",
+    "`~`":"tilde",
+    "`template`":"kw_template",
+    "`::`":"coloncolon",
+    "`<`":"less",
+    "`>`":"greater",
+    "`[`":"l_square",
+    "`]`":"r_square",
+    "`,`":"comma",
+    "`&`":"amp",
+    "`=`":"equal",
+    "`...`":"ellipsis",
+    "`*`":"star",
+    "`+`":"plus",
+    "`-`":"minus",
+    "`/`":"slash",
+    "`%`":"percent",
+    "`^`":"caret",
+    "`|`":"pipe",
+    "`<<`":"lessless",
+    "`>>`":"greatergreater",
+    "`+=`":"plusequal",
+    "`-=`":"minusequal",
+    "`*=`":"starequal",
+    "`/=`":"slashequal",
+    "`%=`":"percentequal",
+    "`^=`":"caretequal",
+    "`&=`":"ampequal",
+    "`|=`":"pipeequal",
+    "`<<=`":"lesslessequal",
+    "`>>=`":"greatergreaterequal",
+    "`==`":"equalequal",
+    "`!=`":"exclaimequal",
+    "`<=`":"lessequal",
+    "`>=`":"greaterequal",
+    "`&&`":"ampamp",
+    "`||`":"pipepipe",
+    "`.*`":"periodstar",
+    "`->*`":"arrowstar",
+    "`requires`":"kw_requires",
+    "`{`":"l_brace",
+    "`}`":"r_brace",
+    "`;`":"semi",
+    "`typename`":"kw_typename",
+    "`noexcept`":"kw_noexcept",
+    "`->`":"arrow",
+    "`.`":"period",
+    "`++`":"plusplus",
+    "`--`":"minusminus",
+    "`dynamic_cast`":"kw_dynamic_cast",
+    "`static_cast`":"kw_static_cast",
+    "`reinterpret_cast`":"kw_reinterpret_cast",
+    "`const_cast`":"kw_const_cast",
+    "`typeid`":"kw_typeid",
+    "`sizeof`":"kw_sizeof",
+    "`identifier`":"identifier",
+    "`alignof`":"kw_alignof",
+    "`!`":"exclaim",
+    "`co_await`":"kw_co_await",
+    "`new`":"kw_new",
+    "`delete`":"kw_delete",
+    "`<=>`":"spaceship",
+    "`?`":"question",
+    "`:`":"colon",
+    "`co_yield`":"kw_co_yield",
+    "`throw`":"kw_throw",
+    "`case`":"kw_case",
+    "`default`":"kw_default",
+    "`if`":"kw_if",
+    "`constexpr`":"kw_constexpr",
+    "`else`":"kw_else",
+    "`switch`":"kw_switch",
+    "`while`":"kw_while",
+    "`##`":"hashhash",
+    "`do`":"kw_do",
+    "`for`":"kw_for",
+    "`break`":"kw_break",
+    "`continue`":"kw_continue",
+    "`return`":"kw_return",
+    "`goto`":"kw_goto",
+    "`co_return`":"kw_co_return",
+    "`using`":"kw_using",
+    "`static_assert`":"kw_static_assert",
+    "`friend`":"kw_friend",
+    "`typedef`":"kw_typedef",
+    "`consteval`":"kw_consteval",
+    "`constinit`":"kw_constinit",
+    "`inline`":"kw_inline",
+    "`static`":"kw_static",
+    "`thread_local`":"kw_thread_local",
+    "`extern`":"kw_extern",
+    "`mutable`":"kw_mutable",
+    "`virtual`":"kw_virtual",
+    "`explicit`":"kw_explicit",
+    "`char`":"kw_char",
+    "`char8_t`":"kw_char8_t",
+    "`char16_t`":"kw_char16_t",
+    "`char32_t`":"kw_char32_t",
+    "`wchar_t`":"kw_wchar_t",
+    "`bool`":"kw_bool",
+    "`short`":"kw_short",
+    "`int`":"kw_int",
+    "`long`":"kw_long",
+    "`signed`":"kw_signed",
+    "`unsigned`":"kw_unsigned",
+    "`float`":"kw_float",
+    "`double`":"kw_double",
+    "`void`":"kw_void",
+    "`enum`":"kw_enum",
+    "`decltype`":"kw_decltype",
+    "`auto`":"kw_auto",
+    "`const`":"kw_const",
+    "`volatile`":"kw_volatile",
+    "`class`":"kw_class",
+    "`struct`":"kw_struct",
+    "`namespace`":"kw_namespace",
+    "`asm`":"kw_asm",
+    "`alignas`":"kw_alignas",
+    "`export`":"kw_export",
+    "`module`":"kw_module",
+    "`import`":"kw_import",
+    "`private`":"kw_private",
+    "`final`":"kw_final",
+    "`union`":"kw_union",
+    "`override`":"kw_override",
+    "`operator`":"kw_operator",
+    "`protected`":"kw_protected",
+    "`public`":"kw_public",
+    "`concept`":"kw_concept",
+    "`try`":"kw_try",
+    "`catch`":"kw_catch",
+    "`#`":"hash",
+    "`include`":"kw_include",
+    "`define`":"kw_define",
+    "`undef`":"kw_undef",
+    "`line`":"kw_line",
+    "`error`":"kw_error",
+    "`pragma`":"kw_pragma",
+    "`ifdef`":"kw_ifdef",
+    "`ifndef`":"kw_ifndef",
+    "`elif`":"kw_elif",
+    "`endif`":"kw_endif",
+    "`defined`":"kw_defined",
+    "`__has_include`":"kw___has_include",
+    "`__has_cpp_attribute`":"kw___has_cpp_attribute",
+    "`__va_opt__`":"kw___va_opt__",
+    "`and`":"kw_and",
+    "`or`":"kw_or",
+    "`xor`":"kw_xor",
+    "`not`":"kw_not",
+    "`bitand`":"kw_bitand",
+    "`bitor`":"kw_bitor",
+    "`compl`":"kw_compl",
+    "`and_eq`":"kw_and_eq",
+    "`or_eq`":"kw_or_eq",
+    "`xor_eq`":"kw_xor_eq",
+    "`not_eq`":"kw_not_eq",
+    "`binary-digit`":"kw_binary-digit",
+    "`false`":"kw_false",
+    "`true`":"kw_true",
+    "`nullptr`":"kw_nullptr",
 }
 
 gram_tree = {}
@@ -211,7 +210,7 @@ gram_tree["id-expression"] = [
 ]
 
 gram_tree["unqualified-id"] = [
-    ["identifier"],
+    ["`identifier`"],
     ["operator-function-id"],
     ["conversion-function-id"],
     ["literal-operator-id"],
@@ -229,9 +228,8 @@ gram_tree["nested-name-specifier"] = [
     ["type-name", "`::`"],
     ["namespace-name", "`::`"],
     ["decltype-specifier", "`::`"],
-    ["nested-name-specifier","identifier", "`::`"],
-    ["nested-name-specifier","`template`[opt]", "`::`"],
-    ["simple-template-id", "`::`"],
+    ["nested-name-specifier","`identifier`", "`::`"],
+    ["nested-name-specifier","`template`[opt]", "simple-template-id", "`::`"],
 ]
 
 gram_tree["lambda-expression"] = [
@@ -270,15 +268,15 @@ gram_tree["capture"] = [
 ]
 
 gram_tree["simple-capture"] = [
-    ["identifier", "`...`[opt]"],
-    ["`&`", "identifier", "`...`[opt]"],
+    ["`identifier`", "`...`[opt]"],
+    ["`&`", "`identifier`", "`...`[opt]"],
     ["`this`"],
     ["`*`", "`this`"],
 ]
 
 gram_tree["init-capture"] = [
-    ["`...`[opt]", "identifier", "initializer"],
-    ["`&`", "`...`[opt]", "identifier", "initializer"],
+    ["`...`[opt]", "`identifier`", "initializer"],
+    ["`&`", "`...`[opt]", "`identifier`", "initializer"],
 ]
 
 gram_tree["fold-expression"] = [
@@ -551,7 +549,7 @@ gram_tree["condition"] = [
 ]
 
 gram_tree["labeled-statement"] = [
-    ["attribute-specifier-seq[opt]", "identifier", "`:`", "statement"],
+    ["attribute-specifier-seq[opt]", "`identifier`", "`:`", "statement"],
     ["attribute-specifier-seq[opt]", "`case`","constant-expression", "`:`", "statement"],
     ["attribute-specifier-seq[opt]", "`default`", "`:`", "statement"],
 ]
@@ -596,7 +594,7 @@ gram_tree["jump-statement"] = [
     ["`continue`", "`;`"],
     ["`return`", "expr-or-braced-init-list[opt]", "`;`"],
     ["coroutine-return-statement"],
-    ["`goto`", "identifier", "`;`"]
+    ["`goto`", "`identifier`", "`;`"]
 ]
 
 gram_tree["coroutine-return-statement"] = [
@@ -645,7 +643,7 @@ gram_tree["nodeclspec-function-declaration"] = [
 ]
 
 gram_tree["alias-declaration"] = [
-"`using`", "identifier",  "attribute-specifier-seq[opt]", "`=`", "defining-type-id", "`;`"
+"`using`", "`identifier`",  "attribute-specifier-seq[opt]", "`=`", "defining-type-id", "`;`"
 ]
 
 gram_tree["simple-declaration"] = [
@@ -655,8 +653,8 @@ gram_tree["simple-declaration"] = [
 ]
 
 gram_tree["static_assert-declaration"] = [
-    ["`static_­assert`", "`(`", "constant-expression", "`)`", "`;`"],
-    ["`static_­assert`", "`(`", "constant-expression", "`,`", "`string-literal`", "`)`", "`;`"]
+    ["`static_assert`", "`(`", "constant-expression", "`)`", "`;`"],
+    ["`static_assert`", "`(`", "constant-expression", "`,`", "string-literal", "`)`", "`;`"]
 ]
 
 gram_tree["empty-declaration"] = [
@@ -686,7 +684,7 @@ gram_tree["decl-specifier-seq"] = [
 
 gram_tree["storage-class-specifier"] = [
     ["`static`"],
-    ["`thread_­local`"],
+    ["`thread_local`"],
     ["`extern`"],
     ["`mutable`"],
 ]
@@ -702,7 +700,7 @@ gram_tree["explicit-specifier"] = [
 ]
 
 gram_tree["typedef-name"] = [
-    ["identifier"],
+    ["`identifier`"],
     ["simple-template-id"],
 ]
 
@@ -758,14 +756,14 @@ gram_tree["type-name"] = [
 ]
 
 gram_tree["elaborated-type-specifier"] = [
-    ["class-key", "attribute-specifier-seq[opt]", "nested-name-specifier[opt]", "identifier"],
+    ["class-key", "attribute-specifier-seq[opt]", "nested-name-specifier[opt]", "`identifier`"],
     ["class-key", "simple-template-id"],
     ["class-key", "nested-name-specifier", "`template`[opt]", "simple-template-id"],
     ["elaborated-enum-specifier"],
 ]
 
 gram_tree["elaborated-enum-specifier"] = [
-    "`enum`", "nested-name-specifier[opt]", "identifier"
+    "`enum`", "nested-name-specifier[opt]", "`identifier`"
 ]
 
 gram_tree["decltype-specifier"] = [
@@ -927,7 +925,7 @@ gram_tree["designated-initializer-clause"] = [
 ]
 
 gram_tree["designator"] = [
-    "`.`", "identifier"
+    "`.`", "`identifier`"
 ]
 
 gram_tree["expr-or-braced-init-list"] = [
@@ -948,7 +946,7 @@ gram_tree["function-body"] = [
 ]
 
 gram_tree["enum-name"] = [
-    "identifier"
+    "`identifier`"
 ]
 
 gram_tree["enum-specifier"] = [
@@ -961,7 +959,7 @@ gram_tree["enum-head"] = [
 ]
 
 gram_tree["enum-head-name"] = [
-    "nested-name-specifier[opt]", "identifier"
+    "nested-name-specifier[opt]", "`identifier`"
 ]
 
 gram_tree["opaque-enum-declaration"] = [
@@ -989,7 +987,7 @@ gram_tree["enumerator-definition"] = [
 ]
 
 gram_tree["enumerator"] = [
-    "identifier", "attribute-specifier-seq[opt]",
+    "`identifier`", "attribute-specifier-seq[opt]",
 ]
 
 gram_tree["using-enum-declaration"] = [
@@ -997,7 +995,7 @@ gram_tree["using-enum-declaration"] = [
 ]
 
 gram_tree["namespace-name"] = [
-    ["identifier"],
+    ["`identifier`"],
     ["namespace-alias"],
 ]
 
@@ -1008,7 +1006,7 @@ gram_tree["namespace-definition"] = [
 ]
 
 gram_tree["named-namespace-definition"] = [
-    "`inline`[opt]", "`namespace`", "attribute-specifier-seq[opt]", "identifier", "`{`", "namespace-body", "`}`"
+    "`inline`[opt]", "`namespace`", "attribute-specifier-seq[opt]", "`identifier`", "`{`", "namespace-body", "`}`"
 ]
 
 gram_tree["unnamed-namespace-definition"] = [
@@ -1016,12 +1014,12 @@ gram_tree["unnamed-namespace-definition"] = [
 ]
 
 gram_tree["nested-namespace-definition"] = [
-    "`namespace`", "enclosing-namespace-specifier", "`::`", "`inline`[opt]", "identifier", "`{`", "namespace-body", "`}`",
+    "`namespace`", "enclosing-namespace-specifier", "`::`", "`inline`[opt]", "`identifier`", "`{`", "namespace-body", "`}`",
 ]
 
 gram_tree["enclosing-namespace-specifier"] = [
-    ["identifier"],
-    ["enclosing-namespace-specifier", "`::`", "`inline`[opt]", "identifier"],
+    ["`identifier`"],
+    ["enclosing-namespace-specifier", "`::`", "`inline`[opt]", "`identifier`"],
 ]
 
 gram_tree["namespace-body"] = [
@@ -1029,11 +1027,11 @@ gram_tree["namespace-body"] = [
 ]
 
 gram_tree["namespace-alias"] = [
-    "identifier"
+    "`identifier`"
 ]
 
 gram_tree["namespace-alias-definition"] = [
-    "`namespace`", "identifier", "`=`", "qualified-namespace-specifier", "`;`",
+    "`namespace`", "`identifier`", "`=`", "qualified-namespace-specifier", "`;`",
 ]
 
 gram_tree["qualified-namespace-specifier"] = [
@@ -1067,7 +1065,7 @@ gram_tree["linkage-specification"] = [
 ]
 
 gram_tree["attribute-specifier-seq"] = [
-    "attribute-specifier-seq[opt]", "attribute-specifier",
+    "attribute-specifier", "attribute-specifier-seq[opt]", 
 ]
 
 gram_tree["attribute-specifier"] = [
@@ -1096,16 +1094,16 @@ gram_tree["attribute"] = [
 ]
 
 gram_tree["attribute-token"] = [
-    ["identifier"],
+    ["`identifier`"],
     ["attribute-scoped-token"],
 ]
 
 gram_tree["attribute-scoped-token"] = [
-    "attribute-namespace", "`::`", "identifier",
+    "attribute-namespace", "`::`", "`identifier`",
 ]
 
 gram_tree["attribute-namespace"] = [
-    "identifier",
+    "`identifier`",
 ]
 
 
@@ -1122,7 +1120,7 @@ gram_tree["balanced-token"] = [
     ["`(`", "balanced-token-seq[opt]", "`)`"],
     ["`[`", "balanced-token-seq[opt]", "`]`"],
     ["`{`", "balanced-token-seq[opt]", "`}`"],
-    ["identifier"],
+    ["`identifier`"],
     ["keyword"],
     ["literal"],
     ["operator-or-punctuator"], #but not `(`, `)`,  `<`, `>`, `[`, `]`.
@@ -1133,16 +1131,16 @@ gram_tree["module-declaration"] = [
 ]
 
 gram_tree["module-name"] = [
-    "module-name-qualifier[opt]", "identifier",
+    "module-name-qualifier[opt]", "`identifier`",
 ]
 
 gram_tree["module-partition"] = [
-   "`:`", "module-name-qualifier[opt]", "identifier",
+   "`:`", "module-name-qualifier[opt]", "`identifier`",
 ]
 
 gram_tree["module-name-qualifier"] = [
-    ["identifier", "`.`"],
-    ["module-name-qualifier", "identifier", "`.`"],
+    ["`identifier`", "`.`"],
+    ["module-name-qualifier", "`identifier`", "`.`"],
 ]
 
 gram_tree["export-declaration"] = [
@@ -1166,7 +1164,7 @@ gram_tree["private-module-fragment"] = [
 ]
 
 gram_tree["class-name"] = [
-    ["identifier"],
+    ["`identifier`"],
     ["simple-template-id"],
 ]
 
@@ -1221,7 +1219,7 @@ gram_tree["member-declarator"] = [
     ["declarator", "virt-specifier-seq[opt]", "pure-specifier[opt]"],
     ["declarator", "requires-clause"],
     ["declarator", "brace-or-equal-initializer[opt]"],
-    ["identifier[opt]","attribute-specifier-seq[opt]", "`:`", "constant-expression", "brace-or-equal-initializer[opt]"],
+    ["`identifier`[opt]","attribute-specifier-seq[opt]", "`:`", "constant-expression", "brace-or-equal-initializer[opt]"],
 ]
 
 gram_tree["virt-specifier-seq"] = [
@@ -1293,7 +1291,7 @@ gram_tree["mem-initializer"] = [
 
 gram_tree["mem-initializer-id"] = [
     ["class-or-decltype"],
-    ["identifier"],
+    ["`identifier`"],
 ]
 
 gram_tree["operator-function-id"] = [
@@ -1312,7 +1310,7 @@ gram_tree["the_operator"] = [
 ]
 
 gram_tree["literal-operator-id"] = [
-    ["`operator`", "string-literal", "identifier"],
+    ["`operator`", "string-literal", "`identifier`"],
     ["`operator`", "user-defined-string-literal"],
 ]
 
@@ -1350,12 +1348,12 @@ gram_tree["template-parameter"] = [
 ]
 
 gram_tree["type-parameter"] = [
-    ["type-parameter-key", "`...`[opt]", "identifier[opt]"],
-    ["type-parameter-key", "identifier[opt]", "`=`", "type-id"],
-    ["type-constraint",  "`...`[opt]", "identifier[opt]"],
-    ["type-constraint", "identifier[opt]", "`=`", "type-id"],
-    ["template-head", "type-parameter-key", "`...`[opt]", "identifier[opt]"],
-    ["template-head", "type-parameter-key", "identifier[opt]", "`=`", "id-expression"],
+    ["type-parameter-key", "`...`[opt]", "`identifier`[opt]"],
+    ["type-parameter-key", "`identifier`[opt]", "`=`", "type-id"],
+    ["type-constraint",  "`...`[opt]", "`identifier`[opt]"],
+    ["type-constraint", "`identifier`[opt]", "`=`", "type-id"],
+    ["template-head", "type-parameter-key", "`...`[opt]", "`identifier`[opt]"],
+    ["template-head", "type-parameter-key", "`identifier`[opt]", "`=`", "id-expression"],
 ]
 
 gram_tree["type-parameter-key"] = [
@@ -1379,7 +1377,7 @@ gram_tree["template-id"] = [
 ]
 
 gram_tree["template-name"] = [
-    "identifier",
+    "`identifier`",
 ]
 
 gram_tree["template-argument-list"] = [
@@ -1406,11 +1404,11 @@ gram_tree["concept-definition"] = [
 ]
 
 gram_tree["concept-name"] = [
-    "identifier",
+    "`identifier`",
 ]
 
 gram_tree["typename-specifier"] = [
-    ["`typename`", "nested-name-specifier", "identifier"],
+    ["`typename`", "nested-name-specifier", "`identifier`"],
     ["`typename`", "nested-name-specifier", "`template`[opt]", "simple-template-id"],
 ]
 
@@ -1481,11 +1479,11 @@ gram_tree["group-part"] = [
 gram_tree["control-line"] = [
     ["`#`", "`include`", "pp-tokens", "new-line"],
     ["pp-import"],
-    ["`#`", "`define`", "identifier", "replacement-list", "new-line"],
-    ["`#`", "`define`", "identifier", "lparen", "identifier-list[opt]", "`)`", "replacement-list", "new-line"],
-    ["`#`", "`define`", "identifier", "lparen", "`...`", "`)`", "replacement-list", "new-line"],
-    ["`#`", "`define`", "identifier", "lparen", "identifier-list", "`...`"  ,"`)`", "replacement-list", "new-line"],
-    ["`#`", "`undef`", "identifier", "new-line"],
+    ["`#`", "`define`", "`identifier`", "replacement-list", "new-line"],
+    ["`#`", "`define`", "`identifier`", "lparen", "identifier-list[opt]", "`)`", "replacement-list", "new-line"],
+    ["`#`", "`define`", "`identifier`", "lparen", "`...`", "`)`", "replacement-list", "new-line"],
+    ["`#`", "`define`", "`identifier`", "lparen", "identifier-list", "`...`"  ,"`)`", "replacement-list", "new-line"],
+    ["`#`", "`undef`", "`identifier`", "new-line"],
     ["`#`", "`line`", "pp-tokens", "new-line"],
     ["`#`", "`error`", "pp-tokens[opt]", "new-line"],
     ["`#`", "`pragma`", "pp-tokens[opt]", "new-line"],
@@ -1498,8 +1496,8 @@ gram_tree["if-section"] = [
 
 gram_tree["if-group"] = [
     ["`#`", "`if`", "constant-expression", "new-line", "group[opt]"],
-    ["`#`", "`ifdef`", "identifier", "new-line", "group[opt]"],
-    ["`#`", "`ifndef`", "identifier", "new-line", "group[opt]"],
+    ["`#`", "`ifdef`", "`identifier`", "new-line", "group[opt]"],
+    ["`#`", "`ifndef`", "`identifier`", "new-line", "group[opt]"],
 ]
 
 gram_tree["elif-groups"] = [
@@ -1532,8 +1530,8 @@ gram_tree["lparen"] = [
 ]
 
 gram_tree["identifier-list"] = [
-    ["identifier"],
-    ["identifier-list", "`,`", "identifier"],
+    ["`identifier`"],
+    ["identifier-list", "`,`", "`identifier`"],
 ]
 
 gram_tree["replacement-list"] = [
@@ -1550,8 +1548,8 @@ gram_tree["new-line"] = [
 ]
 
 gram_tree["defined-macro-expression"] = [
-    ["`defined`", "identifier"],
-    ["`defined`", "`(`", "identifier", "`)`"],
+    ["`defined`", "`identifier`"],
+    ["`defined`", "`(`", "`identifier`", "`)`"],
 ]
 
 gram_tree["h-preprocessing-token"] = [
@@ -1588,7 +1586,7 @@ gram_tree["pp-import"] = [
 ]
 
 gram_tree["va-opt-replacement"] = [
-    "`__VA_OPT__`", "`(`", "pp-tokens[opt]", "`)`",
+    "`__va_opt__`", "`(`", "pp-tokens[opt]", "`)`",
 ]
 
 gram_tree["hex-quad"] = [
@@ -1605,7 +1603,7 @@ gram_tree["preprocessing-token"] = [
     ["`import`"],
     ["`module`"],
     ["`export`"],
-    ["identifier"],
+    ["`identifier`"],
     ["pp-number"],
     ["character-literal"],
     ["user-defined-character-literal"],
@@ -1616,7 +1614,7 @@ gram_tree["preprocessing-token"] = [
 ]
 
 gram_tree["token"] = [
-    ["identifier"],
+    ["`identifier`"],
     ["keyword"],
     ["literal"],
     ["operator-or-punctuator"],
@@ -1659,11 +1657,7 @@ gram_tree["pp-number"] = [
     ["pp-number", "`.`"],
 ]
 
-gram_tree["identifier"] = [
-    ["identifier-nondigit"],
-    ["identifier", "identifier-nondigit"],
-    ["identifier", "digit"],
-]
+
 
 gram_tree["identifier-nondigit"] = [
     ["nondigit"],
@@ -1985,5 +1979,5 @@ gram_tree["user-defined-character-literal"] = [
 ]
 
 gram_tree["ud-suffix"] = [
-    "identifier",
+    "`identifier`",
 ]

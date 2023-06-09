@@ -48,7 +48,7 @@ class File {
 
   explicit File(const char* path) { set(path); }
 
-  File(File&& file) noexcept {
+  File(File&& file) {
     this->buffer_ = std::move(file.buffer_);
     file.buffer_ = nullptr;
     this->file_id_ = file.file_id_;

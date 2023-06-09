@@ -28,6 +28,7 @@
 #include "basic/exception.h"
 #include "basic/file.h"
 #include "basic/vec.h"
+#include "token.h"
 
 namespace lps::src {
 
@@ -97,8 +98,76 @@ class Manager {
 
  private:
   explicit Manager() = default;
-  std::map<uint32_t, basic::File::ptr_type> files_;
-  std::map<uint32_t, FilePathStaticString> abs_file_paths_;
+  std::unordered_map<uint32_t, basic::File::ptr_type> files_;
+  std::unordered_map<uint32_t, FilePathStaticString> abs_file_paths_;
 };
 
 }  // namespace lps::src
+
+namespace lps::token {
+class TokenLists {
+ public:
+  struct Info {
+    template <meta::Str TagName>
+    static Info create(const Token<TagName>& tok) {
+      auto content =
+          src::Manager::instance().ref<meta::S("TokenLists_file_contents")>(
+              tok.file_id());
+      auto start = content.data();
+      uint64_t offset = tok.ptr() - start;
+      lps_assert(meta::S("TokenLists"), offset > 0);
+      return {tok.file_id(), offset};
+    }
+    uint32_t file_id_{0};
+    uint64_t offset_{0};
+  };
+
+  using ele_type = Token<meta::S("TokenLists")>;
+  static TokenLists& instance() {
+    static TokenLists lists;
+    return lists;
+  }
+  bool has(uint32_t file_id, uint64_t offset) const {
+    if (lists_.contains(file_id)) {
+      return lists_.at(file_id).contains(offset);
+    }
+    return false;
+  }
+  const ele_type& at(uint32_t file_id, uint64_t offset) const {
+    lps_assert(meta::S("TokenLists"), has(file_id, offset));
+    return lists_.at(file_id).at(offset);
+  }
+
+  bool has(const Info& info) const {
+    if (lists_.contains(info.file_id_)) {
+      return lists_.at(info.file_id_).contains(info.offset_);
+    }
+    return false;
+  }
+  const ele_type& at(const Info& info) const {
+    lps_assert(meta::S("TokenLists"), has(info.file_id_, info.offset_));
+    return lists_.at(info.file_id_).at(info.offset_);
+  }
+
+  template <meta::Str TagNameOther>
+  bool has(const Token<TagNameOther>& tok) const {
+    auto info = Info::create(tok);
+    return has(info);
+  }
+
+  template <meta::Str TagNameOther>
+  void append(const Token<TagNameOther>& tok) {
+    auto info = Info::create(tok);
+    if (lists_.contains(tok.file_id())) {
+      lps_assert(meta::S("TokenLists"),
+                 !lists_.at(info.file_id_).contains(info.offset_));
+      lists_.at(info.file_id_)[info.offset_] = tok;
+    } else {
+      lists_[info.file_id_][info.offset_] = tok;
+    }
+  }
+
+ private:
+  std::unordered_map<uint32_t, std::unordered_map<uint64_t, ele_type>> lists_;
+};
+}  // namespace lps::token
