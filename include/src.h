@@ -115,14 +115,14 @@ class TokenLists {
               tok.file_id());
       auto start = content.data();
       uint64_t offset = tok.ptr() - start;
-      lps_assert(meta::S("TokenLists"), offset > 0);
+      lps_assert(meta::S("TokenLists"), offset >= 0);
       return {tok.file_id(), offset};
     }
     uint32_t file_id_{0};
     uint64_t offset_{0};
   };
 
-  using ele_type = Token<meta::S("TokenLists")>;
+  using ele_type = token::archived_type;
   static TokenLists& instance() {
     static TokenLists lists;
     return lists;
@@ -150,13 +150,44 @@ class TokenLists {
   }
 
   template <meta::Str TagNameOther>
+  ele_type& at(const Token<TagNameOther>& tok) {
+    lps_assert(meta::S("TokenLists"), has(tok));
+    auto info = Info::create(tok);
+    return lists_.at(info.file_id_).at(info.offset_);
+  }
+
+  template <meta::Str TagNameOther>
+  const ele_type& last(const Token<TagNameOther>& tok) {
+    lps_assert(meta::S("TokenLists"), has(tok));
+    auto info = Info::create(tok);
+    const auto* ptr = token::TokenLists::instance().at(tok).last();
+    if (!ptr) {
+      static const ele_type kEmptyTok;
+      return kEmptyTok;
+    }
+    return *ptr;
+  }
+
+  template <meta::Str TagNameOther>
+  const ele_type& next(const Token<TagNameOther>& tok) {
+    lps_assert(meta::S("TokenLists"), has(tok));
+    auto info = Info::create(tok);
+    const auto* ptr = token::TokenLists::instance().at(tok).next();
+    if (!ptr) {
+      static const ele_type kEmptyTok;
+      return kEmptyTok;
+    }
+    return *ptr;
+  }
+
+  template <meta::Str TagNameOther>
   bool has(const Token<TagNameOther>& tok) const {
     auto info = Info::create(tok);
     return has(info);
   }
 
   template <meta::Str TagNameOther>
-  void append(const Token<TagNameOther>& tok) {
+  void append(const Token<TagNameOther>& tok, Info last_tok_info = {0, 0}) {
     auto info = Info::create(tok);
     if (lists_.contains(tok.file_id())) {
       lps_assert(meta::S("TokenLists"),
@@ -164,6 +195,13 @@ class TokenLists {
       lists_.at(info.file_id_)[info.offset_] = tok;
     } else {
       lists_[info.file_id_][info.offset_] = tok;
+    }
+
+    if (has(last_tok_info)) {
+      lists_[last_tok_info.file_id_][last_tok_info.offset_].next(
+          &lists_[info.file_id_][info.offset_]);
+      lists_[info.file_id_][info.offset_].last(
+          &lists_[last_tok_info.file_id_][last_tok_info.offset_]);
     }
   }
 

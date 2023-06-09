@@ -38,7 +38,8 @@ void Parser::parse(uint32_t file_id) {
     details::ParseFunctionInputs<meta::Str("translation_unit_param")> params;
     params.opt_ = false;
     token::Token<meta::S("first_token")> next_tok;
-    lexer::Lexer lexer(file_id, content.data());
+    lexer::Lexer lexer(file_id, content.data(),
+                       content.data() + content.size());
     lexer.lex(next_tok);
     params.cur_token_ = next_tok;
     if (next_tok.kind() != token::tok::TokenKind::unknown) {
@@ -49,6 +50,13 @@ void Parser::parse(uint32_t file_id) {
     for (const auto& a : output.diag_inputs_) {
       diag::doing<details::TranslationUnit::kTag>(a.main_token_, a.kind_,
                                                   a.context_tokens_);
+    }
+    if (output.work_) {
+      for (const auto& node : output.node_.sub_nodes_) {
+        if (node->kind_ != details::ParseFunctionKind::kUnknown) {
+          // todo(@mxlol233): handle the recursive tree nodes...
+        }
+      }
     }
   }
 }

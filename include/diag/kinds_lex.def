@@ -20,11 +20,7 @@
 * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 * SOFTWARE.
 */
-#ifndef DIAG
-#define DIAG(K, D, NOTE, LEVEL)
-#endif
 
-#include "diag/kinds_lex.def"
-#include "diag/kinds_parse.def"
-
-#undef DIAG
+DIAG(unknown_tok, "unexpected unknown token.", "", Level::kError)
+DIAG(empty_char_literal, "char_literal is empty.", "", Level::kError)
+DIAG(unfinished_char_literal, "char_literal definition not complete.", "", Level::kError)

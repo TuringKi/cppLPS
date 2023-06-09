@@ -38,7 +38,8 @@ int main(int argc, char** argv) {
       lps::src::Manager::instance().ref<meta::S("file_contents")>(file_id);
   lps_assert(meta::S("test_lexer"), contents.capacity() > 0);
 
-  lps::lexer::Lexer lexer(file_id, contents.data());
+  lps::lexer::Lexer lexer(file_id, contents.data(),
+                          contents.data() + contents.size());
   while (!lexer.finish(contents.capacity())) {
     lps::token::Token<meta::S("parse_start_token")> tok;
     lexer.lex(tok);

@@ -20,3 +20,36 @@
 * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 * SOFTWARE.
 */
+#pragma once
+
+#include "basic/mem.h"
+#include "parser.h"
+#include "token.h"
+
+namespace lps::sema {
+
+namespace details {
+
+template <meta::Str TagName>
+class Unit : virtual public basic::mem::TraceTag<TagName> {
+ public:
+  virtual void build() = 0;
+
+ protected:
+  const parser::details::Tree::Node* gram_node_{nullptr};
+};
+
+// A program consists of one or more translation units linked together.
+// A `translation unit` consists of a sequence of declarations.
+// A name is said to have linkage when it can denote the same object,
+// reference, function, type, template, namespace or value as a name
+// introduced by a declaration in another scope:
+
+class TranslationUnit : public Unit<meta::S("TranslationUnit")> {
+
+ public:
+  void build() override;
+};
+
+}  // namespace details
+}  // namespace lps::sema

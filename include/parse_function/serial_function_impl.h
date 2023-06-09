@@ -25,6 +25,7 @@
 #include <stack>
 #include "diag.h"
 #include "parse_function/parallel_serial_function.h"
+#include "parser.h"
 #include "token.h"
 
 namespace lps::parser::details {
@@ -32,16 +33,16 @@ namespace lps::parser::details {
 template <meta::Str TagName, typename... ParseFuncs>
 ParseFunctionOutputs<TagName>
 SerialParseFunctions<TagName, ParseFuncs...>::operator()() {
-
-  ParseFunctionOutputs<TagName> output;
-  token::Token<TagName + "_first_token"> tok;
-  output.last_token_ = this->last_token();
-  output.cur_token_ = this->cur_token();
+  lps_assert(TagName, this->ok_to_try());
+  this->executed_mask_.set();
+  auto output = base::operator()();
+  if (!this->valid()) {
+    return output;
+  }
 
   bool flg_continue = true;
 
   uint32_t running_sub_func_stack_top_idx = 0;
-
   uint32_t running_sub_func_size = 0;
   std::apply(
       [&running_sub_func_size](ParseFuncs&... funcs) {
@@ -55,15 +56,16 @@ SerialParseFunctions<TagName, ParseFuncs...>::operator()() {
 
   std::stack<decltype(output)> path_stack;
   path_stack.push(output);
+  Tree::Node node;
   while (flg_continue) {
     std::apply(
-        [this, &running_sub_func_size, &path_stack, &flg_continue,
+        [this, &running_sub_func_size, &node, &path_stack, &flg_continue,
          &running_sub_func_stack_top_idx](ParseFuncs&... funcs) {
           bool flg_not_continue = false;
           uint32_t running_sub_func_idx = 0;
           (
-              [this, &running_sub_func_size, &path_stack, &flg_not_continue,
-               &flg_continue, &running_sub_func_idx,
+              [this, &running_sub_func_size, &node, &path_stack,
+               &flg_not_continue, &flg_continue, &running_sub_func_idx,
                &running_sub_func_stack_top_idx](auto& func) {
                 if (flg_not_continue || !flg_continue) {
                   return;
@@ -101,7 +103,7 @@ SerialParseFunctions<TagName, ParseFuncs...>::operator()() {
                   func.last_token(path_stack.top().last_token_);
                   func.cur_token(path_stack.top().cur_token_);
 
-                  if (!func.ok_to_try()) {
+                  if (!func.ok_to_try() || (!func.valid() && !func.opt())) {
                     make_try_again(basic::Vector<4, diag::DiagInputs<TagName>,
                                                  TagName + "_DiagInputs">());
                     return;
@@ -118,13 +120,19 @@ SerialParseFunctions<TagName, ParseFuncs...>::operator()() {
                   }
 
                   auto output(path_stack.top());
+                  auto* node_ptr = Tree::instance().append(local_output.node_);
+                  node_ptr->kind_ = func.kKind;
+                  if (func.kKind == ParseFunctionKind::kExpectedToken) {
+                    node_ptr->expected_token_kind_ = func.expected_token_kind();
+                  }
                   output.concat(std::move(local_output), func.opt());
                   path_stack.push(output);
-                  LPS_NOTE(TagName, "[ ", func.tag(),
-                           " ] local_output.work = ", local_output.work_,
-                           ", output.work = ", output.work_);
-                  if (running_sub_func_idx == running_sub_func_size &&
-                      output.work_) {
+                  if (output.work_) {
+                    node.sub_nodes_.append(node_ptr);
+                  }
+                  if ((running_sub_func_idx == running_sub_func_size &&
+                       output.work_) ||
+                      !func.valid()) {
                     flg_continue = false;
                     return;
                   }
@@ -136,7 +144,16 @@ SerialParseFunctions<TagName, ParseFuncs...>::operator()() {
   }
   lps_assert(TagName, path_stack.size() > 0);
   if (path_stack.top().work_) {
-    LPS_NOTE(TagName, "output ok");
+    path_stack.top().node_ = std::move(node);
+    diag::infos() << basic::str::from(
+        std::string(this->calling_depth(), '>'), " ", TagName, "_SerialFunc ",
+        basic::tui::color::Shell::colorize(basic::str::from(" ok.\n"),
+                                           basic::tui::color::Shell::fgreen()));
+  } else {
+    diag::infos() << basic::str::from(
+        std::string(this->calling_depth(), '>'), " ", TagName, "_SerialFunc ",
+        basic::tui::color::Shell::colorize(basic::str::from(" failed\n"),
+                                           basic::tui::color::Shell::fred()));
   }
   return path_stack.top();
 }

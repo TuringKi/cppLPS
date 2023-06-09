@@ -343,6 +343,10 @@ Summarize::~Summarize() {
 
 }  // namespace details
 
+std::ostream& infos() {
+  return std::cout;
+}
+
 std::ostream& warnings() {
   return std::cout;
 }

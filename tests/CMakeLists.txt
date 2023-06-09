@@ -1,8 +1,7 @@
 add_subdirectory(basic)
 
 
-add_executable(test_lexer test_lexer.cc)
-target_link_libraries(test_lexer lps_)
+add_executable(test_lexer test_lexer.cc ${CMAKE_SOURCE_DIR}/src/diag.cc)
 
 add_executable(test_parser test_parser.cc)
 target_link_libraries(test_parser  lps_)

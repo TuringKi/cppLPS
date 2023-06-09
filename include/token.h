@@ -149,6 +149,11 @@ enum Flag : uint16_t {
 };
 
 template <meta::Str TagName>
+struct Token;
+
+using archived_type = Token<meta::S("TokenLists_token")>;
+
+template <meta::Str TagName>
 struct Token : virtual public basic::mem::TraceTag<TagName> {
 
  public:
@@ -158,8 +163,8 @@ struct Token : virtual public basic::mem::TraceTag<TagName> {
   (A)->kind_ = (B).kind();    \
   (A)->flags_ = (B).flags();
 
-  template <meta::Str OtherTagName>
-  Token& operator=(const Token<OtherTagName>& other) {
+  template <meta::Str TagNameOther>
+  Token& operator=(const Token<TagNameOther>& other) {
     SET(this, other);
     return *this;
   }
@@ -174,8 +179,8 @@ struct Token : virtual public basic::mem::TraceTag<TagName> {
     SET(this, other);
   }
 
-  template <meta::Str OtherTagName>
-  explicit Token(const Token<OtherTagName>& other) {
+  template <meta::Str TagNameOther>
+  explicit Token(const Token<TagNameOther>& other) {
     SET(this, other);
   }
 #undef SET
@@ -198,7 +203,7 @@ struct Token : virtual public basic::mem::TraceTag<TagName> {
   void file_id(uint32_t file_id) {
     loc_.file_id(file_id);
   }
-  uint16_t flags() const {
+  [[nodiscard]] uint16_t flags() const {
     return flags_;
   }
   [[nodiscard]] uint32_t offset() const {
@@ -236,12 +241,30 @@ struct Token : virtual public basic::mem::TraceTag<TagName> {
     return basic::StringRef<TagNameOther>(static_cast<char*>(data_), offset());
   }
 
+  [[nodiscard]] const archived_type* next() const {
+    return next_token_;
+  }
+
+  [[nodiscard]] const archived_type* last() const {
+    return last_token_;
+  }
+
+  void next(const archived_type* other) {
+    next_token_ = other;
+  }
+
+  void last(const archived_type* other) {
+    last_token_ = other;
+  }
+
  private:
   Location<TagName + "_location"> loc_;
   tok::TokenKind kind_{tok::TokenKind::unknown};
   void* data_{nullptr};
 
   uint16_t flags_{0};
+  const archived_type* last_token_{nullptr};
+  const archived_type* next_token_{nullptr};
 };
 
 template <meta::Str TagName>

@@ -22,6 +22,7 @@
 */
 #pragma once
 
+#include "basic/tui.h"
 #include "diag.h"
 #include "parse_function/parallel_serial_function.h"
 #include "token.h"
@@ -32,9 +33,11 @@ template <meta::Str TagName, size_t NumElements, typename... ParseFuncs>
 ParseFunctionOutputs<TagName>
 ParallelParseFunctions<TagName, NumElements, ParseFuncs...>::operator()() {
   lps_assert(TagName, this->ok_to_try());
-  ParseFunctionOutputs<TagName> output;
-  output.last_token_ = this->last_token();
-  output.cur_token_ = this->cur_token();
+  auto output = base::operator()();
+  if (!this->valid()) {
+    this->executed_mask_.set();
+    return output;
+  }
 
   bool flg_continue = true;
   uint32_t running_sub_func_idx = 0;
@@ -59,13 +62,14 @@ ParallelParseFunctions<TagName, NumElements, ParseFuncs...>::operator()() {
                   if (local_output.len() > max_len_match_output.len()) {
                     max_len_match_output = std::move(local_output);
                     max_len_match_idx = running_sub_func_idx;
+                    if (!this->valid(
+                            local_output.cur_token_)) {  // no more chance
+                      this->executed_mask_.set();
+                      return;
+                    }
                   }
-                  LPS_NOTE(TagName, " [ ", func.tag(),
-                           " ] local_output.work = ", local_output.work_);
                 } else {
-                  max_len_match_output.concat(std::move(local_output), false);
-                  LPS_NOTE(TagName, " [ ", func.tag(),
-                           " ] output.work = ", output.work_);
+                  output.concat(std::move(local_output), false);
                   this->executed_mask_.set(running_sub_func_idx);
                 }
                 running_sub_func_idx++;
@@ -76,11 +80,18 @@ ParallelParseFunctions<TagName, NumElements, ParseFuncs...>::operator()() {
       parse_functions_);
   if (max_len_match_output.work_) {
     this->executed_mask_.set(max_len_match_idx);
-
-    static int space = 0;
-    LPS_NOTE(TagName, std::string(space++, ' '), "output ok");
+    output.node_ = std::move(max_len_match_output.node_);
+    diag::infos() << basic::str::from(
+        std::string(this->calling_depth(), '>'), " ", TagName, "_ParallelFunc ",
+        basic::tui::color::Shell::colorize(
+            basic::str::from(" ok, matched idx = ", max_len_match_idx, ".\n"),
+            basic::tui::color::Shell::fgreen()));
   } else {
     this->executed_mask_.set();
+    diag::infos() << basic::str::from(
+        std::string(this->calling_depth(), '>'), " ", TagName, "_ParallelFunc ",
+        basic::tui::color::Shell::colorize(basic::str::from(" failed\n"),
+                                           basic::tui::color::Shell::fred()));
   }
   output.concat(std::move(max_len_match_output), false);
   return output;
