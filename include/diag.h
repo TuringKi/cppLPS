@@ -221,6 +221,7 @@ class Information {
   std::unordered_map<DiagKind, details::Info> map_;
 };
 
+std::ostream& infos();
 std::ostream& warnings();
 std::ostream& errs();
 

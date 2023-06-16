@@ -20,11 +20,6 @@
 * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 * SOFTWARE.
 */
-#ifndef DIAG
-#define DIAG(K, D, NOTE, LEVEL)
-#endif
+#pragma once
 
-#include "diag/kinds_lex.def"
-#include "diag/kinds_parse.def"
-
-#undef DIAG
+namespace lsp::ast {}

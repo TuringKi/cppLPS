@@ -155,7 +155,7 @@ inline void assert(bool condition, std::string&& msg) {
         " [NOTE]: ", ##__VA_ARGS__);                                    \
   }
 
-#define unreachable(TagName) LPS_ERROR(TagName)
+#define unreachable(TagName) LPS_ERROR(TagName, "unreachable")
 
 #define lps_assert(TagName, COND)                                       \
   lps::basic::exception::assert<TagName, meta::Str(__FILE__), __LINE__, \

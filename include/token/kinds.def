@@ -182,6 +182,13 @@ TOK(utf8_string_literal) // u8"foo"
 TOK(utf16_string_literal)// u"foo"
 TOK(utf32_string_literal)// U"foo"
 
+TOK(binary_literal)// 0B001001
+TOK(integer_literal)// 64uL
+TOK(octal_literal)// 0123
+TOK(hexadecimal_literal)// 0XABCDEF
+TOK(decimal_literal)// 42
+TOK(char_literal)// 'abc'
+
 // C99 6.4.6: Punctuators.
 PUNCTUATOR(l_square,            "[")
 PUNCTUATOR(r_square,            "]")
