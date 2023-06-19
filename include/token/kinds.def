@@ -188,7 +188,10 @@ TOK(octal_literal)// 0123
 TOK(hexadecimal_literal)// 0XABCDEF
 TOK(decimal_literal)// 42
 TOK(char_literal)// 'abc'
-
+TOK(fractional_constant)// 123.4
+TOK(decimal_floating_point_literal) // 123.4e-13
+TOK(hexadecimal_floating_point_literal) // 12EF.EEP-1234
+TOK(floating_point_literal) // hexadecimal_floating_point_literal or decimal_floating_point_literal
 // C99 6.4.6: Punctuators.
 PUNCTUATOR(l_square,            "[")
 PUNCTUATOR(r_square,            "]")

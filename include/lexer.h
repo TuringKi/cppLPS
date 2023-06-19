@@ -141,7 +141,15 @@ class Base : virtual public lps::basic::mem::TraceTag<TagName> {
     return {c, sz};
   }
 
-  inline bool ws_skipping() { return false; }
+  inline CharSize ws_skipping(const char*& ptr,
+                              lps::token::Token<TagName>& /*tok*/) {
+    uint32_t sz = 0;
+    while (basic::str::ascii::is::Ws(*ptr)) {
+      ptr++;
+      sz++;
+    }
+    return {*ptr, sz};
+  }
 
   [[nodiscard]] inline const char* cur() const { return ptr_ + pos_; }
   inline void inc(size_t n) { pos_ += n; }
@@ -243,9 +251,9 @@ class Basic : public Base<TagName> {
       case '\v':
       skip_horz_ws:
         tok.set_flag(token::Flag::kLeadingSpace);
-        if (this->ws_skipping()) {
-          return;
-        }
+        // if (this->ws_skipping()) {
+        //   return;
+        // }
       skip_comments:
         // todo(@mxlol233): skip comments.
         goto next;
@@ -260,7 +268,12 @@ class Basic : public Base<TagName> {
       case '7':
       case '8':
       case '9': {
-        if (lex_integer_literal(c, ptr, tok)) {
+        const char* tmp_ptr = ptr;
+        if (lex_floating_point_literal(c, tmp_ptr, tok)) {
+          return;
+        }
+        tmp_ptr = ptr;
+        if (lex_integer_literal(c, tmp_ptr, tok)) {
           return;
         }
         break;
@@ -371,11 +384,15 @@ class Basic : public Base<TagName> {
         c = std::get<0>(c_sz);
         sz_tmp = std::get<1>(c_sz);
 
-        if (c >= '0' && c <= '9') {
-          if (lex_numeric_constant()) {
+        {
+          const char* tmp_ptr = ptr;
+          if (lex_floating_point_literal('.', tmp_ptr, tok)) {
+            ptr = tmp_ptr;
             return;
           }
-        } else if (c == '*') {
+        }
+
+        if (c == '*') {
           token_kind = token::tok::TokenKind::periodstar;
           ptr += sz_tmp;
         } else if (c == '.') {
@@ -870,6 +887,218 @@ class Basic : public Base<TagName> {
       return false;
     },
                               token::tok::TokenKind::binary_literal>(ptr, tok);
+  }
+
+  template <auto FuncDigit, lps::token::tok::TokenKind TokenKind0,
+            lps::token::tok::TokenKind TokenKind1>
+  inline bool lex_fractional_constant_any(char c, const char*& ptr,
+                                          lps::token::Token<TagName>& tok) {
+    const char* p_dot = ptr;
+    bool has_first_digit_seq = false;
+    if (c != '.') {
+      if (lex_number_literal<FuncDigit, TokenKind0>(ptr, tok)) {
+        has_first_digit_seq = true;
+        p_dot = ptr;
+      }
+      this->ws_skipping(p_dot, tok);
+      if (*p_dot != '.') {
+        return false;
+      }
+      p_dot++;
+    }
+    this->ws_skipping(p_dot, tok);
+    ptr = p_dot;
+    const char* end = ptr;
+    if (lex_number_literal<FuncDigit, TokenKind0>(ptr, tok)) {
+      end = ptr;
+    } else {
+      if (!has_first_digit_seq) {
+        return false;
+      }
+    }
+
+    ptr = end;
+    this->token_formulate(tok, ptr, TokenKind1);
+    tok.data(this->cur());
+    return true;
+  }
+
+  // hexadecimal-fractional-constant:
+  // 	hexadecimal_digit_sequence[opt], `.`, hexadecimal_digit_sequence
+  // 	hexadecimal_digit_sequence, `.`
+  inline bool lex_hexadecimal_fractional_constant(
+      char c, const char*& ptr, lps::token::Token<TagName>& tok) {
+    return lex_fractional_constant_any<
+        [](const char*& ptr, lps::token::Token<TagName>& /*tok*/) {
+          if (*ptr >= '0' && *ptr <= '9' || *ptr >= 'a' && *ptr <= 'f' ||
+              *ptr >= 'A' && *ptr <= 'F') {
+            ptr++;
+            return true;
+          }
+          return false;
+        },
+        token::tok::TokenKind::hexadecimal_literal,
+        token::tok::TokenKind::fractional_constant>(c, ptr, tok);
+  }
+
+  // fractional-constant:
+  // 	digit_sequence[opt], `.`, digit_sequence
+  // 	digit_sequence, `.`
+  inline bool lex_fractional_constant(char c, const char*& ptr,
+                                      lps::token::Token<TagName>& tok) {
+    return lex_fractional_constant_any<
+        [](const char*& ptr, lps::token::Token<TagName>& /*tok*/) {
+          if (*ptr >= '0' && *ptr <= '9') {
+            ptr++;
+            return true;
+          }
+          return false;
+        },
+        token::tok::TokenKind::decimal_literal,
+        token::tok::TokenKind::fractional_constant>(c, ptr, tok);
+  }
+
+  inline bool lex_exponent_part_any(const char*& ptr,
+                                    lps::token::Token<TagName>& tok,
+                                    char part_char0, char part_char1) {
+    if (*ptr == part_char0 || *ptr == part_char1) {
+      ptr++;
+      if (*ptr == '+' || *ptr == '-') {
+        ptr++;
+      }
+      if (lex_decimal_literal(ptr, tok)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  // exponent-part:
+  // 	`e`, sign[opt], digit_sequence
+  // 	`E`, sign[opt], digit_sequence
+  inline bool lex_exponent_part(const char*& ptr,
+                                lps::token::Token<TagName>& tok) {
+    return lex_exponent_part_any(ptr, tok, 'e', 'E');
+  }
+
+  inline bool lex_floating_point_suffix(const char*& ptr,
+                                        lps::token::Token<TagName>& tok) {
+    if (*ptr == 'L' || *ptr == 'l' || *ptr == 'F' || *ptr == 'f') {
+      ptr++;
+      return true;
+    }
+    return false;
+  }
+
+  // decimal-floating-point-literal:
+  // 	fractional_constant, exponent_part[opt], floating_point_suffix[opt]
+  // 	digit_sequence, exponent_part[opt], floating_point_suffix[opt]
+  inline bool lex_decimal_floating_point_literal(
+      char c, const char*& ptr, lps::token::Token<TagName>& tok) {
+    const char* tmp_ptr0 = ptr;
+    const char* tmp_ptr1 = ptr;
+    bool is_type0 = false;
+    bool has_exponent_part = false;
+    bool has_floating_point_suffix = false;
+    if (lex_fractional_constant(c, tmp_ptr0, tok)) {
+      ptr = tmp_ptr0;
+      is_type0 = true;
+    } else if (lex_decimal_literal(tmp_ptr1, tok)) {
+      ptr = tmp_ptr1;
+    } else {
+      return false;
+    }
+    tmp_ptr0 = ptr;
+    if (lex_exponent_part(tmp_ptr0, tok)) {
+      has_exponent_part = true;
+      ptr = tmp_ptr0;
+    }
+    tmp_ptr1 = ptr;
+    if (lex_floating_point_suffix(tmp_ptr1, tok)) {
+      has_floating_point_suffix = true;
+      ptr = tmp_ptr1;
+    }
+    if (!has_floating_point_suffix && !has_exponent_part) {
+      return is_type0;
+    }
+    this->token_formulate(
+        tok, ptr, token::tok::TokenKind::decimal_floating_point_literal);
+    tok.data(this->cur());
+
+    int dummy = -1;
+
+    return true;
+  }
+
+  // binary-exponent-part:
+  // 	`p`, sign[opt], digit_sequence
+  // 	`P`, sign[opt], digit_sequence
+  inline bool lex_binary_exponent_part(const char*& ptr,
+                                       lps::token::Token<TagName>& tok) {
+    return lex_exponent_part_any(ptr, tok, 'p', 'P');
+  }
+
+  // hexadecimal-floating-point-literal:
+  // 	hexadecimal_prefix, hexadecimal_fractional_constant, binary_exponent_part, floating_point_suffix[opt]
+  // 	hexadecimal_prefix, hexadecimal_digit_sequence, binary_exponent_part, floating_point_suffix[opt]
+  inline bool lex_hexadecimal_floating_point_literal(
+      char c, const char*& ptr, lps::token::Token<TagName>& tok) {
+    if (c == '0') {
+      if (*ptr == 'x' || *ptr == 'X') {
+        ptr++;
+        char z = *ptr;
+        const char* tmp_ptr = ptr;
+        bool hexadecimal_fractional_constant_ok = false;
+        if (!lex_hexadecimal_fractional_constant(z, tmp_ptr, tok)) {
+          tmp_ptr = ptr;
+          if (!lex_hexadecimal_literal(tmp_ptr, tok)) {
+            return false;
+          }
+        } else {
+          hexadecimal_fractional_constant_ok = true;
+        }
+        ptr = tmp_ptr;
+        if (!lex_binary_exponent_part(ptr, tok)) {
+          return false;
+        }
+        tmp_ptr = ptr;
+        if (lex_floating_point_suffix(tmp_ptr, tok)) {
+          ptr = tmp_ptr;
+        }
+        this->token_formulate(
+            tok, ptr,
+            token::tok::TokenKind::hexadecimal_floating_point_literal);
+        tok.data(this->cur());
+        return true;
+      }
+    }
+    return false;
+  }
+
+  // floating-point-literal:
+  // 	decimal_floating_point_literal
+  // 	hexadecimal_floating_point_literal
+  inline bool lex_floating_point_literal(char c, const char*& ptr,
+                                         lps::token::Token<TagName>& tok) {
+
+    const char* tmp_ptr0 = ptr;
+    const char* tmp_ptr1 = ptr;
+    bool flg = false;
+    if (lex_hexadecimal_floating_point_literal(c, tmp_ptr0, tok)) {
+      ptr = tmp_ptr0;
+      flg = true;
+    } else if (lex_decimal_floating_point_literal(c, tmp_ptr1, tok)) {
+      ptr = tmp_ptr1;
+      flg = true;
+    }
+
+    if (flg) {
+      this->token_formulate(tok, ptr,
+                            token::tok::TokenKind::floating_point_literal);
+      tok.data(this->cur());
+      return true;
+    }
+    return false;
   }
 
   inline bool lex_numeric_constant() { return false; }
