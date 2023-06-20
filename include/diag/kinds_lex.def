@@ -37,5 +37,19 @@ DIAG(unfinished_raw_string_because_of_delimiter,
 DIAG(unfinished_raw_string, "raw_string definition not complete.", "",
      Level::kError)
 DIAG(unfinished_raw_string_expect_quotation,
-     "raw_string definition not complete, expect quotation to finish it.", "",
-     Level::kError)
+     "raw_string definition not complete, expect quotation to finish it.",
+     "expected `\"`", Level::kError)
+DIAG(unfinished_header_name_expected_gt,
+     "header_name definition not complete, expect quotation to finish it.",
+     "expected `>`", Level::kError)
+DIAG(unfinished_header_name_expected_quotation,
+     "header_name definition not complete, expect quotation to finish it.",
+     "expected `\"`", Level::kError)
+DIAG(redefine_ident_in_preprocessing,
+     "this identifier has already been defined, the new one will replace the "
+     "old one.",
+     "", Level::kWarning)
+DIAG(expected_ident_after_define_undef,
+     "expected an identifier after #define or #undef macro.", "", Level::kError)
+DIAG(undef_on_no_defined_ident, "trying to undef a not defined identifier.", "",
+     Level::kWarning)
