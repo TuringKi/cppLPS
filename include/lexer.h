@@ -24,6 +24,7 @@
 #pragma once
 
 #include <cstdint>
+#include <cstring>
 #include <limits>
 #include <memory>
 #include "basic/exception.h"
@@ -280,16 +281,22 @@ class Basic : public Base<TagName> {
       }
 
       case 'R':
-        if (lex_raw_string()) {
+        if (lex_raw_string(ptr, tok)) {
           return;
         };
         [[fallthrough]];
       case 'u':
       case 'U':
-      case 'L':
-        if (lex_character_literal(c, ptr, tok)) {
+      case 'L': {
+        const char* tmp_ptr = ptr;
+        if (lex_character_literal(c, tmp_ptr, tok)) {
           return;
         }
+        tmp_ptr = ptr;
+        if (lex_string_literal(c, tmp_ptr, tok)) {
+          return;
+        }
+      }
         [[fallthrough]];
       case 'A':
       case 'B':
@@ -354,7 +361,7 @@ class Basic : public Base<TagName> {
         }
         break;
       case '"':
-        if (lex_string_literal()) {
+        if (lex_string_literal(c, ptr, tok)) {
           return;
         }
         break;
@@ -689,17 +696,44 @@ class Basic : public Base<TagName> {
  private:
   inline bool line_comment_skipping() { return false; }
   inline bool block_comment_skipping() { return false; }
-  inline bool lex_character_literal(char c_, const char*& ptr,
-                                    lps::token::Token<TagName>& tok) {
-    bool flg = false;
-    const char* start = ptr - 1;
-    if (c_ == 'u') {
+  inline bool lex_encoding_prefix(char c, const char*& ptr,
+                                  lps::token::Token<TagName>& /*tok*/) {
+    if (c == 'u') {
       if (*ptr == '8') {
         ptr++;
       }
-      flg = true;
-    } else if (c_ == 'U' || c_ == 'L') {
-      flg = true;
+      return true;
+    }
+    return c == 'U' || c == 'L';
+  }
+
+  template <char StartChar, diag::DiagKind DiagKind>
+  inline uint32_t lex_char_seq(const char*& ptr,
+                               lps::token::Token<TagName>& tok) {
+    uint32_t cnt_char = 0;
+    while (*ptr != StartChar) {
+      if (*ptr == '\\') {
+        this->advance(ptr, tok);
+      }
+      if (*ptr == '\n' || *ptr == '\r' ||
+          (*ptr == 0 && ptr == this->end_ - 1)) {
+        this->diag(ptr, DiagKind);
+        return cnt_char;
+      }
+      this->advance(ptr, tok);
+      cnt_char++;
+    }
+    return cnt_char;
+  }
+
+  inline bool lex_character_literal(char c_, const char*& ptr,
+                                    lps::token::Token<TagName>& tok) {
+
+    const char* start = ptr - 1;
+    const char* tmp_ptr = ptr;
+    bool flg = lex_encoding_prefix(c_, tmp_ptr, tok);
+    if (flg) {
+      ptr = tmp_ptr;
     }
 
     if (flg) {
@@ -714,25 +748,14 @@ class Basic : public Base<TagName> {
       }
     }
     if (flg) {
-      uint32_t cnt_char = 0;
-      while (*ptr != '\'') {
-        if (*ptr == '\\') {
-          this->advance(ptr, tok);
-        }
-        if (*ptr == '\n' || *ptr == '\r' ||
-            (*ptr == 0 && ptr == this->end_ - 1)) {
-          this->diag(ptr, diag::unfinished_char_literal);
-          return false;
-        }
-        this->advance(ptr, tok);
-        cnt_char++;
-      }
+      uint32_t cnt_char =
+          lex_char_seq<'\'', diag::unfinished_char_literal>(ptr, tok);
+
       if (cnt_char == 0) {
         this->diag(ptr, diag::empty_char_literal);
         return false;
       }
       this->token_formulate(tok, ptr + 1, token::tok::TokenKind::char_literal);
-      tok.data(this->cur());
     }
 
     return flg;
@@ -829,7 +852,6 @@ class Basic : public Base<TagName> {
       matched_ptr = ptr;
     }
     this->token_formulate(tok, matched_ptr, TokenKind);
-    tok.data(this->cur());
     ptr = matched_ptr;
 
     return true;
@@ -919,7 +941,6 @@ class Basic : public Base<TagName> {
 
     ptr = end;
     this->token_formulate(tok, ptr, TokenKind1);
-    tok.data(this->cur());
     return true;
   }
 
@@ -1023,10 +1044,6 @@ class Basic : public Base<TagName> {
     }
     this->token_formulate(
         tok, ptr, token::tok::TokenKind::decimal_floating_point_literal);
-    tok.data(this->cur());
-
-    int dummy = -1;
-
     return true;
   }
 
@@ -1068,7 +1085,6 @@ class Basic : public Base<TagName> {
         this->token_formulate(
             tok, ptr,
             token::tok::TokenKind::hexadecimal_floating_point_literal);
-        tok.data(this->cur());
         return true;
       }
     }
@@ -1095,7 +1111,6 @@ class Basic : public Base<TagName> {
     if (flg) {
       this->token_formulate(tok, ptr,
                             token::tok::TokenKind::floating_point_literal);
-      tok.data(this->cur());
       return true;
     }
     return false;
@@ -1151,13 +1166,98 @@ class Basic : public Base<TagName> {
         matched_ptr = ptr;
       }
       this->token_formulate(tok, matched_ptr, kind);
-      tok.data(this->cur());
     }
     return flg;
   }
 
-  inline bool lex_string_literal() { return false; }
-  inline bool lex_raw_string() { return false; }
+  // raw-string:
+  // 	`"`, d_char_sequence[opt], `(`, r_char_sequence[opt], `)`, d_char_sequence[opt], `"`
+  inline bool lex_raw_string(const char*& ptr,
+                             lps::token::Token<TagName>& tok) {
+    using namespace basic::str::ascii;
+
+    if (*ptr != '"') {
+      return false;
+    }
+    ptr++;
+
+    //A string-literal that has an R in the prefix is a raw string literal.
+    //The d-char-sequence serves as a delimiter. The terminating d-char-sequence
+    //of a raw-string is the same sequence of characters as the initial d-char-sequence.
+    //A d-char-sequence shall consist of at most 16 characters.
+    unsigned prefix_len = 0;
+    while (prefix_len != 16 && is::RawStringDelimBody(ptr[prefix_len])) {
+      prefix_len++;
+    }
+
+    if (ptr[prefix_len] != '(') {  // not a delimiter
+      const char* prefix_end = ptr + prefix_len;
+      if (prefix_len == 16) {
+        this->diag(prefix_end, diag::DiagKind::raw_string_delimiter_too_long);
+      } else {
+        this->diag(prefix_end, diag::DiagKind::raw_string_invalid_delimiter);
+      }
+      return false;
+    }
+
+    const char* prefix_start = ptr;
+    ptr = ptr + prefix_len + 1;
+    while (*ptr != ')') {  //find next `)`
+      ptr++;
+    }
+    ptr++;
+    if (ptr + prefix_len + 1 >= this->end_) {
+      this->diag(ptr, diag::DiagKind::unfinished_raw_string);
+      return false;
+    }
+    if (std::strncmp(prefix_start, ptr, prefix_len) == 0) {
+      ptr = ptr + prefix_len;
+      if (*ptr == '"') {
+        this->token_formulate(tok, ptr + 1,
+                              lps::token::tok::TokenKind::raw_string);
+        return true;
+      }
+      this->diag(ptr, diag::DiagKind::unfinished_raw_string_expect_quotation);
+    } else {
+      this->diag(ptr + prefix_len,
+                 diag::DiagKind::unfinished_raw_string_because_of_delimiter);
+    }
+
+    return false;
+  }
+
+  // string-literal:
+  // 	encoding_prefix[opt], `"`, s_char_sequence[opt], `"`
+  // 	encoding_prefix[opt], `R`, raw_string
+  inline bool lex_string_literal(char c, const char*& ptr,
+                                 lps::token::Token<TagName>& tok) {
+    const char* tmp_ptr = ptr;
+    bool flg = lex_encoding_prefix(c, tmp_ptr, tok);
+    if (flg) {
+      ptr = tmp_ptr;
+      c = *ptr;
+      ptr++;
+    }
+    if (c == '"') {
+      uint32_t cnt_char =
+          lex_char_seq<'"', diag::unfinished_string_literal>(ptr, tok);
+      if (*ptr == '"') {
+        this->token_formulate(tok, ptr + 1,
+                              lps::token::tok::TokenKind::string_literal);
+        return true;
+      }
+
+    } else if (c == 'R') {
+      if (lex_raw_string(ptr, tok)) {
+        this->token_formulate(tok, ptr + 1,
+                              lps::token::tok::TokenKind::string_literal);
+        return true;
+      }
+    }
+
+    return false;
+  }
+
   inline bool lex_identifier(const char*& ptr,
                              lps::token::Token<TagName>& tok) {
     using namespace basic::str::ascii;
@@ -1187,7 +1287,6 @@ class Basic : public Base<TagName> {
     }
 
     this->token_formulate(tok, ptr, lps::token::tok::TokenKind::raw_identifier);
-    tok.data(this->cur());
     auto ident_str = tok.template str<meta::S("ident_str")>();
     if (lps::token::tok::IdentInfo::instance().kw_has(ident_str)) {
       tok.kind(lps::token::tok::IdentInfo::instance().kw_at(ident_str));

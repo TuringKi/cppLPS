@@ -4,5 +4,5 @@ int main() {
   U'cccc111$$$';
   L'\'';
   u8'\'';
-  char z = '
+  char z = 'a'
 }
