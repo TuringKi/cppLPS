@@ -179,6 +179,9 @@ std::string underline(uint32_t print_offset,
     }
 
     const char* start_of_line = p;
+    if (lps::basic::str::ascii::is::VertWs(*start_of_line)) {
+      start_of_line++;
+    }
     int64_t offset_before = ptr - start_of_line;
     offset_before = std::min<int64_t>(offset_before, 64);
 

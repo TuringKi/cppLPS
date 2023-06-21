@@ -23,4 +23,33 @@
 
 DIAG(unknown_tok, "unexpected unknown token.", "", Level::kError)
 DIAG(empty_char_literal, "char_literal is empty.", "", Level::kError)
-DIAG(unfinished_char_literal, "char_literal definition not complete.", "", Level::kError)
+DIAG(unfinished_char_literal, "char_literal definition not complete.", "",
+     Level::kError)
+DIAG(unfinished_string_literal, "string_literal definition not complete.", "",
+     Level::kError)
+DIAG(raw_string_delimiter_too_long,
+     "the delimiter of this raw_string is too long.", "", Level::kError)
+DIAG(raw_string_invalid_delimiter,
+     "the delimiter of this raw_string is not valid.", "", Level::kError)
+DIAG(unfinished_raw_string_because_of_delimiter,
+     "the post-delimiter of this raw_string not equal to the previous one.", "",
+     Level::kError)
+DIAG(unfinished_raw_string, "raw_string definition not complete.", "",
+     Level::kError)
+DIAG(unfinished_raw_string_expect_quotation,
+     "raw_string definition not complete, expect quotation to finish it.",
+     "expected `\"`", Level::kError)
+DIAG(unfinished_header_name_expected_gt,
+     "header_name definition not complete, expect quotation to finish it.",
+     "expected `>`", Level::kError)
+DIAG(unfinished_header_name_expected_quotation,
+     "header_name definition not complete, expect quotation to finish it.",
+     "expected `\"`", Level::kError)
+DIAG(redefine_ident_in_preprocessing,
+     "this identifier has already been defined, the new one will replace the "
+     "old one.",
+     "", Level::kWarning)
+DIAG(expected_ident_after_define_undef,
+     "expected an identifier after #define or #undef macro.", "", Level::kError)
+DIAG(undef_on_no_defined_ident, "trying to undef a not defined identifier.", "",
+     Level::kWarning)

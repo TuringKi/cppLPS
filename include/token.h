@@ -87,6 +87,15 @@ static constexpr std::array<std::pair<TokenKind, const char*>,
 class IdentInfo {
  public:
   using IdentStringRef = lps::basic::StringRef<meta::S("ident_str")>;
+  template <typename String>
+  struct IdentHash {
+    std::size_t operator()(const String& k) const {
+      if (k.empty()) {
+        return 0;
+      }
+      return std::hash<std::string>()(std::string(k.data(), k.size()));
+    }
+  };
 
   static const IdentInfo& instance() {
     static IdentInfo info;
@@ -107,15 +116,6 @@ class IdentInfo {
   }
 
  private:
-  struct IdentHash {
-    std::size_t operator()(const IdentStringRef& k) const {
-      if (k.empty()) {
-        return 0;
-      }
-      return std::hash<std::string>()(std::string(k.data(), k.size()));
-    }
-  };
-
   IdentInfo() {
     kw_map_ = {
 #define KEYWORD(NAME, FLAGS) {IdentStringRef(#NAME), TokenKind::kw_##NAME},
@@ -126,8 +126,10 @@ class IdentInfo {
     };
   }
 
-  std::unordered_map<IdentStringRef, TokenKind, IdentHash> kw_map_;
-  std::unordered_map<IdentStringRef, TokenKind, IdentHash> ident_map_;
+  std::unordered_map<IdentStringRef, TokenKind, IdentHash<IdentStringRef>>
+      kw_map_;
+  std::unordered_map<IdentStringRef, TokenKind, IdentHash<IdentStringRef>>
+      ident_map_;
 };
 
 static constexpr lps::basic::map::Map<TokenKind, const char*,

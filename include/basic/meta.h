@@ -47,4 +47,12 @@ constexpr Str<N0 + N1> operator+(const Str<N0>& s0, const char (&str)[N1]) {
   return s1;
 }
 
+template <size_t N0, size_t N1>
+constexpr Str<N0 + N1> operator+(const Str<N0>& s0, const Str<N1>& s1) {
+  Str<N0 + N1> s2;
+  std::copy_n(s0.value, N0, s2.value);
+  std::copy_n(s1.value, N1, s2.value + N0);
+  return s2;
+}
+
 }  // namespace meta
