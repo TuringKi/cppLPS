@@ -71,7 +71,9 @@ namespace tok {
 
 enum class TokenKind : uint16_t {
 #define TOK(X) X,
+#define CXX_KEYWORD_OPERATOR(X, Y) kw_##X,
 #include "token/kinds.def"
+#undef CXX_KEYWORD_OPERATOR
 #undef TOK
   kNum
 };
@@ -80,7 +82,9 @@ static constexpr std::array<std::pair<TokenKind, const char*>,
                             static_cast<uint16_t>(TokenKind::kNum)>
     kLists = {{
 #define TOK(X) {TokenKind::X, #X},
+#define CXX_KEYWORD_OPERATOR(X, Y) {TokenKind::kw_##X, #X},
 #include "token/kinds.def"
+#undef CXX_KEYWORD_OPERATOR
 #undef TOK
     }};
 
@@ -120,7 +124,9 @@ class IdentInfo {
     kw_map_ = {
 #define KEYWORD(NAME, FLAGS) {IdentStringRef(#NAME), TokenKind::kw_##NAME},
 #define ALIAS(NAME, TOK, FLAGS) {IdentStringRef(NAME), TokenKind::kw_##TOK},
+#define CXX_KEYWORD_OPERATOR(X, Y) {IdentStringRef(#X), TokenKind::kw_##X},
 #include "token/kinds.def"
+#undef CXX_KEYWORD_OPERATOR
 #undef KEYWORD
 #undef ALIAS
     };

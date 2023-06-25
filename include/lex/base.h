@@ -50,6 +50,10 @@ class Base : virtual public lps::basic::mem::TraceTag<TagName> {
  public:
   using type = Base<TagName>;
   using const_ptr_type = const type*;
+  using lex_func_type1 =
+      std::function<token::tok::TokenKind(char, const char*&)>;
+  using lex_func_type2 =
+      std::function<bool(char, const char*&, lps::token::Token<TagName>&)>;
   inline virtual void lex(lps::token::Token<TagName>& tok) = 0;
   [[nodiscard]] MethodType method() const { return type_; }
   explicit Base(uint32_t start_file_id, const char* ptr, const char* end,
@@ -118,7 +122,7 @@ class Base : virtual public lps::basic::mem::TraceTag<TagName> {
 
   static inline CharSize char_size(const char* ptr) {
     if (basic::str::ascii::is::NormalChar(ptr[0])) {
-      return {*ptr++, 1};
+      return {*(++ptr), 1};
     }
     uint32_t sz = 0;
     char c = char_scanning(ptr, sz);
@@ -128,7 +132,7 @@ class Base : virtual public lps::basic::mem::TraceTag<TagName> {
   static inline CharSize advance(const char*& ptr) {
     uint32_t sz = 0;
     if (basic::str::ascii::is::NormalChar(ptr[0])) {
-      return {*ptr++, 1};
+      return {*(++ptr), 1};
     }
 
     char c = char_scanning(ptr, sz);
@@ -170,6 +174,349 @@ class Base : virtual public lps::basic::mem::TraceTag<TagName> {
     tok.file_id(file_id_);
     tok.kind(kind);
     tok.data(this->cur());
+  }
+
+  template <auto Func>
+  static inline bool lex_char(const char*& ptr) {
+    if (Func(*ptr)) {
+      ptr++;
+      return true;
+    }
+    return false;
+  }
+
+  inline bool lex_something(char c, const char*& ptr,
+                            lps::token::Token<TagName>& tok,
+                            const lex_func_type1& func) {
+
+    const char* tmp_ptr = ptr;
+    auto kind = func(c, tmp_ptr);
+    if (kind != token::tok::TokenKind::unknown) {
+      ptr = tmp_ptr;
+      this->token_formulate(tok, ptr, kind);
+      return true;
+    }
+    return false;
+  }
+
+  inline bool lex_something_parallel(char c, const char*& ptr,
+                                     lps::token::Token<TagName>& tok,
+                                     const std::vector<lex_func_type2>& funcs) {
+    for (const auto& f : funcs) {
+      const char* tmp_ptr = ptr;
+      lps::token::Token<TagName> tmp_tok;
+      if (f(c, tmp_ptr, tmp_tok)) {
+        ptr = tmp_ptr;
+        tok = tmp_tok;
+        return true;
+      }
+    }
+    return false;
+  }
+
+  // preprocessing-operator:
+  // 	`#`
+  // 	`##`
+  // 	`%:`
+  // 	`%:%:`
+  inline bool lex_preprocessing_operator(char c, const char*& ptr,
+                                         lps::token::Token<TagName>& tok) {
+    return lex_something(
+        c, ptr, tok, [this](char c, const char*& ptr) -> token::tok::TokenKind {
+          token::tok::TokenKind kind = token::tok::TokenKind::unknown;
+          char next_c = *ptr;
+          switch (c) {
+            case '%': {
+              if (next_c == ':') {  // %:
+                kind = token::tok::TokenKind::percentcolon;
+                ptr++;
+                if (*ptr == '%' && *(ptr + 1) == ':') {  // %:%:
+                  kind = token::tok::TokenKind::percentcolonpercentcolon;
+                  ptr += 2;
+                }
+              }
+              break;
+            }
+            case '#': {
+              kind = token::tok::TokenKind::hash;
+              if (next_c == '#') {
+                kind = token::tok::TokenKind::hashhash;
+                ptr++;
+              }
+              break;
+            }
+            default:
+              break;
+          }
+          return kind;
+        });
+  }
+
+  inline bool lex_operator_or_punctuator(char c, const char*& ptr,
+                                         lps::token::Token<TagName>& tok) {
+    return lex_something(
+        c, ptr, tok, [this](char c, const char*& ptr) -> token::tok::TokenKind {
+          token::tok::TokenKind kind = token::tok::TokenKind::unknown;
+          char next_c = *ptr;
+          switch (c) {
+            case '{':
+              kind = token::tok::TokenKind::l_brace;
+              break;
+            case '}':
+              kind = token::tok::TokenKind::r_brace;
+              break;
+            case '[':
+              kind = token::tok::TokenKind::l_square;
+              break;
+            case ']':
+              kind = token::tok::TokenKind::r_square;
+              break;
+            case '(':
+              kind = token::tok::TokenKind::l_paren;
+              break;
+            case ')':
+              kind = token::tok::TokenKind::r_paren;
+              break;
+            case '?':
+              kind = token::tok::TokenKind::question;
+              break;
+            case ';':
+              kind = token::tok::TokenKind::semi;
+              break;
+            case ':': {
+              kind = token::tok::TokenKind::colon;
+              if (next_c == '>') {
+                kind = token::tok::TokenKind::colongreater;
+                ptr++;
+              } else if (next_c == ':') {
+                kind = token::tok::TokenKind::coloncolon;
+                ptr++;
+              }
+              break;
+            }
+            case '.': {
+              kind = token::tok::TokenKind::period;
+              if (next_c == '.') {
+                if (*(ptr + 1) == '.') {
+                  kind = token::tok::TokenKind::ellipsis;
+                  ptr += 2;
+                  break;
+                }
+              } else if (next_c == '*') {
+                kind = token::tok::TokenKind::periodstar;
+                ptr++;
+              }
+              break;
+            }
+            case '~':
+              kind = token::tok::TokenKind::tilde;
+              break;
+            case '!': {
+              kind = token::tok::TokenKind::exclaim;
+              if (next_c == '=') {
+                kind = token::tok::TokenKind::exclaimequal;
+                ptr++;
+              }
+              break;
+            }
+              kind = token::tok::TokenKind::exclaim;
+              break;
+            case '+': {
+              kind = token::tok::TokenKind::plus;
+              if (next_c == '=') {
+                kind = token::tok::TokenKind::plusequal;
+                ptr++;
+              } else if (next_c == '+') {
+                kind = token::tok::TokenKind::plusplus;
+                ptr++;
+              }
+              break;
+            }
+
+            case '-': {
+              kind = token::tok::TokenKind::minus;
+              if (next_c == '>') {
+                kind = token::tok::TokenKind::arrow;
+                ptr++;
+                if (*ptr == '*') {
+                  kind = token::tok::TokenKind::arrowstar;
+                  ptr++;
+                }
+              } else if (next_c == '-') {
+                kind = token::tok::TokenKind::minusminus;
+                ptr++;
+              } else if (next_c == '=') {
+                kind = token::tok::TokenKind::minusequal;
+                ptr++;
+              }
+              break;
+            }
+
+            case '*': {
+              kind = token::tok::TokenKind::star;
+              if (next_c == '=') {
+                kind = token::tok::TokenKind::starequal;
+                ptr++;
+              }
+              break;
+            }
+            case '/': {
+              kind = token::tok::TokenKind::slash;
+              if (next_c == '=') {
+                kind = token::tok::TokenKind::slashequal;
+                ptr++;
+              }
+              break;
+            }
+            case '%': {
+              kind = token::tok::TokenKind::percent;
+              if (next_c == '=') {
+                kind = token::tok::TokenKind::percentequal;
+                ptr++;
+              } else if (next_c == '>') {
+                kind = token::tok::TokenKind::percentgreater;
+                ptr++;
+              }
+              break;
+            }
+            case '&': {
+              kind = token::tok::TokenKind::amp;
+              if (next_c == '=') {
+                kind = token::tok::TokenKind::ampequal;
+                ptr++;
+              } else if (next_c == '&') {
+                kind = token::tok::TokenKind::ampamp;
+                ptr++;
+              }
+              break;
+            }
+            case '^': {
+              kind = token::tok::TokenKind::caret;
+              if (next_c == '=') {
+                kind = token::tok::TokenKind::caretequal;
+                ptr++;
+              } else if (next_c == '^') {
+                kind = token::tok::TokenKind::caretcaret;
+                ptr++;
+              }
+              break;
+            }
+            case '|': {
+              kind = token::tok::TokenKind::pipe;
+              if (next_c == '=') {
+                kind = token::tok::TokenKind::pipeequal;
+                ptr++;
+              } else if (next_c == '|') {
+                kind = token::tok::TokenKind::pipepipe;
+                ptr++;
+              }
+              break;
+            }
+            case '=': {
+              kind = token::tok::TokenKind::equal;
+              if (next_c == '=') {
+                kind = token::tok::TokenKind::equalequal;
+                ptr++;
+              }
+              break;
+            }
+            case '<': {
+              kind = token::tok::TokenKind::less;
+              if (next_c == '%') {
+                kind = token::tok::TokenKind::lesspercent;
+                ptr++;
+              } else if (next_c == ':') {
+                kind = token::tok::TokenKind::lesscolon;
+                ptr++;
+              } else if (next_c == '=') {  // <=
+                kind = token::tok::TokenKind::lessequal;
+                ptr++;
+                if (*ptr == '>') {  // <=>
+                  kind = token::tok::TokenKind::spaceship;
+                  ptr++;
+                  break;
+                }
+              } else if (next_c == '<') {  // <<
+                kind = token::tok::TokenKind::lessless;
+                ptr++;
+                if (*ptr == '=') {  // <<=
+                  kind = token::tok::TokenKind::lesslessequal;
+                  ptr++;
+                  break;
+                }
+              }
+              break;
+            }
+            case '>': {
+              kind = token::tok::TokenKind::greater;
+              if (next_c == '>') {  // >>
+                kind = token::tok::TokenKind::greatergreater;
+                ptr++;
+                if (*ptr == '=') {  // >>=
+                  kind = token::tok::TokenKind::greatergreaterequal;
+                  ptr++;
+                  break;
+                }
+              } else if (next_c == '=') {  //>=
+                kind = token::tok::TokenKind::greaterequal;
+                ptr++;
+              }
+              break;
+            }
+            default:
+              break;
+          }
+          return kind;
+        });
+  }
+
+  // operator-or-punctuator: one of:
+  //	{ } [ ] ( )
+  //	<: :> <% %> ; : ...
+  //	? :: . .* -> ->* ~
+  //	! + - * / % ^ & |
+  //	= += -= *= /= %= ^= &= |=
+  //	== != < > <= >= <=> && ||
+  //	<< >> <<= >>= ++ -- ,
+  //	and or xor not bitand bitor compl
+  //	and_eq or_eq xor_eq not_eq
+  inline bool lex_operator_or_punctuator_or_keyword_operator(
+      char c, const char*& ptr, lps::token::Token<TagName>& tok) {
+    if (!lex_operator_or_punctuator(c, ptr, tok)) {
+      if (this->lex_identifier(ptr, tok)) {
+        //	one of following key_words:
+        //    and or xor not bitand bitor compl and_eq or_eq xor_eq not_eq
+        if (tok.kind() == token::tok::TokenKind::kw_and ||
+            tok.kind() == token::tok::TokenKind::kw_or ||
+            tok.kind() == token::tok::TokenKind::kw_xor ||
+            tok.kind() == token::tok::TokenKind::kw_not ||
+            tok.kind() == token::tok::TokenKind::kw_bitand ||
+            tok.kind() == token::tok::TokenKind::kw_bitor ||
+            tok.kind() == token::tok::TokenKind::kw_compl ||
+            tok.kind() == token::tok::TokenKind::kw_and_eq ||
+            tok.kind() == token::tok::TokenKind::kw_or_eq ||
+            tok.kind() == token::tok::TokenKind::kw_xor_eq ||
+            tok.kind() == token::tok::TokenKind::kw_not_eq) {
+          return true;
+        }
+      }
+    } else {
+      return true;
+    }
+    return false;
+  }
+
+  inline bool lex_preprocessing_op_or_punc(char c, const char*& ptr,
+                                           lps::token::Token<TagName>& tok) {
+    std::vector<lex_func_type2> funcs = {
+        [this](char c, const char*& ptr, lps::token::Token<TagName>& tok)
+            -> bool { return lex_preprocessing_operator(c, ptr, tok); },
+        [this](char c, const char*& ptr,
+               lps::token::Token<TagName>& tok) -> bool {
+          return lex_operator_or_punctuator_or_keyword_operator(c, ptr, tok);
+        },
+    };
+    return lex_something_parallel(c, ptr, tok, funcs);
   }
 
   template <char StartChar, diag::DiagKind DiagKind>

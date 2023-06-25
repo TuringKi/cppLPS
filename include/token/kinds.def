@@ -172,6 +172,7 @@ TOK(utf32_char_constant) // U'a'
 
 // C99 6.4.5: String Literals.
 TOK(string_literal)      // "foo"
+TOK(user_defined_string_literal)      // "foo"ab
 TOK(wide_string_literal) // L"foo"
 
 // C11 6.4.7: Header Names
@@ -188,11 +189,14 @@ TOK(octal_literal)// 0123
 TOK(hexadecimal_literal)// 0XABCDEF
 TOK(decimal_literal)// 42
 TOK(char_literal)// 'abc'
+TOK(user_defined_char_literal)// 'abc'aa
 TOK(fractional_constant)// 123.4
 TOK(decimal_floating_point_literal) // 123.4e-13
 TOK(hexadecimal_floating_point_literal) // 12EF.EEP-1234
 TOK(floating_point_literal) // hexadecimal_floating_point_literal or decimal_floating_point_literal
 TOK(raw_string) // R"ss(xxx)ss"
+TOK(pp_number)
+TOK(pp_tokens)
 
 // C99 6.4.6: Punctuators.
 PUNCTUATOR(l_square,            "[")
@@ -221,8 +225,13 @@ PUNCTUATOR(exclaimequal,        "!=")
 PUNCTUATOR(slash,               "/")
 PUNCTUATOR(slashequal,          "/=")
 PUNCTUATOR(percent,             "%")
-PUNCTUATOR(percentequal,        "%=")
+PUNCTUATOR(percentequal,                "%=")
+PUNCTUATOR(percentgreater,                "%>")
+PUNCTUATOR(percentcolon,        "%:")
+PUNCTUATOR(percentcolonpercentcolon,        "%:%:")
 PUNCTUATOR(less,                "<")
+PUNCTUATOR(lesscolon,                "<:")
+PUNCTUATOR(lesspercent,                "<%")
 PUNCTUATOR(lessless,            "<<")
 PUNCTUATOR(lessequal,           "<=")
 PUNCTUATOR(lesslessequal,       "<<=")
@@ -238,6 +247,7 @@ PUNCTUATOR(pipepipe,            "||")
 PUNCTUATOR(pipeequal,           "|=")
 PUNCTUATOR(question,            "?")
 PUNCTUATOR(colon,               ":")
+PUNCTUATOR(colongreater,                ":>")
 PUNCTUATOR(semi,                ";")
 PUNCTUATOR(equal,               "=")
 PUNCTUATOR(equalequal,          "==")

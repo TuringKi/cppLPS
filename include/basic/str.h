@@ -267,6 +267,11 @@ inline bool Alphanumeric(u_char c) {
           (CharType::kDigit | CharType::kUpper | CharType::kLower)) != 0;
 }
 
+inline bool NonDigit(u_char c) {
+  return (kTable[c] &
+          (CharType::kUpper | CharType::kLower | CharType::kUnder)) != 0;
+}
+
 inline bool HexDigit(u_char c) {
   return (kTable[c] & (CharType::kDigit | CharType::kXLetter)) != 0;
 }
