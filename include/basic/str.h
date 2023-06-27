@@ -402,6 +402,30 @@ class CharPointer {
     horzws_skip(flg);
   }
 
+  void vertws_skipping() {
+    if (flg_skip_vertws_) {
+      (*this)++;
+      return;
+    }
+    vertws_skip(true);
+    (*this)++;
+    vertws_skip(false);
+  }
+  void horzws_skipping() {
+    if (flg_skip_horzws_) {
+      (*this)++;
+      return;
+    }
+    horzws_skip(true);
+    (*this)++;
+    horzws_skip(false);
+  }
+
+  void ws_skipping() {
+    horzws_skipping();
+    vertws_skipping();
+  }
+
  private:
   void skipping() {
     if (flg_skip_vertws_ && flg_skip_horzws_) {

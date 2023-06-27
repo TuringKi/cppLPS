@@ -166,6 +166,7 @@ template <meta::Str TagName>
 struct Token : virtual public basic::mem::TraceTag<TagName> {
 
  public:
+  using tokens_type = basic::Vector<4, lps::token::Token<TagName>, TagName>;
 #define SET(A, B)             \
   (A)->data_ = (B).data();    \
   (A)->loc_ = (B).location(); \

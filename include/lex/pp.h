@@ -30,7 +30,7 @@
 #include "token.h"
 #include "tu.h"
 
-namespace lps::lexer::details {
+namespace lps::lexer::details::pp {
 
 template <meta::Str TagName>
 class Preprocessing : public Base<TagName> {
@@ -229,29 +229,23 @@ class Preprocessing : public Base<TagName> {
   // pp-tokens:
   // 	preprocessing_token
   // 	pp_tokens, preprocessing_token
-  inline bool lex_pp_tokens(char c, typename base::ptr_type& ptr,
-                            lps::token::Token<TagName>& tok) {
-    return [this](char c, typename base::ptr_type& ptr,
-                  lps::token::Token<TagName>& tok) {
-      auto lex = [this](char c, typename base::ptr_type& ptr,
-                        lps::token::Token<TagName>& tok,
-                        const auto& func) -> bool {
-        if (lex_preprocessing_token(c, ptr, tok)) {
-
-          char tmp_c = *ptr;
-          typename base::ptr_type tmp_ptr = ptr + 1;
-          lps::token::Token<TagName> tmp_tok;
-          if (func(tmp_c, tmp_ptr, tmp_tok, func)) {
-            ptr = tmp_ptr;
-            tok = tmp_tok;
-          }
-          tok.kind(token::tok::TokenKind::pp_tokens);
-          return true;
-        }
-        return false;
-      };
-      return lex(c, ptr, tok, lex);
-    }(c, ptr, tok);
+  inline typename lps::token::Token<TagName>::tokens_type lex_pp_tokens(
+      char c, typename base::ptr_type& ptr, lps::token::Token<TagName>& tok) {
+    typename lps::token::Token<TagName>::tokens_type tokens;
+    if (this->template lex_something_recursive<
+            token::tok::TokenKind::pp_tokens>(
+            c, ptr, tok,
+            [this, &tokens](char c, typename base::ptr_type& ptr,
+                            lps::token::Token<TagName>& tok) -> bool {
+              if (this->lex_preprocessing_token(c, ptr, tok)) {
+                tokens.append(tok);
+                return false;
+              }
+              return false;
+            })) {
+      return tokens;
+    }
+    return typename lps::token::Token<TagName>::tokens_type();
   }
 
   // control-line:
@@ -292,7 +286,10 @@ class Preprocessing : public Base<TagName> {
             tmp_ptr2++;
             lps::token::Token<TagName> next_tok;
             // replacement-list: pp_tokens[opt]
-            if (lex_pp_tokens(*tmp_ptr, tmp_ptr2, next_tok)) {
+            auto replacement_tokens =
+                lex_pp_tokens(*tmp_ptr, tmp_ptr2, next_tok);
+            if (!replacement_tokens.empty()) {
+              tmp_ptr2.horzws_skipping();
               if (basic::str::ascii::is::VertWs(*tmp_ptr2)) {
                 // [`#`, `define`, `identifier`, replacement_list, new_line] matched
                 tmp_ptr = tmp_ptr2;
@@ -301,18 +298,56 @@ class Preprocessing : public Base<TagName> {
 
               if (*tmp_ptr == '(' && !basic::str::ascii::is::Ws(*tmp_ptr2)) {
                 // [lparen] matched, now consider:
-                // 1. identifier_list[opt], `)`, replacement_list, new_line
-                // 2. `...`, `)`, replacement_list, new_line
-                // 3. identifier_list, `...`, `)`, replacement_list, new_line
+                // 1. identifier_list[opt],
+                // 2. `...`
+                // 3. identifier_list, `...`
                 char tmp_c = *tmp_ptr2;
                 tmp_ptr2++;
+                typename lps::token::Token<TagName>::tokens_type
+                    parameter_tokens;
                 std::vector<typename base::lex_func_type2> funcs = {
-                    [this](char c, typename base::ptr_type& ptr,
-                           lps::token::Token<TagName>& tok) -> bool {
+                    [this, &parameter_tokens](
+                        char c, typename base::ptr_type& ptr,
+                        lps::token::Token<TagName>& tok) -> bool {
+                      auto tmp_ptr = ptr;
+                      auto tmp_tok = tok;
+                      if (this->lex_operator_or_punctuator(c, tmp_ptr,
+                                                           tmp_tok)) {
+                        if (tmp_tok.kind() == token::tok::TokenKind::ellipsis) {
+                          tok = tmp_tok;
+                          ptr = tmp_ptr;
+                          parameter_tokens.append(tok);
+                          return true;
+                        }
+                      }
                       return false;
                     },
-                    [this](char c, typename base::ptr_type& ptr,
-                           lps::token::Token<TagName>& tok) -> bool {
+                    [this, &parameter_tokens](
+                        char c, typename base::ptr_type& ptr,
+                        lps::token::Token<TagName>& tok) -> bool {
+                      {
+                        auto tmp_ptr = ptr;
+                        auto tmp_tok = tok;
+                        parameter_tokens =
+                            this->lex_identifier_list(c, tmp_ptr, tmp_tok);
+                        if (!parameter_tokens.empty()) {
+                          tmp_ptr.horzws_skipping();
+                          char tmp_c = *tmp_ptr;
+                          tmp_ptr++;
+                          if (this->lex_operator_or_punctuator(c, tmp_ptr,
+                                                               tmp_tok)) {
+                            if (tmp_tok.kind() ==
+                                token::tok::TokenKind::ellipsis) {
+                              tok = tmp_tok;
+                              ptr = tmp_ptr;
+                              parameter_tokens.append(tok);
+                              return true;
+                            }
+                          }
+                        }
+                        return true;
+                      }
+
                       return false;
                     },
 
@@ -320,6 +355,19 @@ class Preprocessing : public Base<TagName> {
                 if (this->lex_something_parallel(tmp_c, tmp_ptr2, next_tok,
                                                  funcs)) {
                   unreachable(TagName);
+                  // now check: `)`, replacement_list, new_line
+                  tmp_ptr2.horzws_skipping();
+                  if (*tmp_ptr2 == ')') {
+                    // record replacement_list
+                    auto tmp_ptr3 = tmp_ptr2;
+                    lps::token::Token<TagName> replacement_token;
+                    tmp_ptr3.horzws_skipping();
+                    char tmp_c = *tmp_ptr3;
+                    tmp_ptr3++;
+                    auto replacement_tokens =
+                        lex_pp_tokens(tmp_c, tmp_ptr3, replacement_token);
+                    if (!replacement_tokens.empty()) {}
+                  }
                 }
               }
             }
@@ -345,4 +393,4 @@ class Preprocessing : public Base<TagName> {
   void command() {}
 };  // namespace lps::lexer::details
 
-}  // namespace lps::lexer::details
+}  // namespace lps::lexer::details::pp

@@ -29,6 +29,7 @@
 #include "basic/vec.h"
 #include "diag.h"
 #include "token.h"
+#include "tu.h"
 
 namespace lps::lexer::details {
 
@@ -213,6 +214,34 @@ class Base : virtual public lps::basic::mem::TraceTag<TagName> {
       }
     }
     return false;
+  }
+
+  template <token::tok::TokenKind OutKind>
+  inline bool lex_something_recursive(char c, ptr_type& ptr,
+                                      lps::token::Token<TagName>& tok,
+                                      const lex_func_type2& first_lex_func) {
+    return [this](char c, ptr_type& ptr, lps::token::Token<TagName>& tok,
+                  const lex_func_type2& first_lex_func) {
+      auto lex = [this, &first_lex_func](char c, ptr_type& ptr,
+                                         lps::token::Token<TagName>& tok,
+                                         const auto& func) -> bool {
+        if (first_lex_func(c, ptr, tok)) {
+          ptr_type tmp_ptr = ptr;
+          tmp_ptr.horzws_skipping();  // skip space, `\t` etc.
+          char tmp_c = *ptr;
+          tmp_ptr++;
+          lps::token::Token<TagName> tmp_tok;
+          if (func(tmp_c, tmp_ptr, tmp_tok, func)) {
+            ptr = tmp_ptr;
+            tok = tmp_tok;
+          }
+          tok.kind(OutKind);
+          return true;
+        }
+        return false;
+      };
+      return lex(c, ptr, tok, lex);
+    }(c, ptr, tok, first_lex_func);
   }
 
   // preprocessing-operator:
@@ -571,6 +600,9 @@ class Base : virtual public lps::basic::mem::TraceTag<TagName> {
       tok.kind(lps::token::tok::IdentInfo::instance().kw_at(ident_str));
     } else {
       tok.kind(token::tok::TokenKind::identifier);
+
+      // a valid identifier, we must check if it was defined by `TU`.
+      if (tu::TU::instance().defined(tok)) {}
     }
 
     return true;
@@ -1141,6 +1173,30 @@ class Base : virtual public lps::basic::mem::TraceTag<TagName> {
     }
 
     return false;
+  }
+
+  inline typename lps::token::Token<TagName>::tokens_type lex_identifier_list(
+      char c, ptr_type& ptr, lps::token::Token<TagName>& tok) {
+    typename lps::token::Token<TagName>::tokens_type tokens;
+    if (lex_something_recursive<token::tok::TokenKind::identifiers>(
+            c, ptr, tok,
+            [this, &tokens](char /*c*/, ptr_type& ptr,
+                            lps::token::Token<TagName>& tok) -> bool {
+              auto tmp_ptr = ptr;
+              lps::token::Token<TagName> tmp_tok;
+              if (lex_identifier(tmp_ptr, tmp_tok)) {
+                if (tmp_tok.kind() == token::tok::TokenKind::identifier) {
+                  ptr = tmp_ptr;
+                  tok = tmp_tok;
+                  tokens.append(tok);
+                  return true;
+                }
+              }
+              return false;
+            })) {
+      return tokens;
+    }
+    return typename lps::token::Token<TagName>::tokens_type();
   }
 
   MethodType type_{MethodType::kNone};

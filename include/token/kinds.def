@@ -154,6 +154,7 @@ TOK(comment)             // Comment (only in -E -C[C] mode)
 // C99 6.4.2: Identifiers.
 TOK(identifier)          // abcde123
 TOK(raw_identifier)      // Used only in raw lexing mode.
+TOK(identifiers)
 
 // C99 6.4.4.1: Integer Constants
 // C99 6.4.4.2: Floating Constants
@@ -196,6 +197,7 @@ TOK(hexadecimal_floating_point_literal) // 12EF.EEP-1234
 TOK(floating_point_literal) // hexadecimal_floating_point_literal or decimal_floating_point_literal
 TOK(raw_string) // R"ss(xxx)ss"
 TOK(pp_number)
+TOK(pp_token)
 TOK(pp_tokens)
 
 // C99 6.4.6: Punctuators.

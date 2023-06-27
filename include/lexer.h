@@ -50,7 +50,7 @@ class Lexer {
         break;
       }
       case details::kPreprocessing: {
-        details::Preprocessing<TagName> m(file_id_, cur(), end_);
+        details::pp::Preprocessing<TagName> m(file_id_, cur(), end_);
         m.lex(tok);
         inc(m.pos());
         break;

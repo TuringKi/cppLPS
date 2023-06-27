@@ -48,13 +48,19 @@ class TU : virtual public basic::mem::TraceTag<meta::S("TU")> {
   }
 
   template <meta::Str TagName>
-  void define(const token::Token<TagName>& tok) {
+  void define(
+      const token::Token<TagName>& tok,
+      const typename lps::token::Token<TagName>::tokens_type& parameter_tokens =
+          typename lps::token::Token<TagName>::tokens_type{},
+      const typename lps::token::Token<TagName>::tokens_type& expand_tokens =
+          typename lps::token::Token<TagName>::tokens_type{}) {
     check_define(tok);
     if (already_defined(tok)) {
       diag(tok, diag::DiagKind::redefine_ident_in_preprocessing);
     }
     define_tokens_[str(tok)] = tok;
   }
+
   template <meta::Str TagName>
   bool already_defined(const token::Token<TagName>& tok) {
     check_define(tok);
