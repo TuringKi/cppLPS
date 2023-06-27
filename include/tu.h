@@ -59,6 +59,7 @@ class TU : virtual public basic::mem::TraceTag<meta::S("TU")> {
       diag(tok, diag::DiagKind::redefine_ident_in_preprocessing);
     }
     define_tokens_[str(tok)] = tok;
+    // todo(@mxlol233): Build the corresponding pp_ast nodes.
   }
 
   template <meta::Str TagName>
@@ -75,6 +76,12 @@ class TU : virtual public basic::mem::TraceTag<meta::S("TU")> {
     } else {
       define_tokens_.erase(str(tok));
     }
+  }
+  template <meta::Str TagName>
+  void expand(const token::Token<TagName>& tok) {
+    check_define(tok);
+    typename token::Token<TagName>::tokens_type expanded_tokens;
+    // todo(@mxlol233): recursively expand all the defined identifiers.
   }
 
  private:

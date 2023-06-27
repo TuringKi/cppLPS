@@ -32,14 +32,32 @@ template <meta::Str TagName>
 class Node : virtual public basic::mem::TraceTag<TagName> {
 
  public:
-  virtual typename token::Token<TagName>::tokens_type expand() = 0;
+  Node() = default;
+  using tokens_type = typename token::Token<TagName>::tokens_type;
+  virtual const tokens_type& expand() = 0;
 };
 
 template <meta::Str TagName>
 class Define : public Node<TagName> {
 
  public:
-  typename token::Token<TagName>::tokens_type expand() override {}
+  using base = Node<TagName>;
+  const typename base::tokens_type& expand() override { return body_; }
+
+ protected:
+  token::Token<TagName> name_;
+  typename base::tokens_type body_;
+};
+
+template <meta::Str TagName>
+class DefineWithParameters : public Define<TagName> {
+
+ public:
+  using base = Node<TagName>;
+  const typename base::tokens_type& expand() override {}
+
+ protected:
+  typename base::tokens_type parameters_;
 };
 
 }  // namespace lps::lexer::details::pp::ast
