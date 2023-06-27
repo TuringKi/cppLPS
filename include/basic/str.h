@@ -25,6 +25,7 @@
 
 #include <sys/types.h>
 #include <array>
+#include <cstring>
 #include <iostream>
 #include <sstream>
 #include <string>
@@ -325,5 +326,102 @@ inline bool ASCII(u_char c) {
 }  // namespace is
 
 }  // namespace ascii
+
+class CharPointer {
+
+ public:
+  static int strncmp(const CharPointer& a, const CharPointer& b, size_t n) {
+    return std::strncmp(a.ptr_, b.ptr_, n);
+  }
+  static int strncmp(const char* a, const char* b, size_t n) {
+    return std::strncmp(a, b, n);
+  }
+  explicit CharPointer(const char* ptr = nullptr, uint32_t file_id = 0)
+      : ptr_(ptr), file_id_(file_id) {}
+  [[nodiscard]] const char* ptr() const { return ptr_; }
+  CharPointer& operator++() {
+    skipping();
+    ptr_++;
+    return *this;
+  }
+  CharPointer operator++(int) {
+    CharPointer tmp = *this;
+    skipping();
+    ptr_++;
+    return tmp;
+  }
+  CharPointer& operator--() {
+    ptr_--;
+    return *this;
+  }
+  CharPointer operator--(int) {
+    CharPointer tmp = *this;
+    ptr_--;
+    return tmp;
+  }
+
+  CharPointer& operator+=(size_t idx) {
+    ptr_ += idx;
+    return *this;
+  }
+
+  size_t operator-(const CharPointer& other) const { return ptr_ - other.ptr_; }
+
+  CharPointer operator+(size_t idx) const {
+    CharPointer tmp;
+    tmp.ptr_ = ptr_ + idx;
+    return tmp;
+  }
+  CharPointer operator-(size_t idx) const {
+    CharPointer tmp;
+    tmp.ptr_ = ptr_ - idx;
+    return tmp;
+  }
+  bool operator>=(const CharPointer& other) const { return ptr_ >= other.ptr_; }
+  bool operator<=(const CharPointer& other) const { return ptr_ <= other.ptr_; }
+  bool operator<(const CharPointer& other) const { return ptr_ < other.ptr_; }
+  bool operator>(const CharPointer& other) const { return ptr_ > other.ptr_; }
+  bool operator!=(const CharPointer& other) const { return ptr_ != other.ptr_; }
+  bool operator==(const CharPointer& other) const { return ptr_ == other.ptr_; }
+
+  bool operator>=(const char* other) const { return ptr_ >= other; }
+  bool operator<=(const char* other) const { return ptr_ <= other; }
+  bool operator<(const char* other) const { return ptr_ < other; }
+  bool operator>(const char* other) const { return ptr_ > other; }
+  bool operator!=(const char* other) const { return ptr_ != other; }
+  bool operator==(const char* other) const { return ptr_ == other; }
+
+  char operator*() { return *ptr_; }
+
+  char operator[](size_t idx) const { return ptr_[idx]; }
+
+  void vertws_skip(bool flg) { flg_skip_vertws_ = flg; }
+  void horzws_skip(bool flg) { flg_skip_horzws_ = flg; }
+  void ws_skip(bool flg) {
+    vertws_skip(flg);
+    horzws_skip(flg);
+  }
+
+ private:
+  void skipping() {
+    if (flg_skip_vertws_ && flg_skip_horzws_) {
+      while (ascii::is::Ws(*ptr_)) {
+        ptr_++;
+      }
+    } else if (flg_skip_vertws_) {
+      while (ascii::is::VertWs(*ptr_)) {
+        ptr_++;
+      }
+    } else if (flg_skip_horzws_) {
+      while (ascii::is::HorzWs(*ptr_)) {
+        ptr_++;
+      }
+    }
+  }
+  const char* ptr_{nullptr};
+  uint32_t file_id_{0};
+  bool flg_skip_vertws_{false};
+  bool flg_skip_horzws_{false};
+};
 
 }  // namespace lps::basic::str

@@ -43,7 +43,7 @@ class Basic : public Base<TagName> {
   // *skip_horz_ws*: skip line-changing characters, like `'\n'`.
   inline void lex(lps::token::Token<TagName>& tok) override {
     using namespace basic::str::ascii;
-    const char* ptr = this->cur();
+    typename base::ptr_type ptr = this->cur();
   start:  // state: start
     if (is::HorzWs(*ptr)) {
       do {
@@ -109,7 +109,7 @@ class Basic : public Base<TagName> {
       case '7':
       case '8':
       case '9': {
-        const char* tmp_ptr = ptr;
+        typename base::ptr_type tmp_ptr = ptr;
         if (this->lex_floating_point_literal(c, tmp_ptr, tok)) {
           return;
         }
@@ -128,7 +128,7 @@ class Basic : public Base<TagName> {
       case 'u':
       case 'U':
       case 'L': {
-        const char* tmp_ptr = ptr;
+        typename base::ptr_type tmp_ptr = ptr;
         if (this->lex_character_literal(c, tmp_ptr, tok)) {
           return;
         }
@@ -232,7 +232,7 @@ class Basic : public Base<TagName> {
         sz_tmp = std::get<1>(c_sz);
 
         {
-          const char* tmp_ptr = ptr;
+          typename base::ptr_type tmp_ptr = ptr;
           if (this->lex_floating_point_literal('.', tmp_ptr, tok)) {
             ptr = tmp_ptr;
             return;
