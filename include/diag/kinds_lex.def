@@ -51,5 +51,7 @@ DIAG(redefine_ident_in_preprocessing,
      "", Level::kWarning)
 DIAG(expected_ident_after_define_undef,
      "expected an identifier after #define or #undef macro.", "", Level::kError)
-DIAG(undef_on_no_defined_ident, "trying to undef a not defined identifier.", "",
-     Level::kWarning)
+DIAG(undef_on_no_defined_ident, "trying to `#undef` a  un-defined identifier.",
+     "", Level::kWarning)
+DIAG(unexpected_empty_macro_expand, "used empty `#define` target.", "",
+     Level::kError)

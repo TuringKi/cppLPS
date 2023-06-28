@@ -293,6 +293,10 @@ class Preprocessing : public Base<TagName> {
               if (basic::str::ascii::is::VertWs(*tmp_ptr2)) {
                 // [`#`, `define`, `identifier`, replacement_list, new_line] matched
                 tmp_ptr = tmp_ptr2;
+                decltype(replacement_tokens) empty_parameter_tokens;
+                tu::TU::instance().define(tok,
+                                          std::move(empty_parameter_tokens),
+                                          std::move(replacement_tokens));
               }
             } else {  // try others.
 
@@ -366,7 +370,11 @@ class Preprocessing : public Base<TagName> {
                     tmp_ptr3++;
                     auto replacement_tokens =
                         lex_pp_tokens(tmp_c, tmp_ptr3, replacement_token);
-                    if (!replacement_tokens.empty()) {}
+                    if (!replacement_tokens.empty()) {
+                      tu::TU::instance().define(tok,
+                                                std::move(parameter_tokens),
+                                                std::move(replacement_tokens));
+                    }
                   }
                 }
               }

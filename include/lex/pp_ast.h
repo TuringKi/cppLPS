@@ -23,6 +23,8 @@
 
 #pragma once
 
+#include <cstring>
+#include <memory>
 #include "basic/exception.h"
 #include "token.h"
 
@@ -32,9 +34,25 @@ template <meta::Str TagName>
 class Node : virtual public basic::mem::TraceTag<TagName> {
 
  public:
-  Node() = default;
   using tokens_type = typename token::Token<TagName>::tokens_type;
-  virtual const tokens_type& expand() = 0;
+  using token_type = token::Token<TagName>;
+  using ptr_type = std::unique_ptr<Node<TagName>>;
+  template <class... Args>
+  explicit Node(token_type&& name, Args&&... /*args*/)
+      : name_(std::move(name)){};
+  template <meta::Str TagNameOther, class... Args>
+  explicit Node(token::Token<TagNameOther>&& name, Args&&... /*args*/)
+      : name_(std::move(name)){};
+  virtual const tokens_type& expand() { return expanded_tokens_; };
+  const token_type& name() const { return name_; }
+  template <meta::Str TagNameOther>
+  basic::StringRef<TagNameOther> name_str() const {
+    return name_.template str<TagNameOther>();
+  }
+
+ protected:
+  token_type name_;
+  tokens_type expanded_tokens_;
 };
 
 template <meta::Str TagName>
@@ -42,10 +60,24 @@ class Define : public Node<TagName> {
 
  public:
   using base = Node<TagName>;
+  template <class... Args>
+  Define(typename base::token_type&& name, typename base::tokens_type&& body,
+         Args... args)
+      : base(std::move(name), std::forward<Args>(args)...),
+        body_(std::move(body)) {}
+  template <meta::Str TagNameOther, class... Args>
+  Define(token::Token<TagNameOther>&& name,
+         typename token::Token<TagNameOther>::tokens_type&& body, Args... args)
+      : base(std::move(name), std::forward<Args>(args)...),
+        body_(std::move(body)) {}
+  template <meta::Str TagNameOther0, meta::Str TagNameOther1, class... Args>
+  Define(token::Token<TagNameOther0>&& name,
+         typename token::Token<TagNameOther1>::tokens_type&& body, Args... args)
+      : base(std::move(name), std::forward<Args>(args)...),
+        body_(std::move(body)) {}
   const typename base::tokens_type& expand() override { return body_; }
 
  protected:
-  token::Token<TagName> name_;
   typename base::tokens_type body_;
 };
 
@@ -53,11 +85,66 @@ template <meta::Str TagName>
 class DefineWithParameters : public Define<TagName> {
 
  public:
-  using base = Node<TagName>;
-  const typename base::tokens_type& expand() override {}
+  using base = Define<TagName>;
+  template <class... Args>
+  DefineWithParameters(typename base::token_type&& name,
+                       typename base::tokens_type&& parameters,
+                       typename base::tokens_type&& body, Args... args)
+      : base(std::move(name), std::move(body), std::forward<Args>(args)...),
+        parameters_(std::move(parameters)) {}
+  template <meta::Str TagNameOther, class... Args>
+  DefineWithParameters(
+      token::Token<TagNameOther>&& name,
+      typename token::Token<TagNameOther>::tokens_type&& parameters,
+      typename token::Token<TagNameOther>::tokens_type&& body, Args... args)
+      : base(std::move(name), std::move(body), std::forward<Args>(args)...),
+        parameters_(std::move(parameters)) {}
+  template <meta::Str TagNameOther0, meta::Str TagNameOther1,
+            meta::Str TagNameOther2, class... Args>
+  DefineWithParameters(
+      token::Token<TagNameOther0>&& name,
+      typename token::Token<TagNameOther1>::tokens_type&& parameters,
+      typename token::Token<TagNameOther2>::tokens_type&& body, Args... args)
+      : base(std::move(name), std::move(body), std::forward<Args>(args)...),
+        parameters_(std::move(parameters)) {}
+  const typename base::tokens_type& expand() override {
+    unreachable(TagName);
+    if (!this->expanded_tokens_.empty()) {
+      return this->expanded_tokens_;
+    }
+    for (const auto& t : this->body_) {
+
+      if (t.kind() == token::tok::TokenKind::identifier) {
+        bool matched = false;
+        for (const auto& p : parameters_) {
+          if (std::strncmp(t.ptr(), p.ptr(), p.offset()) == 0) {
+            // replace the `identifier` tokens with `parameters`
+            this->expanded_tokens_.append(p);
+            matched = true;
+            break;  // we only match once.
+          }
+        }
+        if (matched) {
+          continue;
+        }
+      }
+      this->expanded_tokens_.append(t);
+    }
+
+    return this->expanded_tokens_;
+  }
 
  protected:
   typename base::tokens_type parameters_;
+};
+
+class Factory {
+
+ public:
+  template <class Type, class... Args>
+  static std::unique_ptr<Node<Type::kTag>> create(Args&&... args) {
+    return std::make_unique<Type>(std::forward<Args>(args)...);
+  }
 };
 
 }  // namespace lps::lexer::details::pp::ast

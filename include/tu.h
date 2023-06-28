@@ -24,6 +24,7 @@
 
 #include "basic/exception.h"
 #include "diag.h"
+#include "lex/pp_ast.h"
 
 namespace lps::tu {
 
@@ -31,10 +32,18 @@ namespace lps::tu {
 class TU : virtual public basic::mem::TraceTag<meta::S("TU")> {
  public:
   using trace_tag_type = basic::mem::TraceTag<meta::S("TU")>;
-  using IdentStringRef = lps::basic::StringRef<meta::S("TU::ident_str")>;
+  constexpr static meta::Str kIdentStringTagName = meta::S("TU::ident_str");
+  using IdentStringRef = lps::basic::StringRef<kIdentStringTagName>;
   using defined_token_type = token::Token<meta::S("TU::defined_token")>;
+  constexpr static meta::Str kMacroInfoTagName = meta::S("TU::MacroInfo");
+  using pp_ast_node_type = lexer::details::pp::ast::Node<kMacroInfoTagName>;
+  template <meta::Str TagName>
+  struct MacroInfo {
+    pp_ast_node_type::ptr_type node_;
+  };
+  using macro_info_type = MacroInfo<kMacroInfoTagName>;
   using defined_tokens_type =
-      std::unordered_map<IdentStringRef, defined_token_type,
+      std::unordered_map<IdentStringRef, macro_info_type,
                          token::tok::IdentInfo::IdentHash<IdentStringRef>>;
 
   static TU& instance() {
@@ -50,16 +59,31 @@ class TU : virtual public basic::mem::TraceTag<meta::S("TU")> {
   template <meta::Str TagName>
   void define(
       const token::Token<TagName>& tok,
-      const typename lps::token::Token<TagName>::tokens_type& parameter_tokens =
+      typename lps::token::Token<TagName>::tokens_type&& parameter_tokens =
           typename lps::token::Token<TagName>::tokens_type{},
-      const typename lps::token::Token<TagName>::tokens_type& expand_tokens =
+      typename lps::token::Token<TagName>::tokens_type&& expand_tokens =
           typename lps::token::Token<TagName>::tokens_type{}) {
     check_define(tok);
     if (already_defined(tok)) {
       diag(tok, diag::DiagKind::redefine_ident_in_preprocessing);
     }
-    define_tokens_[str(tok)] = tok;
-    // todo(@mxlol233): Build the corresponding pp_ast nodes.
+
+    using namespace lexer::details::pp::ast;
+    pp_ast_node_type::ptr_type node = nullptr;
+    if (!parameter_tokens.empty() && !expand_tokens.empty()) {
+      auto tmp_tok = tok;
+      node = Factory::create<DefineWithParameters<kMacroInfoTagName>>(
+          std::move(tmp_tok), std::move(parameter_tokens),
+          std::move(expand_tokens));
+    } else {
+      auto tmp_tok = tok;
+      node = Factory::create<Define<kMacroInfoTagName>>(
+          std::move(tmp_tok), std::move(expand_tokens));
+    }
+
+    lps_assert(TagName, "node can not be nullptr");
+
+    define_tokens_[str(tok)] = {std::move(node)};
   }
 
   template <meta::Str TagName>
@@ -80,11 +104,39 @@ class TU : virtual public basic::mem::TraceTag<meta::S("TU")> {
   template <meta::Str TagName>
   void expand(const token::Token<TagName>& tok) {
     check_define(tok);
-    typename token::Token<TagName>::tokens_type expanded_tokens;
-    // todo(@mxlol233): recursively expand all the defined identifiers.
+    lps_assert(TagName, already_defined(tok));
+    auto node = define_tokens_[str(tok)].node_;
+    const auto& expanded_tokens = node->expand();
+    using expanded_tokens_type = decltype(expanded_tokens);
+    pp_ast_node_type::tokens_type full_expanded_tokens;
+    auto expand = [this](expanded_tokens_type tokens,
+                         pp_ast_node_type::tokens_type& out_tokens) {
+      auto expand_impl = [this](expanded_tokens_type tokens,
+                                pp_ast_node_type::tokens_type& out_tokens,
+                                auto func) {
+        for (const auto& t : tokens) {
+          if (t.kind() == token::tok::TokenKind::identifier) {
+            if (defined(t)) {
+              const auto& tokens_1 = define_tokens_[str(t)].node_->expand();
+              if (tokens.empty()) {
+                diag(t, diag::DiagKind::unexpected_empty_macro_expand);
+              } else {
+                func(tokens_1, out_tokens, func);
+                continue;
+              }
+            }
+          }
+          out_tokens.append(t);
+        }
+      };
+      return expand_impl(tokens, out_tokens, expand_impl);
+    }(expanded_tokens, full_expanded_tokens);
   }
 
  private:
+  void record_expanded_tokens_as_virtual_file(
+      const pp_ast_node_type::tokens_type& tokens);
+
   template <meta::Str TagName>
   IdentStringRef str(const token::Token<TagName>& tok) {
     return tok.template str<meta::S("TU::ident_str")>();
