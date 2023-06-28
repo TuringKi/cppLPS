@@ -26,12 +26,12 @@
 #include <cstdint>
 #include <filesystem>
 #include <fstream>
-#include "basic/exception.h"
 #include "vec.h"
+#include "vfile.h"
 
 namespace lps::basic {
 
-class File {
+class File : public vfile::File<char> {
  public:
   using type = File;
   using ptr_type = std::unique_ptr<type>;
@@ -69,8 +69,6 @@ class File {
     return StringRef<TagNameOther>(buffer_->top(), buffer_->capacity());
   }
 
-  bool empty() { return buffer_->capacity() == 0; }
-  [[nodiscard]] size_t size() const { return buffer_->capacity(); }
   [[nodiscard]] const std::filesystem::path& path() const { return path_; }
   [[nodiscard]] uint32_t file_id() const { return file_id_; }
 
@@ -82,16 +80,20 @@ class File {
     path_ = std::filesystem::path(path);
     the_file.seekg(0, std::ios::end);
     std::streamsize size = the_file.tellg();
+    static uint32_t k_file_id = 0;
+    file_id_ = ++k_file_id;
     if (size == 0) {
       buffer_ = buffer_type::create();
+      this->first_ = buffer_->top();
+      this->size_ = 0;
       return size;
     }
     the_file.seekg(0, std::ios::beg);
     buffer_ = buffer_type::create(size);
     the_file.read(buffer_->top(), size);
 
-    static uint32_t k_file_id = 0;
-    file_id_ = ++k_file_id;
+    this->first_ = buffer_->top();
+    this->size_ = size;
 
     return size;
   }
@@ -101,73 +103,26 @@ class File {
   uint32_t file_id_;
 };
 
-class FileVisitor {
+class FileVisitor : public vfile::Visitor<char>,
+                    public vfile::Operator<FileVisitor> {
 
  public:
+  using base = vfile::Visitor<char>;
   static int strncmp(const FileVisitor& a, const FileVisitor& b, size_t n) {
-    return std::strncmp(a.ptr_, b.ptr_, n);
+    return std::strncmp(a.start_, b.start_, n);
   }
   static int strncmp(const char* a, const char* b, size_t n) {
     return std::strncmp(a, b, n);
   }
-  explicit FileVisitor(const char* ptr = nullptr, uint32_t file_id = 0)
-      : ptr_(ptr), file_id_(file_id) {}
-  [[nodiscard]] const char* ptr() const { return ptr_; }
-  FileVisitor& operator++() {
-    skipping();
-    ptr_++;
-    return *this;
-  }
-  FileVisitor operator++(int) {
-    FileVisitor tmp = *this;
-    skipping();
-    ptr_++;
-    return tmp;
-  }
-  FileVisitor& operator--() {
-    ptr_--;
-    return *this;
-  }
-  FileVisitor operator--(int) {
-    FileVisitor tmp = *this;
-    ptr_--;
-    return tmp;
-  }
+  explicit FileVisitor(const char* start, const char* end, uint32_t file_id = 0)
+      : base(start, end), file_id_(file_id) {}
 
-  FileVisitor& operator+=(size_t idx) {
-    ptr_ += idx;
-    return *this;
-  }
-
-  size_t operator-(const FileVisitor& other) const { return ptr_ - other.ptr_; }
-
-  FileVisitor operator+(size_t idx) const {
-    FileVisitor tmp;
-    tmp.ptr_ = ptr_ + idx;
-    return tmp;
-  }
-  FileVisitor operator-(size_t idx) const {
-    FileVisitor tmp;
-    tmp.ptr_ = ptr_ - idx;
-    return tmp;
-  }
-  bool operator>=(const FileVisitor& other) const { return ptr_ >= other.ptr_; }
-  bool operator<=(const FileVisitor& other) const { return ptr_ <= other.ptr_; }
-  bool operator<(const FileVisitor& other) const { return ptr_ < other.ptr_; }
-  bool operator>(const FileVisitor& other) const { return ptr_ > other.ptr_; }
-  bool operator!=(const FileVisitor& other) const { return ptr_ != other.ptr_; }
-  bool operator==(const FileVisitor& other) const { return ptr_ == other.ptr_; }
-
-  bool operator>=(const char* other) const { return ptr_ >= other; }
-  bool operator<=(const char* other) const { return ptr_ <= other; }
-  bool operator<(const char* other) const { return ptr_ < other; }
-  bool operator>(const char* other) const { return ptr_ > other; }
-  bool operator!=(const char* other) const { return ptr_ != other; }
-  bool operator==(const char* other) const { return ptr_ == other; }
-
-  char operator*() { return *ptr_; }
-
-  char operator[](size_t idx) const { return ptr_[idx]; }
+  bool operator>=(const char* other) const { return start_ >= other; }
+  bool operator<=(const char* other) const { return start_ <= other; }
+  bool operator<(const char* other) const { return start_ < other; }
+  bool operator>(const char* other) const { return start_ > other; }
+  bool operator!=(const char* other) const { return start_ != other; }
+  bool operator==(const char* other) const { return start_ == other; }
 
   void vertws_skip(bool flg) { flg_skip_vertws_ = flg; }
   void horzws_skip(bool flg) { flg_skip_horzws_ = flg; }
@@ -203,20 +158,20 @@ class FileVisitor {
  private:
   void skipping() {
     if (flg_skip_vertws_ && flg_skip_horzws_) {
-      while (str::ascii::is::Ws(*ptr_)) {
-        ptr_++;
+      while (str::ascii::is::Ws(*start_)) {
+        next();
       }
     } else if (flg_skip_vertws_) {
-      while (str::ascii::is::VertWs(*ptr_)) {
-        ptr_++;
+      while (str::ascii::is::VertWs(*start_)) {
+        next();
       }
     } else if (flg_skip_horzws_) {
-      while (str::ascii::is::HorzWs(*ptr_)) {
-        ptr_++;
+      while (str::ascii::is::HorzWs(*start_)) {
+        next();
       }
     }
   }
-  const char* ptr_{nullptr};
+
   uint32_t file_id_{0};
   bool flg_skip_vertws_{false};
   bool flg_skip_horzws_{false};

@@ -237,7 +237,8 @@ struct Token : virtual public basic::mem::TraceTag<TagName> {
     data_ = const_cast<char*>(ptr);
   }
   void data(const basic::FileVisitor& ptr) {
-    data_ = const_cast<char*>(ptr.ptr());
+    lps_assert(TagName, !ptr.eof());
+    data_ = const_cast<char*>(ptr.cur());
   }
   [[nodiscard]] const char* ptr() const {
     return static_cast<char*>(data_);

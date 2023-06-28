@@ -27,7 +27,5 @@
 namespace lps::tu {
 
 void TU::record_expanded_tokens_as_virtual_file(
-    const pp_ast_node_type::tokens_type& tokens) {
-        
-    }
+    const pp_ast_node_type::tokens_type& tokens) {}
 }  // namespace lps::tu

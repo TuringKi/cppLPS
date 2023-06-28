@@ -60,7 +60,7 @@ class Base : virtual public lps::basic::mem::TraceTag<TagName> {
   [[nodiscard]] MethodType method() const { return type_; }
   explicit Base(uint32_t start_file_id, const char* ptr, const char* end,
                 MethodType m)
-      : file_id_(start_file_id), ptr_(ptr), end_(end), type_(m) {}
+      : file_id_(start_file_id), ptr_(ptr, end), type_(m) {}
   [[nodiscard]] inline size_t pos() const { return pos_; }
 
  protected:
@@ -556,8 +556,7 @@ class Base : virtual public lps::basic::mem::TraceTag<TagName> {
       if (*ptr == '\\') {
         advance(ptr);
       }
-      if (*ptr == '\n' || *ptr == '\r' ||
-          (*ptr == 0 && ptr == this->end_ - 1)) {
+      if (*ptr == '\n' || *ptr == '\r' || ptr.eof()) {
         this->diag(ptr, DiagKind);
         return cnt_char;
       }
@@ -1122,7 +1121,7 @@ class Base : virtual public lps::basic::mem::TraceTag<TagName> {
       ptr++;
     }
     ptr++;
-    if (ptr + prefix_len + 1 >= this->end_) {
+    if ((ptr + prefix_len + 1).eof()) {
       this->diag(ptr, diag::DiagKind::unfinished_raw_string);
       return false;
     }
@@ -1200,10 +1199,9 @@ class Base : virtual public lps::basic::mem::TraceTag<TagName> {
   }
 
   MethodType type_{MethodType::kNone};
-  ptr_type ptr_{nullptr};
+  ptr_type ptr_{nullptr, nullptr};
   uint32_t file_id_{0};
   size_t pos_{0};
-  ptr_type end_{nullptr};
 };
 
 }  // namespace lps::lexer::details
