@@ -101,4 +101,125 @@ class File {
   uint32_t file_id_;
 };
 
+class FileVisitor {
+
+ public:
+  static int strncmp(const FileVisitor& a, const FileVisitor& b, size_t n) {
+    return std::strncmp(a.ptr_, b.ptr_, n);
+  }
+  static int strncmp(const char* a, const char* b, size_t n) {
+    return std::strncmp(a, b, n);
+  }
+  explicit FileVisitor(const char* ptr = nullptr, uint32_t file_id = 0)
+      : ptr_(ptr), file_id_(file_id) {}
+  [[nodiscard]] const char* ptr() const { return ptr_; }
+  FileVisitor& operator++() {
+    skipping();
+    ptr_++;
+    return *this;
+  }
+  FileVisitor operator++(int) {
+    FileVisitor tmp = *this;
+    skipping();
+    ptr_++;
+    return tmp;
+  }
+  FileVisitor& operator--() {
+    ptr_--;
+    return *this;
+  }
+  FileVisitor operator--(int) {
+    FileVisitor tmp = *this;
+    ptr_--;
+    return tmp;
+  }
+
+  FileVisitor& operator+=(size_t idx) {
+    ptr_ += idx;
+    return *this;
+  }
+
+  size_t operator-(const FileVisitor& other) const { return ptr_ - other.ptr_; }
+
+  FileVisitor operator+(size_t idx) const {
+    FileVisitor tmp;
+    tmp.ptr_ = ptr_ + idx;
+    return tmp;
+  }
+  FileVisitor operator-(size_t idx) const {
+    FileVisitor tmp;
+    tmp.ptr_ = ptr_ - idx;
+    return tmp;
+  }
+  bool operator>=(const FileVisitor& other) const { return ptr_ >= other.ptr_; }
+  bool operator<=(const FileVisitor& other) const { return ptr_ <= other.ptr_; }
+  bool operator<(const FileVisitor& other) const { return ptr_ < other.ptr_; }
+  bool operator>(const FileVisitor& other) const { return ptr_ > other.ptr_; }
+  bool operator!=(const FileVisitor& other) const { return ptr_ != other.ptr_; }
+  bool operator==(const FileVisitor& other) const { return ptr_ == other.ptr_; }
+
+  bool operator>=(const char* other) const { return ptr_ >= other; }
+  bool operator<=(const char* other) const { return ptr_ <= other; }
+  bool operator<(const char* other) const { return ptr_ < other; }
+  bool operator>(const char* other) const { return ptr_ > other; }
+  bool operator!=(const char* other) const { return ptr_ != other; }
+  bool operator==(const char* other) const { return ptr_ == other; }
+
+  char operator*() { return *ptr_; }
+
+  char operator[](size_t idx) const { return ptr_[idx]; }
+
+  void vertws_skip(bool flg) { flg_skip_vertws_ = flg; }
+  void horzws_skip(bool flg) { flg_skip_horzws_ = flg; }
+  void ws_skip(bool flg) {
+    vertws_skip(flg);
+    horzws_skip(flg);
+  }
+
+  void vertws_skipping() {
+    if (flg_skip_vertws_) {
+      (*this)++;
+      return;
+    }
+    vertws_skip(true);
+    (*this)++;
+    vertws_skip(false);
+  }
+  void horzws_skipping() {
+    if (flg_skip_horzws_) {
+      (*this)++;
+      return;
+    }
+    horzws_skip(true);
+    (*this)++;
+    horzws_skip(false);
+  }
+
+  void ws_skipping() {
+    horzws_skipping();
+    vertws_skipping();
+  }
+
+ private:
+  void skipping() {
+    if (flg_skip_vertws_ && flg_skip_horzws_) {
+      while (str::ascii::is::Ws(*ptr_)) {
+        ptr_++;
+      }
+    } else if (flg_skip_vertws_) {
+      while (str::ascii::is::VertWs(*ptr_)) {
+        ptr_++;
+      }
+    } else if (flg_skip_horzws_) {
+      while (str::ascii::is::HorzWs(*ptr_)) {
+        ptr_++;
+      }
+    }
+  }
+  const char* ptr_{nullptr};
+  uint32_t file_id_{0};
+  bool flg_skip_vertws_{false};
+  bool flg_skip_horzws_{false};
+};
+
 }  // namespace lps::basic

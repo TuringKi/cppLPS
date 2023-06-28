@@ -26,9 +26,8 @@
 #include <cstdint>
 #include <unordered_map>
 #include "basic/exception.h"
+#include "basic/file.h"
 #include "basic/map.h"
-#include "basic/str.h"
-#include "basic/vec.h"
 namespace lps::token {
 
 template <meta::Str TagName = meta::S("location")>
@@ -237,7 +236,7 @@ struct Token : virtual public basic::mem::TraceTag<TagName> {
   void data(const char* ptr) {
     data_ = const_cast<char*>(ptr);
   }
-  void data(const basic::str::CharPointer& ptr) {
+  void data(const basic::FileVisitor& ptr) {
     data_ = const_cast<char*>(ptr.ptr());
   }
   [[nodiscard]] const char* ptr() const {

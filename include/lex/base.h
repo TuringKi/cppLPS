@@ -52,7 +52,7 @@ class Base : virtual public lps::basic::mem::TraceTag<TagName> {
  public:
   using type = Base<TagName>;
   using const_ptr_type = const type*;
-  using ptr_type = basic::str::CharPointer;
+  using ptr_type = basic::FileVisitor;
   using lex_func_type1 = std::function<token::tok::TokenKind(char, ptr_type&)>;
   using lex_func_type2 =
       std::function<bool(char, ptr_type&, lps::token::Token<TagName>&)>;
@@ -1126,7 +1126,7 @@ class Base : virtual public lps::basic::mem::TraceTag<TagName> {
       this->diag(ptr, diag::DiagKind::unfinished_raw_string);
       return false;
     }
-    if (basic::str::CharPointer::strncmp(prefix_start, ptr, prefix_len) == 0) {
+    if (basic::FileVisitor::strncmp(prefix_start, ptr, prefix_len) == 0) {
       ptr = ptr + prefix_len;
       if (*ptr == '"') {
         this->token_formulate(tok, ptr + 1,
