@@ -24,6 +24,8 @@
 
 #pragma once
 
+#include <functional>
+#include <utility>
 #include "exception.h"
 
 namespace lps::basic::vfile {
@@ -107,14 +109,33 @@ class Operator {
   }
 };
 
+class Eof : public std::exception {
+ public:
+  explicit Eof() = default;
+};
+
 template <typename VisitedType>
 class Visitor {
  public:
   template <typename T>
   friend class Operator;
   constexpr static meta::Str kTagName = meta::S("vfile::Visitor");
-  Visitor(const VisitedType* start, const VisitedType* end)
-      : start_(start), end_(end) {}
+  using check_eof_callback_type = std::function<void()>;
+  Visitor(
+      const VisitedType* start, const VisitedType* end,
+      check_eof_callback_type check_eof_callback = []() {})
+      : start_(start),
+        end_(end),
+        check_eof_callback_(std::move(check_eof_callback)) {
+    lps_assert(kTagName, start <= end);
+  }
+
+  bool operator>=(const VisitedType* other) const { return start_ >= other; }
+  bool operator<=(const VisitedType* other) const { return start_ <= other; }
+  bool operator<(const VisitedType* other) const { return start_ < other; }
+  bool operator>(const VisitedType* other) const { return start_ > other; }
+  bool operator!=(const VisitedType* other) const { return start_ != other; }
+  bool operator==(const VisitedType* other) const { return start_ == other; }
 
   explicit operator bool() { return !eof(); }
 
@@ -122,6 +143,7 @@ class Visitor {
 
   VisitedType operator[](size_t idx) const {
     if ((pos_ + idx) > len() || start_ > end_) {
+      check_eof_callback_();
       return eof_;
     }
     return *(start_ + pos_ + idx);
@@ -130,6 +152,7 @@ class Visitor {
   [[nodiscard]] bool eof() const { return cur() == &eof_; }
   const VisitedType* cur() const {
     if (pos_ > len() || start_ > end_) {
+      check_eof_callback_();
       return &eof_;
     }
     return start_ + pos_;
@@ -145,6 +168,7 @@ class Visitor {
   const VisitedType* end_{nullptr};
   size_t pos_{0};
   VisitedType eof_;
+  check_eof_callback_type check_eof_callback_;
 };
 
 template <typename StoredType>

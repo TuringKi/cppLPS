@@ -26,6 +26,7 @@
 #include <cstdint>
 #include <filesystem>
 #include <fstream>
+#include <utility>
 #include "vec.h"
 #include "vfile.h"
 
@@ -114,15 +115,10 @@ class FileVisitor : public vfile::Visitor<char>,
   static int strncmp(const char* a, const char* b, size_t n) {
     return std::strncmp(a, b, n);
   }
-  explicit FileVisitor(const char* start, const char* end, uint32_t file_id = 0)
-      : base(start, end), file_id_(file_id) {}
-
-  bool operator>=(const char* other) const { return start_ >= other; }
-  bool operator<=(const char* other) const { return start_ <= other; }
-  bool operator<(const char* other) const { return start_ < other; }
-  bool operator>(const char* other) const { return start_ > other; }
-  bool operator!=(const char* other) const { return start_ != other; }
-  bool operator==(const char* other) const { return start_ == other; }
+  explicit FileVisitor(const char* start, const char* end,
+                       base::check_eof_callback_type check_eof_callback,
+                       uint32_t file_id = 0)
+      : base(start, end, std::move(check_eof_callback)), file_id_(file_id) {}
 
   void vertws_skip(bool flg) { flg_skip_vertws_ = flg; }
   void horzws_skip(bool flg) { flg_skip_horzws_ = flg; }
@@ -133,20 +129,20 @@ class FileVisitor : public vfile::Visitor<char>,
 
   void vertws_skipping() {
     if (flg_skip_vertws_) {
-      (*this)++;
+      next();
       return;
     }
     vertws_skip(true);
-    (*this)++;
+    next();
     vertws_skip(false);
   }
   void horzws_skipping() {
     if (flg_skip_horzws_) {
-      (*this)++;
+      next();
       return;
     }
     horzws_skip(true);
-    (*this)++;
+    next();
     horzws_skip(false);
   }
 

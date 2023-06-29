@@ -40,11 +40,11 @@ class Preprocessing : public Base<TagName> {
   explicit Preprocessing(uint32_t start_file_id, const char* ptr,
                          const char* end)
       : base(start_file_id, ptr, end, MethodType::kPreprocessing) {}
-  inline void lex(lps::token::Token<TagName>& tok) override {
+  inline void lex_impl(lps::token::Token<TagName>& tok) override {
     // do a tiny parsing process.
     typename base::ptr_type ptr = this->cur();
     if (*ptr == '#') {  // control-line
-      ptr++;
+      ++ptr;
       lex_control_line(ptr, tok);
     }
     if (!this->lex_identifier(ptr, tok)) {
@@ -192,7 +192,7 @@ class Preprocessing : public Base<TagName> {
                      lps::token::Token<TagName>& tok) {    \
     if (FUNC(c, ptr, tok)) {                               \
       char cc = *ptr;                                      \
-      ptr++;                                               \
+      ++ptr;                                               \
       if (try_ident(cc, ptr, tok)) {                       \
         this->token_formulate(tok, ptr, KIND);             \
         return true;                                       \

@@ -41,14 +41,14 @@ class Basic : public Base<TagName> {
   // *next*: temp state.
   // *skip_comments*: skip comments, these characters are useless for parser.
   // *skip_horz_ws*: skip line-changing characters, like `'\n'`.
-  inline void lex(lps::token::Token<TagName>& tok) override {
+  inline void lex_impl(lps::token::Token<TagName>& tok) override {
     using namespace basic::str::ascii;
     typename base::ptr_type ptr = this->cur();
   start:  // state: start
     if (is::HorzWs(*ptr)) {
       do {
         this->inc(1);
-        ptr++;
+        ++ptr;
       } while (is::HorzWs(*ptr));
       tok.set_flag(token::Flag::kLeadingSpace);
     }

@@ -56,11 +56,21 @@ class Base : virtual public lps::basic::mem::TraceTag<TagName> {
   using lex_func_type1 = std::function<token::tok::TokenKind(char, ptr_type&)>;
   using lex_func_type2 =
       std::function<bool(char, ptr_type&, lps::token::Token<TagName>&)>;
-  inline virtual void lex(lps::token::Token<TagName>& tok) = 0;
+  inline void lex(lps::token::Token<TagName>& tok) {
+    try {
+      lex_impl(tok);
+    } catch (basic::vfile::Eof& except_eof) {
+      tok.kind(token::tok::TokenKind::eof);
+      return;
+    }
+  }
+  inline virtual void lex_impl(lps::token::Token<TagName>& tok) = 0;
   [[nodiscard]] MethodType method() const { return type_; }
   explicit Base(uint32_t start_file_id, const char* ptr, const char* end,
                 MethodType m)
-      : file_id_(start_file_id), ptr_(ptr, end), type_(m) {}
+      : file_id_(start_file_id),
+        ptr_(ptr, end, []() { throw basic::vfile::Eof(); }),
+        type_(m) {}
   [[nodiscard]] inline size_t pos() const { return pos_; }
 
  protected:
@@ -87,7 +97,7 @@ class Base : virtual public lps::basic::mem::TraceTag<TagName> {
     using namespace basic::str::ascii;
 
     if (*ptr == '\\') {
-      ptr++;
+      ++ptr;
       size++;
     Slash:
       if (!is::Ws(
@@ -145,7 +155,7 @@ class Base : virtual public lps::basic::mem::TraceTag<TagName> {
   static inline CharSize ws_skipping(ptr_type& ptr) {
     uint32_t sz = 0;
     while (basic::str::ascii::is::Ws(*ptr)) {
-      ptr++;
+      ++ptr;
       sz++;
     }
     return {*ptr, sz};
@@ -181,7 +191,7 @@ class Base : virtual public lps::basic::mem::TraceTag<TagName> {
   template <auto Func>
   static inline bool lex_char(ptr_type& ptr) {
     if (Func(*ptr)) {
-      ptr++;
+      ++ptr;
       return true;
     }
     return false;
@@ -259,7 +269,7 @@ class Base : virtual public lps::basic::mem::TraceTag<TagName> {
             case '%': {
               if (next_c == ':') {  // %:
                 kind = token::tok::TokenKind::percentcolon;
-                ptr++;
+                ++ptr;
                 if (*ptr == '%' && *(ptr + 1) == ':') {  // %:%:
                   kind = token::tok::TokenKind::percentcolonpercentcolon;
                   ptr += 2;
@@ -271,7 +281,7 @@ class Base : virtual public lps::basic::mem::TraceTag<TagName> {
               kind = token::tok::TokenKind::hash;
               if (next_c == '#') {
                 kind = token::tok::TokenKind::hashhash;
-                ptr++;
+                ++ptr;
               }
               break;
             }
@@ -317,10 +327,10 @@ class Base : virtual public lps::basic::mem::TraceTag<TagName> {
               kind = token::tok::TokenKind::colon;
               if (next_c == '>') {
                 kind = token::tok::TokenKind::colongreater;
-                ptr++;
+                ++ptr;
               } else if (next_c == ':') {
                 kind = token::tok::TokenKind::coloncolon;
-                ptr++;
+                ++ptr;
               }
               break;
             }
@@ -334,7 +344,7 @@ class Base : virtual public lps::basic::mem::TraceTag<TagName> {
                 }
               } else if (next_c == '*') {
                 kind = token::tok::TokenKind::periodstar;
-                ptr++;
+                ++ptr;
               }
               break;
             }
@@ -345,7 +355,7 @@ class Base : virtual public lps::basic::mem::TraceTag<TagName> {
               kind = token::tok::TokenKind::exclaim;
               if (next_c == '=') {
                 kind = token::tok::TokenKind::exclaimequal;
-                ptr++;
+                ++ptr;
               }
               break;
             }
@@ -355,10 +365,10 @@ class Base : virtual public lps::basic::mem::TraceTag<TagName> {
               kind = token::tok::TokenKind::plus;
               if (next_c == '=') {
                 kind = token::tok::TokenKind::plusequal;
-                ptr++;
+                ++ptr;
               } else if (next_c == '+') {
                 kind = token::tok::TokenKind::plusplus;
-                ptr++;
+                ++ptr;
               }
               break;
             }
@@ -367,17 +377,17 @@ class Base : virtual public lps::basic::mem::TraceTag<TagName> {
               kind = token::tok::TokenKind::minus;
               if (next_c == '>') {
                 kind = token::tok::TokenKind::arrow;
-                ptr++;
+                ++ptr;
                 if (*ptr == '*') {
                   kind = token::tok::TokenKind::arrowstar;
-                  ptr++;
+                  ++ptr;
                 }
               } else if (next_c == '-') {
                 kind = token::tok::TokenKind::minusminus;
-                ptr++;
+                ++ptr;
               } else if (next_c == '=') {
                 kind = token::tok::TokenKind::minusequal;
-                ptr++;
+                ++ptr;
               }
               break;
             }
@@ -386,7 +396,7 @@ class Base : virtual public lps::basic::mem::TraceTag<TagName> {
               kind = token::tok::TokenKind::star;
               if (next_c == '=') {
                 kind = token::tok::TokenKind::starequal;
-                ptr++;
+                ++ptr;
               }
               break;
             }
@@ -394,7 +404,7 @@ class Base : virtual public lps::basic::mem::TraceTag<TagName> {
               kind = token::tok::TokenKind::slash;
               if (next_c == '=') {
                 kind = token::tok::TokenKind::slashequal;
-                ptr++;
+                ++ptr;
               }
               break;
             }
@@ -402,10 +412,10 @@ class Base : virtual public lps::basic::mem::TraceTag<TagName> {
               kind = token::tok::TokenKind::percent;
               if (next_c == '=') {
                 kind = token::tok::TokenKind::percentequal;
-                ptr++;
+                ++ptr;
               } else if (next_c == '>') {
                 kind = token::tok::TokenKind::percentgreater;
-                ptr++;
+                ++ptr;
               }
               break;
             }
@@ -413,10 +423,10 @@ class Base : virtual public lps::basic::mem::TraceTag<TagName> {
               kind = token::tok::TokenKind::amp;
               if (next_c == '=') {
                 kind = token::tok::TokenKind::ampequal;
-                ptr++;
+                ++ptr;
               } else if (next_c == '&') {
                 kind = token::tok::TokenKind::ampamp;
-                ptr++;
+                ++ptr;
               }
               break;
             }
@@ -424,10 +434,10 @@ class Base : virtual public lps::basic::mem::TraceTag<TagName> {
               kind = token::tok::TokenKind::caret;
               if (next_c == '=') {
                 kind = token::tok::TokenKind::caretequal;
-                ptr++;
+                ++ptr;
               } else if (next_c == '^') {
                 kind = token::tok::TokenKind::caretcaret;
-                ptr++;
+                ++ptr;
               }
               break;
             }
@@ -435,10 +445,10 @@ class Base : virtual public lps::basic::mem::TraceTag<TagName> {
               kind = token::tok::TokenKind::pipe;
               if (next_c == '=') {
                 kind = token::tok::TokenKind::pipeequal;
-                ptr++;
+                ++ptr;
               } else if (next_c == '|') {
                 kind = token::tok::TokenKind::pipepipe;
-                ptr++;
+                ++ptr;
               }
               break;
             }
@@ -446,7 +456,7 @@ class Base : virtual public lps::basic::mem::TraceTag<TagName> {
               kind = token::tok::TokenKind::equal;
               if (next_c == '=') {
                 kind = token::tok::TokenKind::equalequal;
-                ptr++;
+                ++ptr;
               }
               break;
             }
@@ -454,24 +464,24 @@ class Base : virtual public lps::basic::mem::TraceTag<TagName> {
               kind = token::tok::TokenKind::less;
               if (next_c == '%') {
                 kind = token::tok::TokenKind::lesspercent;
-                ptr++;
+                ++ptr;
               } else if (next_c == ':') {
                 kind = token::tok::TokenKind::lesscolon;
-                ptr++;
+                ++ptr;
               } else if (next_c == '=') {  // <=
                 kind = token::tok::TokenKind::lessequal;
-                ptr++;
+                ++ptr;
                 if (*ptr == '>') {  // <=>
                   kind = token::tok::TokenKind::spaceship;
-                  ptr++;
+                  ++ptr;
                   break;
                 }
               } else if (next_c == '<') {  // <<
                 kind = token::tok::TokenKind::lessless;
-                ptr++;
+                ++ptr;
                 if (*ptr == '=') {  // <<=
                   kind = token::tok::TokenKind::lesslessequal;
-                  ptr++;
+                  ++ptr;
                   break;
                 }
               }
@@ -481,15 +491,15 @@ class Base : virtual public lps::basic::mem::TraceTag<TagName> {
               kind = token::tok::TokenKind::greater;
               if (next_c == '>') {  // >>
                 kind = token::tok::TokenKind::greatergreater;
-                ptr++;
+                ++ptr;
                 if (*ptr == '=') {  // >>=
                   kind = token::tok::TokenKind::greatergreaterequal;
-                  ptr++;
+                  ++ptr;
                   break;
                 }
               } else if (next_c == '=') {  //>=
                 kind = token::tok::TokenKind::greaterequal;
-                ptr++;
+                ++ptr;
               }
               break;
             }
@@ -640,7 +650,7 @@ class Base : virtual public lps::basic::mem::TraceTag<TagName> {
                                   lps::token::Token<TagName>& /*tok*/) {
     if (c == 'u') {
       if (*ptr == '8') {
-        ptr++;
+        ++ptr;
       }
       return true;
     }
@@ -659,7 +669,7 @@ class Base : virtual public lps::basic::mem::TraceTag<TagName> {
 
     if (flg) {
       if (*ptr == '\'') {
-        ptr++;
+        ++ptr;
       } else {
         return false;
       }
@@ -688,57 +698,57 @@ class Base : virtual public lps::basic::mem::TraceTag<TagName> {
     auto c = std::get<0>(c_sz);
     auto sz_tmp = std::get<1>(c_sz);
     if (c == 'l') {  //l
-      ptr++;
+      ++ptr;
       if (*ptr == 'l') {  //ll
-        ptr++;
+        ++ptr;
         if (*ptr == 'u') {  //llu
-          ptr++;
+          ++ptr;
         } else if (*ptr == 'U') {  // llU
-          ptr++;
+          ++ptr;
         }
       } else if (*ptr == 'U') {  // lU
-        ptr++;
+        ++ptr;
       } else if (*ptr == 'u') {  // lu
-        ptr++;
+        ++ptr;
       }
     } else if (c == 'L') {  // L
-      ptr++;
+      ++ptr;
       if (*ptr == 'L') {  // LL
-        ptr++;
+        ++ptr;
         if (*ptr == 'u') {  // LLu
-          ptr++;
+          ++ptr;
         } else if (*ptr == 'U') {  // LLU
-          ptr++;
+          ++ptr;
         }
       } else if (*ptr == 'U') {  // LU
-        ptr++;
+        ++ptr;
       } else if (*ptr == 'u') {  // Lu
-        ptr++;
+        ++ptr;
       }
     } else if (c == 'u') {
-      ptr++;
+      ++ptr;
       if (*ptr == 'l') {  //ul
-        ptr++;
+        ++ptr;
         if (*ptr == 'l') {  //ull
-          ptr++;
+          ++ptr;
         }
       } else if (*ptr == 'L') {  // uL
-        ptr++;
+        ++ptr;
         if (*ptr == 'L') {  // uLL
-          ptr++;
+          ++ptr;
         }
       }
     } else if (c == 'U') {
-      ptr++;
+      ++ptr;
       if (*ptr == 'l') {  //Ul
-        ptr++;
+        ++ptr;
         if (*ptr == 'l') {  //Ull
-          ptr++;
+          ++ptr;
         }
       } else if (*ptr == 'L') {  // UL
-        ptr++;
+        ++ptr;
         if (*ptr == 'L') {  // ULL
-          ptr++;
+          ++ptr;
         }
       }
     } else {
@@ -749,7 +759,7 @@ class Base : virtual public lps::basic::mem::TraceTag<TagName> {
 
   inline bool lex_octal_digit(ptr_type& ptr) {
     if (*ptr >= '0' && *ptr <= '7') {
-      ptr++;
+      ++ptr;
       return true;
     }
     return false;
@@ -765,7 +775,7 @@ class Base : virtual public lps::basic::mem::TraceTag<TagName> {
     ptr_type matched_ptr = ptr;
 
     if (*ptr == '\'') {
-      ptr++;
+      ++ptr;
     }
 
     if (lex_number_literal<FuncDigit, TokenKind>(ptr, tok)) {
@@ -781,7 +791,7 @@ class Base : virtual public lps::basic::mem::TraceTag<TagName> {
                                 lps::token::Token<TagName>& tok) {
     return lex_number_literal<[](ptr_type& ptr) {
       if (*ptr >= '0' && *ptr <= '7') {
-        ptr++;
+        ++ptr;
         return true;
       }
       return false;
@@ -793,7 +803,7 @@ class Base : virtual public lps::basic::mem::TraceTag<TagName> {
                                   lps::token::Token<TagName>& tok) {
     return lex_number_literal<[](ptr_type& ptr) {
       if (*ptr >= '0' && *ptr <= '9') {
-        ptr++;
+        ++ptr;
         return true;
       }
       return false;
@@ -806,7 +816,7 @@ class Base : virtual public lps::basic::mem::TraceTag<TagName> {
     return lex_number_literal<[](ptr_type& ptr) {
       if (*ptr >= '0' && *ptr <= '9' || *ptr >= 'a' && *ptr <= 'f' ||
           *ptr >= 'A' && *ptr <= 'F') {
-        ptr++;
+        ++ptr;
         return true;
       }
       return false;
@@ -819,7 +829,7 @@ class Base : virtual public lps::basic::mem::TraceTag<TagName> {
                                  lps::token::Token<TagName>& tok) {
     return lex_number_literal<[](ptr_type& ptr) {
       if (*ptr == '0' || *ptr == '1') {
-        ptr++;
+        ++ptr;
         return true;
       }
       return false;
@@ -870,7 +880,7 @@ class Base : virtual public lps::basic::mem::TraceTag<TagName> {
         [](ptr_type& ptr) {
           if (*ptr >= '0' && *ptr <= '9' || *ptr >= 'a' && *ptr <= 'f' ||
               *ptr >= 'A' && *ptr <= 'F') {
-            ptr++;
+            ++ptr;
             return true;
           }
           return false;
@@ -887,7 +897,7 @@ class Base : virtual public lps::basic::mem::TraceTag<TagName> {
     return lex_fractional_constant_any<
         [](ptr_type& ptr) {
           if (*ptr >= '0' && *ptr <= '9') {
-            ptr++;
+            ++ptr;
             return true;
           }
           return false;
@@ -900,9 +910,9 @@ class Base : virtual public lps::basic::mem::TraceTag<TagName> {
                                     lps::token::Token<TagName>& tok,
                                     char part_char0, char part_char1) {
     if (*ptr == part_char0 || *ptr == part_char1) {
-      ptr++;
+      ++ptr;
       if (*ptr == '+' || *ptr == '-') {
-        ptr++;
+        ++ptr;
       }
       if (lex_decimal_literal(ptr, tok)) {
         return true;
@@ -921,7 +931,7 @@ class Base : virtual public lps::basic::mem::TraceTag<TagName> {
 
   inline bool lex_floating_point_suffix(ptr_type& ptr) {
     if (*ptr == 'L' || *ptr == 'l' || *ptr == 'F' || *ptr == 'f') {
-      ptr++;
+      ++ptr;
       return true;
     }
     return false;
@@ -978,7 +988,7 @@ class Base : virtual public lps::basic::mem::TraceTag<TagName> {
       char c, ptr_type& ptr, lps::token::Token<TagName>& tok) {
     if (c == '0') {
       if (*ptr == 'x' || *ptr == 'X') {
-        ptr++;
+        ++ptr;
         char z = *ptr;
         ptr_type tmp_ptr = ptr;
         bool hexadecimal_fractional_constant_ok = false;
@@ -1046,14 +1056,14 @@ class Base : virtual public lps::basic::mem::TraceTag<TagName> {
     bool flg = false;
     if (c == '0') {
       if (*ptr == 'b' || *ptr == 'B') {
-        ptr++;
+        ++ptr;
         if (lex_binary_literal(ptr, tok)) {
           matched_ptr = ptr;
           kind = tok.kind();
           flg = true;
         }
       } else if (*ptr == 'x' || *ptr == 'X') {
-        ptr++;
+        ++ptr;
         if (lex_hexadecimal_literal(ptr, tok)) {
           matched_ptr = ptr;
           kind = tok.kind();
@@ -1068,7 +1078,7 @@ class Base : virtual public lps::basic::mem::TraceTag<TagName> {
       }
     } else if (c >= '1' && c <= '9') {
       if (*ptr == '\'') {
-        ptr++;
+        ++ptr;
       }
       if (lex_decimal_literal(ptr, tok)) {
         matched_ptr = ptr;
@@ -1094,7 +1104,7 @@ class Base : virtual public lps::basic::mem::TraceTag<TagName> {
     if (*ptr != '"') {
       return false;
     }
-    ptr++;
+    ++ptr;
 
     //A string-literal that has an R in the prefix is a raw string literal.
     //The d-char-sequence serves as a delimiter. The terminating d-char-sequence
@@ -1118,9 +1128,9 @@ class Base : virtual public lps::basic::mem::TraceTag<TagName> {
     ptr_type prefix_start = ptr;
     ptr = ptr + prefix_len + 1;
     while (*ptr != ')') {  //find next `)`
-      ptr++;
+      ++ptr;
     }
-    ptr++;
+    ++ptr;
     if ((ptr + prefix_len + 1).eof()) {
       this->diag(ptr, diag::DiagKind::unfinished_raw_string);
       return false;
@@ -1151,7 +1161,7 @@ class Base : virtual public lps::basic::mem::TraceTag<TagName> {
     if (flg) {
       ptr = tmp_ptr;
       c = *ptr;
-      ptr++;
+      ++ptr;
     }
     if (c == '"') {
       uint32_t cnt_char =
@@ -1199,7 +1209,9 @@ class Base : virtual public lps::basic::mem::TraceTag<TagName> {
   }
 
   MethodType type_{MethodType::kNone};
-  ptr_type ptr_{nullptr, nullptr};
+  ptr_type ptr_{nullptr, nullptr, []() {
+                  throw basic::vfile::Eof();
+                }};
   uint32_t file_id_{0};
   size_t pos_{0};
 };

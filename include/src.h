@@ -32,9 +32,6 @@
 
 namespace lps::src {
 
-class File {};
-class Visitor {};
-
 class Manager {
 
  public:
