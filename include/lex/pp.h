@@ -131,7 +131,7 @@ class Preprocessing : public Base<TagName> {
           CASE(*tmp_ptr == '.');  // pp_number, `.`
 #undef CASE
           this->token_formulate(tok, ptr,
-                                lps::token::tok::TokenKind::pp_number);
+                                lps::token::details::TokenKind::pp_number);
           return true;
         }
         return false;
@@ -172,7 +172,7 @@ class Preprocessing : public Base<TagName> {
     return true;   \
   }
 
-    auto try_keyword = [this](token::tok::TokenKind kind) {
+    auto try_keyword = [this](token::details::TokenKind kind) {
       return [this, kind](char /*c*/, typename base::ptr_type& ptr,
                           lps::token::Token<TagName>& tok) {
         if (this->lex_identifier(ptr, tok)) {
@@ -182,10 +182,10 @@ class Preprocessing : public Base<TagName> {
       };
     };
 
-    auto try_import = try_keyword(token::tok::TokenKind::kw_import);
-    auto try_module = try_keyword(token::tok::TokenKind::kw_module);
-    auto try_export = try_keyword(token::tok::TokenKind::kw_export);
-    auto try_ident = try_keyword(token::tok::TokenKind::identifier);
+    auto try_import = try_keyword(token::details::TokenKind::kw_import);
+    auto try_module = try_keyword(token::details::TokenKind::kw_module);
+    auto try_export = try_keyword(token::details::TokenKind::kw_export);
+    auto try_ident = try_keyword(token::details::TokenKind::identifier);
 
 #define TRY_UD(FUNC, KIND)                                 \
   [this, &try_ident](char c, typename base::ptr_type& ptr, \
@@ -203,10 +203,10 @@ class Preprocessing : public Base<TagName> {
 
     auto try_char_literal_ud =
         TRY_UD(this->lex_character_literal,
-               token::tok::TokenKind::user_defined_char_literal);
+               token::details::TokenKind::user_defined_char_literal);
     auto try_string_literal_ud =
         TRY_UD(this->lex_string_literal,
-               token::tok::TokenKind::user_defined_string_literal);
+               token::details::TokenKind::user_defined_string_literal);
 #undef TRY_UD
 
     CASE(this->lex_header_name);        // 	header_name
@@ -233,7 +233,7 @@ class Preprocessing : public Base<TagName> {
       char c, typename base::ptr_type& ptr, lps::token::Token<TagName>& tok) {
     typename lps::token::Token<TagName>::tokens_type tokens;
     if (this->template lex_something_recursive<
-            token::tok::TokenKind::pp_tokens>(
+            token::details::TokenKind::pp_tokens>(
             c, ptr, tok,
             [this, &tokens](char c, typename base::ptr_type& ptr,
                             lps::token::Token<TagName>& tok) -> bool {
@@ -267,21 +267,21 @@ class Preprocessing : public Base<TagName> {
     typename base::ptr_type tmp_ptr = ptr;
     if (this->lex_identifier(tmp_ptr, tok)) {
       switch (tok.kind()) {
-        case token::tok::TokenKind::kw_define:
-        case token::tok::TokenKind::kw_undef: {
+        case token::details::TokenKind::kw_define:
+        case token::details::TokenKind::kw_undef: {
           lps::token::Token<TagName> define_tok;
           if (!this->lex_identifier(tmp_ptr, define_tok)) {
             this->diag(tmp_ptr,
                        diag::DiagKind::expected_ident_after_define_undef);
             return false;
           }
-          if (define_tok.kind() != token::tok::TokenKind::identifier) {
+          if (define_tok.kind() != token::details::TokenKind::identifier) {
             this->diag(tmp_ptr,
                        diag::DiagKind::expected_ident_after_define_undef);
             return false;
           }
 
-          if (tok.kind() == token::tok::TokenKind::kw_define) {
+          if (tok.kind() == token::details::TokenKind::kw_define) {
             typename base::ptr_type tmp_ptr2 = tmp_ptr;
             tmp_ptr2++;
             lps::token::Token<TagName> next_tok;
@@ -317,7 +317,8 @@ class Preprocessing : public Base<TagName> {
                       auto tmp_tok = tok;
                       if (this->lex_operator_or_punctuator(c, tmp_ptr,
                                                            tmp_tok)) {
-                        if (tmp_tok.kind() == token::tok::TokenKind::ellipsis) {
+                        if (tmp_tok.kind() ==
+                            token::details::TokenKind::ellipsis) {
                           tok = tmp_tok;
                           ptr = tmp_ptr;
                           parameter_tokens.append(tok);
@@ -341,7 +342,7 @@ class Preprocessing : public Base<TagName> {
                           if (this->lex_operator_or_punctuator(c, tmp_ptr,
                                                                tmp_tok)) {
                             if (tmp_tok.kind() ==
-                                token::tok::TokenKind::ellipsis) {
+                                token::details::TokenKind::ellipsis) {
                               tok = tmp_tok;
                               ptr = tmp_ptr;
                               parameter_tokens.append(tok);
@@ -387,9 +388,9 @@ class Preprocessing : public Base<TagName> {
 
           break;
         }
-        case token::tok::TokenKind::kw_line:
-        case token::tok::TokenKind::kw_error:
-        case token::tok::TokenKind::kw_pragma:
+        case token::details::TokenKind::kw_line:
+        case token::details::TokenKind::kw_error:
+        case token::details::TokenKind::kw_pragma:
 
         default:
           unreachable(TagName);

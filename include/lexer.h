@@ -39,7 +39,7 @@ class Lexer {
            details::MethodType method = details::MethodType::kBasic) {
     tok.clear();
     if (finish()) {
-      tok.kind(token::tok::TokenKind::eof);
+      tok.kind(token::details::TokenKind::eof);
       return;
     }
     switch (method) {

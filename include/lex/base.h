@@ -53,14 +53,16 @@ class Base : virtual public lps::basic::mem::TraceTag<TagName> {
   using type = Base<TagName>;
   using const_ptr_type = const type*;
   using ptr_type = basic::FileVisitor;
-  using lex_func_type1 = std::function<token::tok::TokenKind(char, ptr_type&)>;
+  using lex_func_type1 =
+      std::function<token::details::TokenKind(char, ptr_type&)>;
   using lex_func_type2 =
       std::function<bool(char, ptr_type&, lps::token::Token<TagName>&)>;
   inline void lex(lps::token::Token<TagName>& tok) {
     try {
       lex_impl(tok);
     } catch (basic::vfile::Eof& except_eof) {
-      tok.kind(token::tok::TokenKind::eof);
+      // todo(@mxlol233): should jump to another virtual file's visitor?
+      tok.kind(token::details::TokenKind::eof);
       return;
     }
   }
@@ -168,7 +170,7 @@ class Base : virtual public lps::basic::mem::TraceTag<TagName> {
     diag::DiagInputs<TagName> diag_input;
     diag_input.kind_ = kind;
     lps::token::Token<TagName> tok_error;
-    this->token_formulate(tok_error, ptr, token::tok::TokenKind::unknown);
+    this->token_formulate(tok_error, ptr, token::details::TokenKind::unknown);
     tok_error.data(this->cur());
     diag_input.main_token_ = tok_error;
     diag::doing<TagName>(diag_input.main_token_, diag_input.kind_,
@@ -176,7 +178,7 @@ class Base : virtual public lps::basic::mem::TraceTag<TagName> {
   }
 
   inline void token_formulate(lps::token::Token<TagName>& tok, ptr_type end,
-                              lps::token::tok::TokenKind kind) {
+                              lps::token::details::TokenKind kind) {
     lps_assert(TagName, this->cur() != nullptr);
     auto offset = end - this->cur();
     lps_assert(TagName,
@@ -203,7 +205,7 @@ class Base : virtual public lps::basic::mem::TraceTag<TagName> {
 
     ptr_type tmp_ptr = ptr;
     auto kind = func(c, tmp_ptr);
-    if (kind != token::tok::TokenKind::unknown) {
+    if (kind != token::details::TokenKind::unknown) {
       ptr = tmp_ptr;
       this->token_formulate(tok, ptr, kind);
       return true;
@@ -226,7 +228,7 @@ class Base : virtual public lps::basic::mem::TraceTag<TagName> {
     return false;
   }
 
-  template <token::tok::TokenKind OutKind>
+  template <token::details::TokenKind OutKind>
   inline bool lex_something_recursive(char c, ptr_type& ptr,
                                       lps::token::Token<TagName>& tok,
                                       const lex_func_type2& first_lex_func) {
@@ -262,25 +264,26 @@ class Base : virtual public lps::basic::mem::TraceTag<TagName> {
   inline bool lex_preprocessing_operator(char c, ptr_type& ptr,
                                          lps::token::Token<TagName>& tok) {
     return lex_something(
-        c, ptr, tok, [this](char c, ptr_type& ptr) -> token::tok::TokenKind {
-          token::tok::TokenKind kind = token::tok::TokenKind::unknown;
+        c, ptr, tok,
+        [this](char c, ptr_type& ptr) -> token::details::TokenKind {
+          token::details::TokenKind kind = token::details::TokenKind::unknown;
           char next_c = *ptr;
           switch (c) {
             case '%': {
               if (next_c == ':') {  // %:
-                kind = token::tok::TokenKind::percentcolon;
+                kind = token::details::TokenKind::percentcolon;
                 ++ptr;
                 if (*ptr == '%' && *(ptr + 1) == ':') {  // %:%:
-                  kind = token::tok::TokenKind::percentcolonpercentcolon;
+                  kind = token::details::TokenKind::percentcolonpercentcolon;
                   ptr += 2;
                 }
               }
               break;
             }
             case '#': {
-              kind = token::tok::TokenKind::hash;
+              kind = token::details::TokenKind::hash;
               if (next_c == '#') {
-                kind = token::tok::TokenKind::hashhash;
+                kind = token::details::TokenKind::hashhash;
                 ++ptr;
               }
               break;
@@ -295,192 +298,193 @@ class Base : virtual public lps::basic::mem::TraceTag<TagName> {
   inline bool lex_operator_or_punctuator(char c, ptr_type& ptr,
                                          lps::token::Token<TagName>& tok) {
     return lex_something(
-        c, ptr, tok, [this](char c, ptr_type& ptr) -> token::tok::TokenKind {
-          token::tok::TokenKind kind = token::tok::TokenKind::unknown;
+        c, ptr, tok,
+        [this](char c, ptr_type& ptr) -> token::details::TokenKind {
+          token::details::TokenKind kind = token::details::TokenKind::unknown;
           char next_c = *ptr;
           switch (c) {
             case '{':
-              kind = token::tok::TokenKind::l_brace;
+              kind = token::details::TokenKind::l_brace;
               break;
             case '}':
-              kind = token::tok::TokenKind::r_brace;
+              kind = token::details::TokenKind::r_brace;
               break;
             case '[':
-              kind = token::tok::TokenKind::l_square;
+              kind = token::details::TokenKind::l_square;
               break;
             case ']':
-              kind = token::tok::TokenKind::r_square;
+              kind = token::details::TokenKind::r_square;
               break;
             case '(':
-              kind = token::tok::TokenKind::l_paren;
+              kind = token::details::TokenKind::l_paren;
               break;
             case ')':
-              kind = token::tok::TokenKind::r_paren;
+              kind = token::details::TokenKind::r_paren;
               break;
             case '?':
-              kind = token::tok::TokenKind::question;
+              kind = token::details::TokenKind::question;
               break;
             case ';':
-              kind = token::tok::TokenKind::semi;
+              kind = token::details::TokenKind::semi;
               break;
             case ':': {
-              kind = token::tok::TokenKind::colon;
+              kind = token::details::TokenKind::colon;
               if (next_c == '>') {
-                kind = token::tok::TokenKind::colongreater;
+                kind = token::details::TokenKind::colongreater;
                 ++ptr;
               } else if (next_c == ':') {
-                kind = token::tok::TokenKind::coloncolon;
+                kind = token::details::TokenKind::coloncolon;
                 ++ptr;
               }
               break;
             }
             case '.': {
-              kind = token::tok::TokenKind::period;
+              kind = token::details::TokenKind::period;
               if (next_c == '.') {
                 if (*(ptr + 1) == '.') {
-                  kind = token::tok::TokenKind::ellipsis;
+                  kind = token::details::TokenKind::ellipsis;
                   ptr += 2;
                   break;
                 }
               } else if (next_c == '*') {
-                kind = token::tok::TokenKind::periodstar;
+                kind = token::details::TokenKind::periodstar;
                 ++ptr;
               }
               break;
             }
             case '~':
-              kind = token::tok::TokenKind::tilde;
+              kind = token::details::TokenKind::tilde;
               break;
             case '!': {
-              kind = token::tok::TokenKind::exclaim;
+              kind = token::details::TokenKind::exclaim;
               if (next_c == '=') {
-                kind = token::tok::TokenKind::exclaimequal;
+                kind = token::details::TokenKind::exclaimequal;
                 ++ptr;
               }
               break;
             }
-              kind = token::tok::TokenKind::exclaim;
+              kind = token::details::TokenKind::exclaim;
               break;
             case '+': {
-              kind = token::tok::TokenKind::plus;
+              kind = token::details::TokenKind::plus;
               if (next_c == '=') {
-                kind = token::tok::TokenKind::plusequal;
+                kind = token::details::TokenKind::plusequal;
                 ++ptr;
               } else if (next_c == '+') {
-                kind = token::tok::TokenKind::plusplus;
+                kind = token::details::TokenKind::plusplus;
                 ++ptr;
               }
               break;
             }
 
             case '-': {
-              kind = token::tok::TokenKind::minus;
+              kind = token::details::TokenKind::minus;
               if (next_c == '>') {
-                kind = token::tok::TokenKind::arrow;
+                kind = token::details::TokenKind::arrow;
                 ++ptr;
                 if (*ptr == '*') {
-                  kind = token::tok::TokenKind::arrowstar;
+                  kind = token::details::TokenKind::arrowstar;
                   ++ptr;
                 }
               } else if (next_c == '-') {
-                kind = token::tok::TokenKind::minusminus;
+                kind = token::details::TokenKind::minusminus;
                 ++ptr;
               } else if (next_c == '=') {
-                kind = token::tok::TokenKind::minusequal;
+                kind = token::details::TokenKind::minusequal;
                 ++ptr;
               }
               break;
             }
 
             case '*': {
-              kind = token::tok::TokenKind::star;
+              kind = token::details::TokenKind::star;
               if (next_c == '=') {
-                kind = token::tok::TokenKind::starequal;
+                kind = token::details::TokenKind::starequal;
                 ++ptr;
               }
               break;
             }
             case '/': {
-              kind = token::tok::TokenKind::slash;
+              kind = token::details::TokenKind::slash;
               if (next_c == '=') {
-                kind = token::tok::TokenKind::slashequal;
+                kind = token::details::TokenKind::slashequal;
                 ++ptr;
               }
               break;
             }
             case '%': {
-              kind = token::tok::TokenKind::percent;
+              kind = token::details::TokenKind::percent;
               if (next_c == '=') {
-                kind = token::tok::TokenKind::percentequal;
+                kind = token::details::TokenKind::percentequal;
                 ++ptr;
               } else if (next_c == '>') {
-                kind = token::tok::TokenKind::percentgreater;
+                kind = token::details::TokenKind::percentgreater;
                 ++ptr;
               }
               break;
             }
             case '&': {
-              kind = token::tok::TokenKind::amp;
+              kind = token::details::TokenKind::amp;
               if (next_c == '=') {
-                kind = token::tok::TokenKind::ampequal;
+                kind = token::details::TokenKind::ampequal;
                 ++ptr;
               } else if (next_c == '&') {
-                kind = token::tok::TokenKind::ampamp;
+                kind = token::details::TokenKind::ampamp;
                 ++ptr;
               }
               break;
             }
             case '^': {
-              kind = token::tok::TokenKind::caret;
+              kind = token::details::TokenKind::caret;
               if (next_c == '=') {
-                kind = token::tok::TokenKind::caretequal;
+                kind = token::details::TokenKind::caretequal;
                 ++ptr;
               } else if (next_c == '^') {
-                kind = token::tok::TokenKind::caretcaret;
+                kind = token::details::TokenKind::caretcaret;
                 ++ptr;
               }
               break;
             }
             case '|': {
-              kind = token::tok::TokenKind::pipe;
+              kind = token::details::TokenKind::pipe;
               if (next_c == '=') {
-                kind = token::tok::TokenKind::pipeequal;
+                kind = token::details::TokenKind::pipeequal;
                 ++ptr;
               } else if (next_c == '|') {
-                kind = token::tok::TokenKind::pipepipe;
+                kind = token::details::TokenKind::pipepipe;
                 ++ptr;
               }
               break;
             }
             case '=': {
-              kind = token::tok::TokenKind::equal;
+              kind = token::details::TokenKind::equal;
               if (next_c == '=') {
-                kind = token::tok::TokenKind::equalequal;
+                kind = token::details::TokenKind::equalequal;
                 ++ptr;
               }
               break;
             }
             case '<': {
-              kind = token::tok::TokenKind::less;
+              kind = token::details::TokenKind::less;
               if (next_c == '%') {
-                kind = token::tok::TokenKind::lesspercent;
+                kind = token::details::TokenKind::lesspercent;
                 ++ptr;
               } else if (next_c == ':') {
-                kind = token::tok::TokenKind::lesscolon;
+                kind = token::details::TokenKind::lesscolon;
                 ++ptr;
               } else if (next_c == '=') {  // <=
-                kind = token::tok::TokenKind::lessequal;
+                kind = token::details::TokenKind::lessequal;
                 ++ptr;
                 if (*ptr == '>') {  // <=>
-                  kind = token::tok::TokenKind::spaceship;
+                  kind = token::details::TokenKind::spaceship;
                   ++ptr;
                   break;
                 }
               } else if (next_c == '<') {  // <<
-                kind = token::tok::TokenKind::lessless;
+                kind = token::details::TokenKind::lessless;
                 ++ptr;
                 if (*ptr == '=') {  // <<=
-                  kind = token::tok::TokenKind::lesslessequal;
+                  kind = token::details::TokenKind::lesslessequal;
                   ++ptr;
                   break;
                 }
@@ -488,17 +492,17 @@ class Base : virtual public lps::basic::mem::TraceTag<TagName> {
               break;
             }
             case '>': {
-              kind = token::tok::TokenKind::greater;
+              kind = token::details::TokenKind::greater;
               if (next_c == '>') {  // >>
-                kind = token::tok::TokenKind::greatergreater;
+                kind = token::details::TokenKind::greatergreater;
                 ++ptr;
                 if (*ptr == '=') {  // >>=
-                  kind = token::tok::TokenKind::greatergreaterequal;
+                  kind = token::details::TokenKind::greatergreaterequal;
                   ++ptr;
                   break;
                 }
               } else if (next_c == '=') {  //>=
-                kind = token::tok::TokenKind::greaterequal;
+                kind = token::details::TokenKind::greaterequal;
                 ++ptr;
               }
               break;
@@ -526,17 +530,17 @@ class Base : virtual public lps::basic::mem::TraceTag<TagName> {
       if (this->lex_identifier(ptr, tok)) {
         //	one of following key_words:
         //    and or xor not bitand bitor compl and_eq or_eq xor_eq not_eq
-        if (tok.kind() == token::tok::TokenKind::kw_and ||
-            tok.kind() == token::tok::TokenKind::kw_or ||
-            tok.kind() == token::tok::TokenKind::kw_xor ||
-            tok.kind() == token::tok::TokenKind::kw_not ||
-            tok.kind() == token::tok::TokenKind::kw_bitand ||
-            tok.kind() == token::tok::TokenKind::kw_bitor ||
-            tok.kind() == token::tok::TokenKind::kw_compl ||
-            tok.kind() == token::tok::TokenKind::kw_and_eq ||
-            tok.kind() == token::tok::TokenKind::kw_or_eq ||
-            tok.kind() == token::tok::TokenKind::kw_xor_eq ||
-            tok.kind() == token::tok::TokenKind::kw_not_eq) {
+        if (tok.kind() == token::details::TokenKind::kw_and ||
+            tok.kind() == token::details::TokenKind::kw_or ||
+            tok.kind() == token::details::TokenKind::kw_xor ||
+            tok.kind() == token::details::TokenKind::kw_not ||
+            tok.kind() == token::details::TokenKind::kw_bitand ||
+            tok.kind() == token::details::TokenKind::kw_bitor ||
+            tok.kind() == token::details::TokenKind::kw_compl ||
+            tok.kind() == token::details::TokenKind::kw_and_eq ||
+            tok.kind() == token::details::TokenKind::kw_or_eq ||
+            tok.kind() == token::details::TokenKind::kw_xor_eq ||
+            tok.kind() == token::details::TokenKind::kw_not_eq) {
           return true;
         }
       }
@@ -603,15 +607,13 @@ class Base : virtual public lps::basic::mem::TraceTag<TagName> {
       break;
     }
 
-    this->token_formulate(tok, ptr, lps::token::tok::TokenKind::raw_identifier);
+    this->token_formulate(tok, ptr,
+                          lps::token::details::TokenKind::raw_identifier);
     auto ident_str = tok.template str<meta::S("ident_str")>();
-    if (lps::token::tok::IdentInfo::instance().kw_has(ident_str)) {
-      tok.kind(lps::token::tok::IdentInfo::instance().kw_at(ident_str));
+    if (lps::token::details::IdentInfo::instance().kw_has(ident_str)) {
+      tok.kind(lps::token::details::IdentInfo::instance().kw_at(ident_str));
     } else {
-      tok.kind(token::tok::TokenKind::identifier);
-
-      // a valid identifier, we must check if it was defined by `TU`.
-      if (tu::TU::instance().defined(tok)) {}
+      tok.kind(token::details::TokenKind::identifier);
     }
 
     return true;
@@ -640,7 +642,7 @@ class Base : virtual public lps::basic::mem::TraceTag<TagName> {
     }
     if (flg) {
       this->token_formulate(tok, ptr + 1,
-                            lps::token::tok::TokenKind::header_name);
+                            lps::token::details::TokenKind::header_name);
       return true;
     }
     return false;
@@ -687,7 +689,8 @@ class Base : virtual public lps::basic::mem::TraceTag<TagName> {
         this->diag(ptr, diag::empty_char_literal);
         return false;
       }
-      this->token_formulate(tok, ptr + 1, token::tok::TokenKind::char_literal);
+      this->token_formulate(tok, ptr + 1,
+                            token::details::TokenKind::char_literal);
     }
 
     return flg;
@@ -765,7 +768,7 @@ class Base : virtual public lps::basic::mem::TraceTag<TagName> {
     return false;
   }
 
-  template <auto FuncDigit, lps::token::tok::TokenKind TokenKind>
+  template <auto FuncDigit, lps::token::details::TokenKind TokenKind>
   inline bool lex_number_literal(ptr_type& ptr,
                                  lps::token::Token<TagName>& tok) {
 
@@ -796,7 +799,8 @@ class Base : virtual public lps::basic::mem::TraceTag<TagName> {
       }
       return false;
     },
-                              token::tok::TokenKind::octal_literal>(ptr, tok);
+                              token::details::TokenKind::octal_literal>(ptr,
+                                                                        tok);
   }
 
   inline bool lex_decimal_literal(ptr_type& ptr,
@@ -808,7 +812,8 @@ class Base : virtual public lps::basic::mem::TraceTag<TagName> {
       }
       return false;
     },
-                              token::tok::TokenKind::decimal_literal>(ptr, tok);
+                              token::details::TokenKind::decimal_literal>(ptr,
+                                                                          tok);
   }
 
   inline bool lex_hexadecimal_literal(ptr_type& ptr,
@@ -821,8 +826,8 @@ class Base : virtual public lps::basic::mem::TraceTag<TagName> {
       }
       return false;
     },
-                              token::tok::TokenKind::hexadecimal_literal>(ptr,
-                                                                          tok);
+                              token::details::TokenKind::hexadecimal_literal>(
+        ptr, tok);
   }
 
   inline bool lex_binary_literal(ptr_type& ptr,
@@ -834,11 +839,12 @@ class Base : virtual public lps::basic::mem::TraceTag<TagName> {
       }
       return false;
     },
-                              token::tok::TokenKind::binary_literal>(ptr, tok);
+                              token::details::TokenKind::binary_literal>(ptr,
+                                                                         tok);
   }
 
-  template <auto FuncDigit, lps::token::tok::TokenKind TokenKind0,
-            lps::token::tok::TokenKind TokenKind1>
+  template <auto FuncDigit, lps::token::details::TokenKind TokenKind0,
+            lps::token::details::TokenKind TokenKind1>
   inline bool lex_fractional_constant_any(char c, ptr_type& ptr,
                                           lps::token::Token<TagName>& tok) {
     ptr_type p_dot = ptr;
@@ -885,8 +891,8 @@ class Base : virtual public lps::basic::mem::TraceTag<TagName> {
           }
           return false;
         },
-        token::tok::TokenKind::hexadecimal_literal,
-        token::tok::TokenKind::fractional_constant>(c, ptr, tok);
+        token::details::TokenKind::hexadecimal_literal,
+        token::details::TokenKind::fractional_constant>(c, ptr, tok);
   }
 
   // fractional-constant:
@@ -902,8 +908,8 @@ class Base : virtual public lps::basic::mem::TraceTag<TagName> {
           }
           return false;
         },
-        token::tok::TokenKind::decimal_literal,
-        token::tok::TokenKind::fractional_constant>(c, ptr, tok);
+        token::details::TokenKind::decimal_literal,
+        token::details::TokenKind::fractional_constant>(c, ptr, tok);
   }
 
   inline bool lex_exponent_part_any(ptr_type& ptr,
@@ -969,7 +975,7 @@ class Base : virtual public lps::basic::mem::TraceTag<TagName> {
       return is_type0;
     }
     this->token_formulate(
-        tok, ptr, token::tok::TokenKind::decimal_floating_point_literal);
+        tok, ptr, token::details::TokenKind::decimal_floating_point_literal);
     return true;
   }
 
@@ -1010,7 +1016,7 @@ class Base : virtual public lps::basic::mem::TraceTag<TagName> {
         }
         this->token_formulate(
             tok, ptr,
-            token::tok::TokenKind::hexadecimal_floating_point_literal);
+            token::details::TokenKind::hexadecimal_floating_point_literal);
         return true;
       }
     }
@@ -1036,7 +1042,7 @@ class Base : virtual public lps::basic::mem::TraceTag<TagName> {
 
     if (flg) {
       this->token_formulate(tok, ptr,
-                            token::tok::TokenKind::floating_point_literal);
+                            token::details::TokenKind::floating_point_literal);
       return true;
     }
     return false;
@@ -1052,7 +1058,7 @@ class Base : virtual public lps::basic::mem::TraceTag<TagName> {
   inline bool lex_integer_literal(char c, ptr_type& ptr,
                                   lps::token::Token<TagName>& tok) {
     ptr_type matched_ptr = ptr;
-    token::tok::TokenKind kind = token::tok::TokenKind::unknown;
+    token::details::TokenKind kind = token::details::TokenKind::unknown;
     bool flg = false;
     if (c == '0') {
       if (*ptr == 'b' || *ptr == 'B') {
@@ -1139,7 +1145,7 @@ class Base : virtual public lps::basic::mem::TraceTag<TagName> {
       ptr = ptr + prefix_len;
       if (*ptr == '"') {
         this->token_formulate(tok, ptr + 1,
-                              lps::token::tok::TokenKind::raw_string);
+                              lps::token::details::TokenKind::raw_string);
         return true;
       }
       this->diag(ptr, diag::DiagKind::unfinished_raw_string_expect_quotation);
@@ -1169,14 +1175,14 @@ class Base : virtual public lps::basic::mem::TraceTag<TagName> {
               ptr, tok);
       if (*ptr == '"') {
         this->token_formulate(tok, ptr + 1,
-                              lps::token::tok::TokenKind::string_literal);
+                              lps::token::details::TokenKind::string_literal);
         return true;
       }
 
     } else if (c == 'R') {
       if (lex_raw_string(ptr, tok)) {
         this->token_formulate(tok, ptr + 1,
-                              lps::token::tok::TokenKind::string_literal);
+                              lps::token::details::TokenKind::string_literal);
         return true;
       }
     }
@@ -1187,14 +1193,14 @@ class Base : virtual public lps::basic::mem::TraceTag<TagName> {
   inline typename lps::token::Token<TagName>::tokens_type lex_identifier_list(
       char c, ptr_type& ptr, lps::token::Token<TagName>& tok) {
     typename lps::token::Token<TagName>::tokens_type tokens;
-    if (lex_something_recursive<token::tok::TokenKind::identifiers>(
+    if (lex_something_recursive<token::details::TokenKind::identifiers>(
             c, ptr, tok,
             [this, &tokens](char /*c*/, ptr_type& ptr,
                             lps::token::Token<TagName>& tok) -> bool {
               auto tmp_ptr = ptr;
               lps::token::Token<TagName> tmp_tok;
               if (lex_identifier(tmp_ptr, tmp_tok)) {
-                if (tmp_tok.kind() == token::tok::TokenKind::identifier) {
+                if (tmp_tok.kind() == token::details::TokenKind::identifier) {
                   ptr = tmp_ptr;
                   tok = tmp_tok;
                   tokens.append(tok);

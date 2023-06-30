@@ -114,7 +114,7 @@ class DefineWithParameters : public Define<TagName> {
     }
     for (const auto& t : this->body_) {
 
-      if (t.kind() == token::tok::TokenKind::identifier) {
+      if (t.kind() == token::details::TokenKind::identifier) {
         bool matched = false;
         for (const auto& p : parameters_) {
           if (std::strncmp(t.ptr(), p.ptr(), p.offset()) == 0) {

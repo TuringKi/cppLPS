@@ -83,7 +83,8 @@ class Tree {
     ParseFunctionKind kind_{ParseFunctionKind::kUnknown};
     sub_nodes_type sub_nodes_;
     token_pts_type token_pts_;
-    token::tok::TokenKind expected_token_kind_{token::tok::TokenKind::unknown};
+    token::details::TokenKind expected_token_kind_{
+        token::details::TokenKind::unknown};
   };
 
   Node* append(const Node& node) {
@@ -263,13 +264,13 @@ class ParseFunction : virtual public basic::mem::TraceTag<TagName> {
   explicit ParseFunction(Params... params) : params_(params...) {}
   template <typename... Params>
   explicit ParseFunction(custom_func_type func,
-                         token::tok::TokenKind expected_token_kind,
+                         token::details::TokenKind expected_token_kind,
                          Params... params)
       : custom_func_(func),
         params_(params...),
         expected_token_kind_(expected_token_kind) {}
   explicit ParseFunction(const ParseFunctionInputs<TagName>& param,
-                         token::tok::TokenKind expected_token_kind,
+                         token::details::TokenKind expected_token_kind,
                          custom_func_type func)
       : params_(param),
         custom_func_(func),
@@ -295,7 +296,7 @@ class ParseFunction : virtual public basic::mem::TraceTag<TagName> {
     output.cur_token_ = this->cur_token();
     return output;
   };
-  [[nodiscard]] token::tok::TokenKind expected_token_kind() const {
+  [[nodiscard]] token::details::TokenKind expected_token_kind() const {
     return expected_token_kind_;
   }
   [[nodiscard]] bool opt() const { return params_.opt_; }
@@ -319,7 +320,7 @@ class ParseFunction : virtual public basic::mem::TraceTag<TagName> {
   template <meta::Str TagNameOther>
   [[nodiscard]] inline bool valid(const token::Token<TagNameOther>& tok) const {
     return token::TokenLists::instance().next(tok).kind() !=
-           token::tok::TokenKind::eof;
+           token::details::TokenKind::eof;
   }
 
   void opt(bool opt) { params_.opt_ = opt; }
@@ -343,7 +344,7 @@ class ParseFunction : virtual public basic::mem::TraceTag<TagName> {
   bool ok_to_try() { return !executed_mask_.all(); }
 
   static type create_single_token_check(bool opt, size_t calling_depth,
-                                        token::tok::TokenKind token_kind,
+                                        token::details::TokenKind token_kind,
                                         diag::DiagKind diag_kind) {
     typename type::custom_func_type z([token_kind, diag_kind](type* func) {
       func->executed_mask_.set();
@@ -369,7 +370,8 @@ class ParseFunction : virtual public basic::mem::TraceTag<TagName> {
         lexer.lex(next_tok);
         lexer.lex(next_tok);
 
-        lps_assert(TagName, next_tok.kind() != token::tok::TokenKind::unknown);
+        lps_assert(TagName,
+                   next_tok.kind() != token::details::TokenKind::unknown);
 
         token::TokenLists::instance().append(
             next_tok, token::TokenLists::Info::create(output.cur_token_));
@@ -390,7 +392,7 @@ class ParseFunction : virtual public basic::mem::TraceTag<TagName> {
         output.last_token_ = output.cur_token_;
         output.work_ = true;
         output.cur_token_ = next_tok;
-        if (next_tok.kind() != token::tok::TokenKind::unknown) {
+        if (next_tok.kind() != token::details::TokenKind::unknown) {
           output.token_list_infos_.append(
               &(token::TokenLists::instance().at(next_tok)));
         }
@@ -407,7 +409,8 @@ class ParseFunction : virtual public basic::mem::TraceTag<TagName> {
   bitset_type executed_mask_;
 
  private:
-  token::tok::TokenKind expected_token_kind_{token::tok::TokenKind::unknown};
+  token::details::TokenKind expected_token_kind_{
+      token::details::TokenKind::unknown};
 };
 
 }  // namespace details

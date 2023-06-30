@@ -64,7 +64,7 @@ def create_serial_parse_function(serial_idx, key, v, tag_name="TagName"):
             content_type += f"""ParseFunction<{tag_name}>,"""
             content_func_def += f"""ParseFunction<{tag_name}>::
 create_single_token_check({opt_str},calling_depth() + 1,
-    token::tok::TokenKind::{sp_tokens[s]},
+    token::details::TokenKind::{sp_tokens[s]},
     diag::DiagKind::{k.replace("-","_")}_expect_{sp_tokens[s]}),"""
 
             diag_kind = f"""{k.replace("-","_")}_expect_{sp_tokens[s]}"""
@@ -118,7 +118,7 @@ def create_serial_in_parallel_function(s_v, k, flg, tidx):
             contents_type += f""" ParseFunction<{tag_name}>,"""
             contents += f"""ParseFunction<{tag_name}>::
 create_single_token_check({opt_str},calling_depth() + 2,
-    token::tok::TokenKind::{sp_tokens[s]},
+    token::details::TokenKind::{sp_tokens[s]},
     diag::DiagKind::{k.replace("-","_")}_expect_{sp_tokens[s]}),"""
 
             diag_kind = f"""{k.replace("-","_")}_expect_{sp_tokens[s]}"""

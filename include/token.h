@@ -67,7 +67,7 @@ class Location {
   static const id_type kMask = 1ULL << (8 * sizeof(id_type) - 1);
 };
 
-namespace tok {
+namespace details {
 
 enum class TokenKind : uint16_t {
 #define TOK(X) X,
@@ -148,7 +148,7 @@ inline std::ostream& operator<<(std::ostream& s, TokenKind kind) {
   return s;
 }
 
-};  // namespace tok
+};  // namespace details
 
 enum Flag : uint16_t {
   kStartOfLine = 0x01,
@@ -196,7 +196,7 @@ struct Token : virtual public basic::mem::TraceTag<TagName> {
   void clear() {
     this->data_ = nullptr;
     this->loc_.clear();
-    this->kind_ = tok::TokenKind::unknown;
+    this->kind_ = details::TokenKind::unknown;
     this->flags_ = 0;
   }
   void set_flag(Flag flg) {
@@ -221,10 +221,10 @@ struct Token : virtual public basic::mem::TraceTag<TagName> {
   [[nodiscard]] uint32_t file_id() const {
     return loc_.file_id();
   }
-  [[nodiscard]] tok::TokenKind kind() const {
+  [[nodiscard]] details::TokenKind kind() const {
     return kind_;
   }
-  void kind(tok::TokenKind kind) {
+  void kind(details::TokenKind kind) {
     kind_ = kind;
   }
   void location(const Location<TagName + "_location">& loc) {
@@ -272,7 +272,7 @@ struct Token : virtual public basic::mem::TraceTag<TagName> {
 
  private:
   Location<TagName + "_location"> loc_;
-  tok::TokenKind kind_{tok::TokenKind::unknown};
+  details::TokenKind kind_{details::TokenKind::unknown};
   void* data_{nullptr};
 
   uint16_t flags_{0};

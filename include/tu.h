@@ -45,7 +45,7 @@ class TU : virtual public basic::mem::TraceTag<meta::S("TU")> {
   using macro_info_type = MacroInfo<kMacroInfoTagName>;
   using defined_tokens_type =
       std::unordered_map<IdentStringRef, macro_info_type,
-                         token::tok::IdentInfo::IdentHash<IdentStringRef>>;
+                         token::details::IdentInfo::IdentHash<IdentStringRef>>;
 
   static TU& instance() {
     static TU tu;
@@ -103,7 +103,10 @@ class TU : virtual public basic::mem::TraceTag<meta::S("TU")> {
     }
   }
   template <meta::Str TagName>
-  void expand(const token::Token<TagName>& tok) {
+  void expand(
+      const token::Token<TagName>& tok,
+      const typename lps::token::Token<TagName>::tokens_type& parameter_tokens =
+          typename lps::token::Token<TagName>::tokens_type{}) {
     check_define(tok);
     lps_assert(TagName, already_defined(tok));
     auto node = define_tokens_[str(tok)].node_;
@@ -116,7 +119,7 @@ class TU : virtual public basic::mem::TraceTag<meta::S("TU")> {
                                 pp_ast_node_type::tokens_type& out_tokens,
                                 auto func) {
         for (const auto& t : tokens) {
-          if (t.kind() == token::tok::TokenKind::identifier) {
+          if (t.kind() == token::details::TokenKind::identifier) {
             if (defined(t)) {
               const auto& tokens_1 = define_tokens_[str(t)].node_->expand();
               if (tokens.empty()) {
@@ -145,7 +148,7 @@ class TU : virtual public basic::mem::TraceTag<meta::S("TU")> {
   template <meta::Str TagName>
   void check_define(const token::Token<TagName>& tok) {
     constexpr auto kAssertTag = trace_tag_type::kTag + "_" + TagName;
-    lps_assert(kAssertTag, tok.kind() == token::tok::TokenKind::identifier);
+    lps_assert(kAssertTag, tok.kind() == token::details::TokenKind::identifier);
     lps_assert(kAssertTag, tok.ptr() != nullptr && tok.offset() > 0);
   }
   template <meta::Str TagName>
