@@ -24,6 +24,7 @@
 #pragma once
 
 #include "lex/base.h"
+#include "token.h"
 
 namespace lps::lexer::details {
 
@@ -41,14 +42,14 @@ class Basic : public Base<TagName> {
   // *next*: temp state.
   // *skip_comments*: skip comments, these characters are useless for parser.
   // *skip_horz_ws*: skip line-changing characters, like `'\n'`.
-  inline void lex(lps::token::Token<TagName>& tok) override {
+  inline void lex_impl(lps::token::Token<TagName>& tok) override {
     using namespace basic::str::ascii;
-    const char* ptr = this->cur();
+    typename base::ptr_type ptr = this->cur();
   start:  // state: start
     if (is::HorzWs(*ptr)) {
       do {
         this->inc(1);
-        ptr++;
+        ++ptr;
       } while (is::HorzWs(*ptr));
       tok.set_flag(token::Flag::kLeadingSpace);
     }
@@ -56,7 +57,8 @@ class Basic : public Base<TagName> {
     uint32_t sz_tmp2;
     auto c_sz = base::advance(ptr);  // read `char` by skipping `'\'`
     char c = std::get<0>(c_sz);
-    lps::token::tok::TokenKind token_kind = lps::token::tok::TokenKind::unknown;
+    lps::token::details::TokenKind token_kind =
+        lps::token::details::TokenKind::unknown;
 
     if (!is::VertWs(c)) {
       // todo(@mxlol233): not a new line ?
@@ -65,7 +67,7 @@ class Basic : public Base<TagName> {
     switch (c) {
 
       case 0: {  // null
-        token_kind = lps::token::tok::TokenKind::eof;
+        token_kind = lps::token::details::TokenKind::eof;
         break;
       }
       case 26: {  // `^Z`
@@ -109,7 +111,7 @@ class Basic : public Base<TagName> {
       case '7':
       case '8':
       case '9': {
-        const char* tmp_ptr = ptr;
+        typename base::ptr_type tmp_ptr = ptr;
         if (this->lex_floating_point_literal(c, tmp_ptr, tok)) {
           return;
         }
@@ -128,7 +130,7 @@ class Basic : public Base<TagName> {
       case 'u':
       case 'U':
       case 'L': {
-        const char* tmp_ptr = ptr;
+        typename base::ptr_type tmp_ptr = ptr;
         if (this->lex_character_literal(c, tmp_ptr, tok)) {
           return;
         }
@@ -188,11 +190,24 @@ class Basic : public Base<TagName> {
       case 'z':
       case '_':
         if (this->lex_identifier(ptr, tok)) {
+          // a valid identifier, we must check if it was defined by `TU`.
+          if (tok.kind() != token::details::TokenKind::identifier) {
+            return;
+          }
+          if (tu::TU::instance().defined(tok)) {
+            auto new_tok = tu::TU::instance().expand(tok);
+            if (new_tok.kind() != token::details::TokenKind::unknown) {
+              return;
+            }
+            //if the defined macro is empty, we skip this token and lex next one.
+            ptr += tok.offset();
+            goto next;
+          }
           return;
         }
       case '$':
         // todo(@mxlol233): `$` is identifier?
-        token_kind = token::tok::TokenKind::unknown;
+        token_kind = token::details::TokenKind::unknown;
         break;
 
       case '\'':
@@ -206,25 +221,25 @@ class Basic : public Base<TagName> {
         }
         break;
       case '?':
-        token_kind = token::tok::TokenKind::question;
+        token_kind = token::details::TokenKind::question;
         break;
       case '[':
-        token_kind = token::tok::TokenKind::l_square;
+        token_kind = token::details::TokenKind::l_square;
         break;
       case ']':
-        token_kind = token::tok::TokenKind::r_square;
+        token_kind = token::details::TokenKind::r_square;
         break;
       case '(':
-        token_kind = token::tok::TokenKind::l_paren;
+        token_kind = token::details::TokenKind::l_paren;
         break;
       case ')':
-        token_kind = token::tok::TokenKind::r_paren;
+        token_kind = token::details::TokenKind::r_paren;
         break;
       case '{':
-        token_kind = token::tok::TokenKind::l_brace;
+        token_kind = token::details::TokenKind::l_brace;
         break;
       case '}':
-        token_kind = token::tok::TokenKind::r_brace;
+        token_kind = token::details::TokenKind::r_brace;
         break;
       case '.':
         c_sz = this->char_size(ptr);
@@ -232,7 +247,7 @@ class Basic : public Base<TagName> {
         sz_tmp = std::get<1>(c_sz);
 
         {
-          const char* tmp_ptr = ptr;
+          typename base::ptr_type tmp_ptr = ptr;
           if (this->lex_floating_point_literal('.', tmp_ptr, tok)) {
             ptr = tmp_ptr;
             return;
@@ -240,18 +255,18 @@ class Basic : public Base<TagName> {
         }
 
         if (c == '*') {
-          token_kind = token::tok::TokenKind::periodstar;
+          token_kind = token::details::TokenKind::periodstar;
           ptr += sz_tmp;
         } else if (c == '.') {
           c_sz = this->char_size(ptr + sz_tmp);
           if (c_sz == '.') {
             sz_tmp2 = std::get<1>(c_sz);
-            token_kind = token::tok::TokenKind::ellipsis;
+            token_kind = token::details::TokenKind::ellipsis;
             ptr = base::consume_char(ptr, sz_tmp);   // consume second `.`
             ptr = base::consume_char(ptr, sz_tmp2);  // consume third `.`
           }
         } else {
-          token_kind = token::tok::TokenKind::period;
+          token_kind = token::details::TokenKind::period;
         }
         break;
       case '&':
@@ -259,13 +274,13 @@ class Basic : public Base<TagName> {
         c = std::get<0>(c_sz);
         sz_tmp = std::get<1>(c_sz);
         if (c == '&') {
-          token_kind = token::tok::TokenKind::ampamp;
+          token_kind = token::details::TokenKind::ampamp;
           ptr = base::consume_char(ptr, sz_tmp);
         } else if (c == '=') {
-          token_kind = token::tok::TokenKind::ampequal;
+          token_kind = token::details::TokenKind::ampequal;
           ptr = base::consume_char(ptr, sz_tmp);
         } else {
-          token_kind = token::tok::TokenKind::amp;
+          token_kind = token::details::TokenKind::amp;
         }
         break;
       case '*':
@@ -273,10 +288,10 @@ class Basic : public Base<TagName> {
         c = std::get<0>(c_sz);
         sz_tmp = std::get<1>(c_sz);
         if (c == '=') {
-          token_kind = token::tok::TokenKind::starequal;
+          token_kind = token::details::TokenKind::starequal;
           ptr = base::consume_char(ptr, sz_tmp);
         } else {
-          token_kind = token::tok::TokenKind::star;
+          token_kind = token::details::TokenKind::star;
         }
         break;
       case '+':
@@ -284,13 +299,13 @@ class Basic : public Base<TagName> {
         c = std::get<0>(c_sz);
         sz_tmp = std::get<1>(c_sz);
         if (c == '+') {
-          token_kind = token::tok::TokenKind::plusplus;
+          token_kind = token::details::TokenKind::plusplus;
           ptr = base::consume_char(ptr, sz_tmp);
         } else if (c == '=') {
-          token_kind = token::tok::TokenKind::plusequal;
+          token_kind = token::details::TokenKind::plusequal;
           ptr = base::consume_char(ptr, sz_tmp);
         } else {
-          token_kind = token::tok::TokenKind::plus;
+          token_kind = token::details::TokenKind::plus;
         }
         break;
       case '-':
@@ -298,39 +313,39 @@ class Basic : public Base<TagName> {
         c = std::get<0>(c_sz);
         sz_tmp = std::get<1>(c_sz);
         if (c == '-') {  // --
-          token_kind = token::tok::TokenKind::minusminus;
+          token_kind = token::details::TokenKind::minusminus;
           ptr = base::consume_char(ptr, sz_tmp);
         } else if (c == '>') {
           c_sz = this->char_size(ptr + sz_tmp);
           c = std::get<0>(c_sz);
           if (c == '*') {  // ->*
             sz_tmp2 = std::get<1>(c_sz);
-            token_kind = token::tok::TokenKind::arrowstar;
+            token_kind = token::details::TokenKind::arrowstar;
             ptr = base::consume_char(ptr, sz_tmp);
             ptr = base::consume_char(ptr, sz_tmp2);
           } else {
-            token_kind = token::tok::TokenKind::arrow;
+            token_kind = token::details::TokenKind::arrow;
             ptr = base::consume_char(ptr, sz_tmp);
           }
         } else if (c == '=') {  // -=
-          token_kind = token::tok::TokenKind::minusequal;
+          token_kind = token::details::TokenKind::minusequal;
           ptr = base::consume_char(ptr, sz_tmp);
         } else {
-          token_kind = token::tok::TokenKind::minus;
+          token_kind = token::details::TokenKind::minus;
         }
         break;
       case '~':
-        token_kind = token::tok::TokenKind::tilde;
+        token_kind = token::details::TokenKind::tilde;
         break;
       case '!':
         c_sz = this->char_size(ptr);
         c = std::get<0>(c_sz);
         sz_tmp = std::get<1>(c_sz);
         if (c == '=') {
-          token_kind = token::tok::TokenKind::exclaimequal;
+          token_kind = token::details::TokenKind::exclaimequal;
           ptr = base::consume_char(ptr, sz_tmp);
         } else {
-          token_kind = token::tok::TokenKind::exclaim;
+          token_kind = token::details::TokenKind::exclaim;
         }
         break;
       case '/':
@@ -353,10 +368,10 @@ class Basic : public Base<TagName> {
           goto next;
         }
         if (c == '=') {
-          token_kind = token::tok::TokenKind::slashequal;
+          token_kind = token::details::TokenKind::slashequal;
           ptr = base::consume_char(ptr, sz_tmp);
         } else {
-          token_kind = token::tok::TokenKind::slash;
+          token_kind = token::details::TokenKind::slash;
         }
         break;
       case '%':
@@ -364,10 +379,10 @@ class Basic : public Base<TagName> {
         c = std::get<0>(c_sz);
         sz_tmp = std::get<1>(c_sz);
         if (c == '=') {
-          token_kind = token::tok::TokenKind::percentequal;
+          token_kind = token::details::TokenKind::percentequal;
           ptr = base::consume_char(ptr, sz_tmp);
         } else {
-          token_kind = token::tok::TokenKind::percent;
+          token_kind = token::details::TokenKind::percent;
         }
         break;
       case '<':
@@ -380,17 +395,17 @@ class Basic : public Base<TagName> {
           auto c2 = std::get<0>(c_sz_2);
           sz_tmp2 = std::get<1>(c_sz_2);
           if (c2 == '=') {  // <<=
-            token_kind = token::tok::TokenKind::lesslessequal;
+            token_kind = token::details::TokenKind::lesslessequal;
             ptr = base::consume_char(ptr, sz_tmp);
             ptr = base::consume_char(ptr, sz_tmp2);
 
           } else if (c2 == '<') {  // <<<
-            token_kind = token::tok::TokenKind::lesslessless;
+            token_kind = token::details::TokenKind::lesslessless;
             ptr = base::consume_char(ptr, sz_tmp);
             ptr = base::consume_char(ptr, sz_tmp2);
 
           } else {
-            token_kind = token::tok::TokenKind::lessless;
+            token_kind = token::details::TokenKind::lessless;
             ptr = base::consume_char(ptr, sz_tmp);
           }
         } else if (c == '=') {  // <=
@@ -398,16 +413,16 @@ class Basic : public Base<TagName> {
           auto c2 = std::get<0>(c_sz_2);
           sz_tmp2 = std::get<1>(c_sz_2);
           if (c2 == '>') {  // <=>
-            token_kind = token::tok::TokenKind::spaceship;
+            token_kind = token::details::TokenKind::spaceship;
             ptr = base::consume_char(ptr, sz_tmp);
             ptr = base::consume_char(ptr, sz_tmp2);
             break;
           }
-          token_kind = token::tok::TokenKind::lessequal;
+          token_kind = token::details::TokenKind::lessequal;
           ptr = base::consume_char(ptr, sz_tmp);
 
         } else {
-          token_kind = token::tok::TokenKind::less;
+          token_kind = token::details::TokenKind::less;
         }
         break;
       case '>':
@@ -415,27 +430,27 @@ class Basic : public Base<TagName> {
         c = std::get<0>(c_sz);
         sz_tmp = std::get<1>(c_sz);
         if (c == '=') {  // >=
-          token_kind = token::tok::TokenKind::greaterequal;
+          token_kind = token::details::TokenKind::greaterequal;
           ptr = base::consume_char(ptr, sz_tmp);
         } else if (c == '>') {
           auto c_sz_2 = this->char_size(ptr + sz_tmp);
           auto c2 = std::get<0>(c_sz_2);
           sz_tmp2 = std::get<1>(c_sz_2);
           if (c2 == '=') {  // >>=
-            token_kind = token::tok::TokenKind::greatergreaterequal;
+            token_kind = token::details::TokenKind::greatergreaterequal;
             ptr = base::consume_char(ptr, sz_tmp);
             ptr = base::consume_char(ptr, sz_tmp2);
           } else if (c2 == '>') {
-            token_kind = token::tok::TokenKind::greatergreatergreater;
+            token_kind = token::details::TokenKind::greatergreatergreater;
             ptr = base::consume_char(ptr, sz_tmp);
             ptr = base::consume_char(ptr, sz_tmp2);
           } else {
-            token_kind = token::tok::TokenKind::greatergreater;
+            token_kind = token::details::TokenKind::greatergreater;
             ptr = base::consume_char(ptr, sz_tmp);
           }
 
         } else {
-          token_kind = token::tok::TokenKind::greater;
+          token_kind = token::details::TokenKind::greater;
         }
         break;
       case '^':
@@ -443,13 +458,13 @@ class Basic : public Base<TagName> {
         c = std::get<0>(c_sz);
         sz_tmp = std::get<1>(c_sz);
         if (c == '=') {
-          token_kind = token::tok::TokenKind::caretequal;
+          token_kind = token::details::TokenKind::caretequal;
           ptr = base::consume_char(ptr, sz_tmp);
         } else if (c == '^') {
-          token_kind = token::tok::TokenKind::caretcaret;
+          token_kind = token::details::TokenKind::caretcaret;
           ptr = base::consume_char(ptr, sz_tmp);
         } else {
-          token_kind = token::tok::TokenKind::caret;
+          token_kind = token::details::TokenKind::caret;
         }
         break;
       case '|':
@@ -457,13 +472,13 @@ class Basic : public Base<TagName> {
         c = std::get<0>(c_sz);
         sz_tmp = std::get<1>(c_sz);
         if (c == '=') {
-          token_kind = token::tok::TokenKind::pipeequal;
+          token_kind = token::details::TokenKind::pipeequal;
           ptr = base::consume_char(ptr, sz_tmp);
         } else if (c == '|') {
-          token_kind = token::tok::TokenKind::pipepipe;
+          token_kind = token::details::TokenKind::pipepipe;
           ptr = base::consume_char(ptr, sz_tmp);
         } else {
-          token_kind = token::tok::TokenKind::pipe;
+          token_kind = token::details::TokenKind::pipe;
         }
         break;
       case ':':
@@ -471,53 +486,53 @@ class Basic : public Base<TagName> {
         c = std::get<0>(c_sz);
         sz_tmp = std::get<1>(c_sz);
         if (c == ':') {
-          token_kind = token::tok::TokenKind::coloncolon;
+          token_kind = token::details::TokenKind::coloncolon;
           ptr = base::consume_char(ptr, sz_tmp);
         } else {
-          token_kind = token::tok::TokenKind::colon;
+          token_kind = token::details::TokenKind::colon;
         }
         break;
       case ';':
-        token_kind = token::tok::TokenKind::semi;
+        token_kind = token::details::TokenKind::semi;
         break;
       case '=':
         c_sz = this->char_size(ptr);
         c = std::get<0>(c_sz);
         sz_tmp = std::get<1>(c_sz);
         if (c == '=') {
-          token_kind = token::tok::TokenKind::equalequal;
+          token_kind = token::details::TokenKind::equalequal;
           ptr = base::consume_char(ptr, sz_tmp);
         } else {
-          token_kind = token::tok::TokenKind::equal;
+          token_kind = token::details::TokenKind::equal;
         }
         break;
       case ',':
-        token_kind = token::tok::TokenKind::comma;
+        token_kind = token::details::TokenKind::comma;
         break;
       case '#':
         c_sz = this->char_size(ptr);
         c = std::get<0>(c_sz);
         sz_tmp = std::get<1>(c_sz);
         if (c == '#') {
-          token_kind = token::tok::TokenKind::hashhash;
+          token_kind = token::details::TokenKind::hashhash;
           ptr = base::consume_char(ptr, sz_tmp);
         } else {
           // todo(@mxlol233): handle pp directive
-          token_kind = token::tok::TokenKind::hash;
+          token_kind = token::details::TokenKind::hash;
         }
         break;
       case '@':
         // todo(@mxlol233): handle objectC ?
-        token_kind = token::tok::TokenKind::unknown;
+        token_kind = token::details::TokenKind::unknown;
         break;
       case '\\':
         // todo(@mxlol233): handle  UCNs
-        token_kind = token::tok::TokenKind::unknown;
+        token_kind = token::details::TokenKind::unknown;
         break;
 
       default: {
         if (is::ASCII(c)) {
-          token_kind = token::tok::TokenKind::unknown;
+          token_kind = token::details::TokenKind::unknown;
           break;
         }
 

@@ -23,11 +23,13 @@
 
 #pragma once
 
+#include <functional>
 #include "basic/exception.h"
 #include "basic/str.h"
 #include "basic/vec.h"
 #include "diag.h"
-#include "token.h"
+#include "src.h"
+#include "tu.h"
 
 namespace lps::lexer::details {
 
@@ -50,15 +52,31 @@ class Base : virtual public lps::basic::mem::TraceTag<TagName> {
  public:
   using type = Base<TagName>;
   using const_ptr_type = const type*;
-  inline virtual void lex(lps::token::Token<TagName>& tok) = 0;
+  using ptr_type = basic::FileVisitor;
+  using lex_func_type1 =
+      std::function<token::details::TokenKind(char, ptr_type&)>;
+  using lex_func_type2 =
+      std::function<bool(char, ptr_type&, lps::token::Token<TagName>&)>;
+  inline void lex(lps::token::Token<TagName>& tok) {
+    try {
+      lex_impl(tok);
+    } catch (basic::vfile::Eof& except_eof) {
+      // todo(@mxlol233): should jump to another virtual file's visitor?
+      tok.kind(token::details::TokenKind::eof);
+      return;
+    }
+  }
+  inline virtual void lex_impl(lps::token::Token<TagName>& tok) = 0;
   [[nodiscard]] MethodType method() const { return type_; }
   explicit Base(uint32_t start_file_id, const char* ptr, const char* end,
                 MethodType m)
-      : file_id_(start_file_id), ptr_(ptr), end_(end), type_(m) {}
+      : file_id_(start_file_id),
+        ptr_(ptr, end, []() { throw basic::vfile::Eof(); }),
+        type_(m) {}
   [[nodiscard]] inline size_t pos() const { return pos_; }
 
  protected:
-  static inline uint32_t escaped_newline_scanning(const char* ptr) {
+  static inline uint32_t escaped_newline_scanning(ptr_type ptr) {
     using namespace basic::str::ascii;
     uint32_t sz = 0;
 
@@ -77,11 +95,11 @@ class Base : virtual public lps::basic::mem::TraceTag<TagName> {
     return 0;
   }
 
-  static inline char char_scanning(const char* ptr, uint32_t& size) {
+  static inline char char_scanning(ptr_type ptr, uint32_t& size) {
     using namespace basic::str::ascii;
 
     if (*ptr == '\\') {
-      ptr++;
+      ++ptr;
       size++;
     Slash:
       if (!is::Ws(
@@ -107,7 +125,7 @@ class Base : virtual public lps::basic::mem::TraceTag<TagName> {
     return *ptr;
   }
 
-  static inline const char* consume_char(const char* ptr, uint32_t sz) {
+  static inline ptr_type consume_char(ptr_type ptr, uint32_t sz) {
     if (sz == 1) {
       return ptr + sz;
     }
@@ -116,19 +134,19 @@ class Base : virtual public lps::basic::mem::TraceTag<TagName> {
     return ptr + sz;
   }
 
-  static inline CharSize char_size(const char* ptr) {
+  static inline CharSize char_size(ptr_type ptr) {
     if (basic::str::ascii::is::NormalChar(ptr[0])) {
-      return {*ptr++, 1};
+      return {*(ptr++), 1};
     }
     uint32_t sz = 0;
     char c = char_scanning(ptr, sz);
     return {c, sz};
   }
 
-  static inline CharSize advance(const char*& ptr) {
+  static inline CharSize advance(ptr_type& ptr) {
     uint32_t sz = 0;
     if (basic::str::ascii::is::NormalChar(ptr[0])) {
-      return {*ptr++, 1};
+      return {*(ptr++), 1};
     }
 
     char c = char_scanning(ptr, sz);
@@ -136,31 +154,31 @@ class Base : virtual public lps::basic::mem::TraceTag<TagName> {
     return {c, sz};
   }
 
-  static inline CharSize ws_skipping(const char*& ptr) {
+  static inline CharSize ws_skipping(ptr_type& ptr) {
     uint32_t sz = 0;
     while (basic::str::ascii::is::Ws(*ptr)) {
-      ptr++;
+      ++ptr;
       sz++;
     }
     return {*ptr, sz};
   }
 
-  [[nodiscard]] inline const char* cur() const { return ptr_ + pos_; }
+  [[nodiscard]] inline ptr_type cur() const { return ptr_ + pos_; }
   inline void inc(size_t n) { pos_ += n; }
 
-  inline void diag(const char* ptr, diag::DiagKind kind) {
+  inline void diag(ptr_type ptr, diag::DiagKind kind) {
     diag::DiagInputs<TagName> diag_input;
     diag_input.kind_ = kind;
     lps::token::Token<TagName> tok_error;
-    this->token_formulate(tok_error, ptr, token::tok::TokenKind::unknown);
+    this->token_formulate(tok_error, ptr, token::details::TokenKind::unknown);
     tok_error.data(this->cur());
     diag_input.main_token_ = tok_error;
     diag::doing<TagName>(diag_input.main_token_, diag_input.kind_,
                          diag_input.context_tokens_);
   }
 
-  inline void token_formulate(lps::token::Token<TagName>& tok, const char* end,
-                              lps::token::tok::TokenKind kind) {
+  inline void token_formulate(lps::token::Token<TagName>& tok, ptr_type end,
+                              lps::token::details::TokenKind kind) {
     lps_assert(TagName, this->cur() != nullptr);
     auto offset = end - this->cur();
     lps_assert(TagName,
@@ -170,18 +188,392 @@ class Base : virtual public lps::basic::mem::TraceTag<TagName> {
     tok.file_id(file_id_);
     tok.kind(kind);
     tok.data(this->cur());
+    lps_assert(TagName, src::Manager::instance().has(file_id_));
+    auto tok_info = token::TokenLists::Info::create(tok);
+    tok.next_visitor(tok_info.offset_ + offset, file_id_);
+  }
+
+  template <auto Func>
+  static inline bool lex_char(ptr_type& ptr) {
+    if (Func(*ptr)) {
+      ++ptr;
+      return true;
+    }
+    return false;
+  }
+
+  inline bool lex_something(char c, ptr_type& ptr,
+                            lps::token::Token<TagName>& tok,
+                            const lex_func_type1& func) {
+
+    ptr_type tmp_ptr = ptr;
+    auto kind = func(c, tmp_ptr);
+    if (kind != token::details::TokenKind::unknown) {
+      ptr = tmp_ptr;
+      this->token_formulate(tok, ptr, kind);
+      return true;
+    }
+    return false;
+  }
+
+  inline bool lex_something_parallel(char c, ptr_type& ptr,
+                                     lps::token::Token<TagName>& tok,
+                                     const std::vector<lex_func_type2>& funcs) {
+    for (const auto& f : funcs) {
+      ptr_type tmp_ptr = ptr;
+      lps::token::Token<TagName> tmp_tok;
+      if (f(c, tmp_ptr, tmp_tok)) {
+        ptr = tmp_ptr;
+        tok = tmp_tok;
+        return true;
+      }
+    }
+    return false;
+  }
+
+  template <token::details::TokenKind OutKind>
+  inline bool lex_something_recursive(char c, ptr_type& ptr,
+                                      lps::token::Token<TagName>& tok,
+                                      const lex_func_type2& first_lex_func) {
+    return [this](char c, ptr_type& ptr, lps::token::Token<TagName>& tok,
+                  const lex_func_type2& first_lex_func) {
+      auto lex = [this, &first_lex_func](char c, ptr_type& ptr,
+                                         lps::token::Token<TagName>& tok,
+                                         const auto& func) -> bool {
+        if (first_lex_func(c, ptr, tok)) {
+          ptr_type tmp_ptr = ptr;
+          tmp_ptr.horzws_skipping();  // skip space, `\t` etc.
+          char tmp_c = *ptr;
+          tmp_ptr++;
+          lps::token::Token<TagName> tmp_tok;
+          if (func(tmp_c, tmp_ptr, tmp_tok, func)) {
+            ptr = tmp_ptr;
+            tok = tmp_tok;
+          }
+          tok.kind(OutKind);
+          return true;
+        }
+        return false;
+      };
+      return lex(c, ptr, tok, lex);
+    }(c, ptr, tok, first_lex_func);
+  }
+
+  // preprocessing-operator:
+  // 	`#`
+  // 	`##`
+  // 	`%:`
+  // 	`%:%:`
+  inline bool lex_preprocessing_operator(char c, ptr_type& ptr,
+                                         lps::token::Token<TagName>& tok) {
+    return lex_something(
+        c, ptr, tok,
+        [this](char c, ptr_type& ptr) -> token::details::TokenKind {
+          token::details::TokenKind kind = token::details::TokenKind::unknown;
+          char next_c = *ptr;
+          switch (c) {
+            case '%': {
+              if (next_c == ':') {  // %:
+                kind = token::details::TokenKind::percentcolon;
+                ++ptr;
+                if (*ptr == '%' && *(ptr + 1) == ':') {  // %:%:
+                  kind = token::details::TokenKind::percentcolonpercentcolon;
+                  ptr += 2;
+                }
+              }
+              break;
+            }
+            case '#': {
+              kind = token::details::TokenKind::hash;
+              if (next_c == '#') {
+                kind = token::details::TokenKind::hashhash;
+                ++ptr;
+              }
+              break;
+            }
+            default:
+              break;
+          }
+          return kind;
+        });
+  }
+
+  inline bool lex_operator_or_punctuator(char c, ptr_type& ptr,
+                                         lps::token::Token<TagName>& tok) {
+    return lex_something(
+        c, ptr, tok,
+        [this](char c, ptr_type& ptr) -> token::details::TokenKind {
+          token::details::TokenKind kind = token::details::TokenKind::unknown;
+          char next_c = *ptr;
+          switch (c) {
+            case '{':
+              kind = token::details::TokenKind::l_brace;
+              break;
+            case '}':
+              kind = token::details::TokenKind::r_brace;
+              break;
+            case '[':
+              kind = token::details::TokenKind::l_square;
+              break;
+            case ']':
+              kind = token::details::TokenKind::r_square;
+              break;
+            case '(':
+              kind = token::details::TokenKind::l_paren;
+              break;
+            case ')':
+              kind = token::details::TokenKind::r_paren;
+              break;
+            case '?':
+              kind = token::details::TokenKind::question;
+              break;
+            case ';':
+              kind = token::details::TokenKind::semi;
+              break;
+            case ':': {
+              kind = token::details::TokenKind::colon;
+              if (next_c == '>') {
+                kind = token::details::TokenKind::colongreater;
+                ++ptr;
+              } else if (next_c == ':') {
+                kind = token::details::TokenKind::coloncolon;
+                ++ptr;
+              }
+              break;
+            }
+            case '.': {
+              kind = token::details::TokenKind::period;
+              if (next_c == '.') {
+                if (*(ptr + 1) == '.') {
+                  kind = token::details::TokenKind::ellipsis;
+                  ptr += 2;
+                  break;
+                }
+              } else if (next_c == '*') {
+                kind = token::details::TokenKind::periodstar;
+                ++ptr;
+              }
+              break;
+            }
+            case '~':
+              kind = token::details::TokenKind::tilde;
+              break;
+            case '!': {
+              kind = token::details::TokenKind::exclaim;
+              if (next_c == '=') {
+                kind = token::details::TokenKind::exclaimequal;
+                ++ptr;
+              }
+              break;
+            }
+              kind = token::details::TokenKind::exclaim;
+              break;
+            case '+': {
+              kind = token::details::TokenKind::plus;
+              if (next_c == '=') {
+                kind = token::details::TokenKind::plusequal;
+                ++ptr;
+              } else if (next_c == '+') {
+                kind = token::details::TokenKind::plusplus;
+                ++ptr;
+              }
+              break;
+            }
+
+            case '-': {
+              kind = token::details::TokenKind::minus;
+              if (next_c == '>') {
+                kind = token::details::TokenKind::arrow;
+                ++ptr;
+                if (*ptr == '*') {
+                  kind = token::details::TokenKind::arrowstar;
+                  ++ptr;
+                }
+              } else if (next_c == '-') {
+                kind = token::details::TokenKind::minusminus;
+                ++ptr;
+              } else if (next_c == '=') {
+                kind = token::details::TokenKind::minusequal;
+                ++ptr;
+              }
+              break;
+            }
+
+            case '*': {
+              kind = token::details::TokenKind::star;
+              if (next_c == '=') {
+                kind = token::details::TokenKind::starequal;
+                ++ptr;
+              }
+              break;
+            }
+            case '/': {
+              kind = token::details::TokenKind::slash;
+              if (next_c == '=') {
+                kind = token::details::TokenKind::slashequal;
+                ++ptr;
+              }
+              break;
+            }
+            case '%': {
+              kind = token::details::TokenKind::percent;
+              if (next_c == '=') {
+                kind = token::details::TokenKind::percentequal;
+                ++ptr;
+              } else if (next_c == '>') {
+                kind = token::details::TokenKind::percentgreater;
+                ++ptr;
+              }
+              break;
+            }
+            case '&': {
+              kind = token::details::TokenKind::amp;
+              if (next_c == '=') {
+                kind = token::details::TokenKind::ampequal;
+                ++ptr;
+              } else if (next_c == '&') {
+                kind = token::details::TokenKind::ampamp;
+                ++ptr;
+              }
+              break;
+            }
+            case '^': {
+              kind = token::details::TokenKind::caret;
+              if (next_c == '=') {
+                kind = token::details::TokenKind::caretequal;
+                ++ptr;
+              } else if (next_c == '^') {
+                kind = token::details::TokenKind::caretcaret;
+                ++ptr;
+              }
+              break;
+            }
+            case '|': {
+              kind = token::details::TokenKind::pipe;
+              if (next_c == '=') {
+                kind = token::details::TokenKind::pipeequal;
+                ++ptr;
+              } else if (next_c == '|') {
+                kind = token::details::TokenKind::pipepipe;
+                ++ptr;
+              }
+              break;
+            }
+            case '=': {
+              kind = token::details::TokenKind::equal;
+              if (next_c == '=') {
+                kind = token::details::TokenKind::equalequal;
+                ++ptr;
+              }
+              break;
+            }
+            case '<': {
+              kind = token::details::TokenKind::less;
+              if (next_c == '%') {
+                kind = token::details::TokenKind::lesspercent;
+                ++ptr;
+              } else if (next_c == ':') {
+                kind = token::details::TokenKind::lesscolon;
+                ++ptr;
+              } else if (next_c == '=') {  // <=
+                kind = token::details::TokenKind::lessequal;
+                ++ptr;
+                if (*ptr == '>') {  // <=>
+                  kind = token::details::TokenKind::spaceship;
+                  ++ptr;
+                  break;
+                }
+              } else if (next_c == '<') {  // <<
+                kind = token::details::TokenKind::lessless;
+                ++ptr;
+                if (*ptr == '=') {  // <<=
+                  kind = token::details::TokenKind::lesslessequal;
+                  ++ptr;
+                  break;
+                }
+              }
+              break;
+            }
+            case '>': {
+              kind = token::details::TokenKind::greater;
+              if (next_c == '>') {  // >>
+                kind = token::details::TokenKind::greatergreater;
+                ++ptr;
+                if (*ptr == '=') {  // >>=
+                  kind = token::details::TokenKind::greatergreaterequal;
+                  ++ptr;
+                  break;
+                }
+              } else if (next_c == '=') {  //>=
+                kind = token::details::TokenKind::greaterequal;
+                ++ptr;
+              }
+              break;
+            }
+            default:
+              break;
+          }
+          return kind;
+        });
+  }
+
+  // operator-or-punctuator: one of:
+  //	{ } [ ] ( )
+  //	<: :> <% %> ; : ...
+  //	? :: . .* -> ->* ~
+  //	! + - * / % ^ & |
+  //	= += -= *= /= %= ^= &= |=
+  //	== != < > <= >= <=> && ||
+  //	<< >> <<= >>= ++ -- ,
+  //	and or xor not bitand bitor compl
+  //	and_eq or_eq xor_eq not_eq
+  inline bool lex_operator_or_punctuator_or_keyword_operator(
+      char c, ptr_type& ptr, lps::token::Token<TagName>& tok) {
+    if (!lex_operator_or_punctuator(c, ptr, tok)) {
+      if (this->lex_identifier(ptr, tok)) {
+        //	one of following key_words:
+        //    and or xor not bitand bitor compl and_eq or_eq xor_eq not_eq
+        if (tok.kind() == token::details::TokenKind::kw_and ||
+            tok.kind() == token::details::TokenKind::kw_or ||
+            tok.kind() == token::details::TokenKind::kw_xor ||
+            tok.kind() == token::details::TokenKind::kw_not ||
+            tok.kind() == token::details::TokenKind::kw_bitand ||
+            tok.kind() == token::details::TokenKind::kw_bitor ||
+            tok.kind() == token::details::TokenKind::kw_compl ||
+            tok.kind() == token::details::TokenKind::kw_and_eq ||
+            tok.kind() == token::details::TokenKind::kw_or_eq ||
+            tok.kind() == token::details::TokenKind::kw_xor_eq ||
+            tok.kind() == token::details::TokenKind::kw_not_eq) {
+          return true;
+        }
+      }
+    } else {
+      return true;
+    }
+    return false;
+  }
+
+  inline bool lex_preprocessing_op_or_punc(char c, ptr_type& ptr,
+                                           lps::token::Token<TagName>& tok) {
+    std::vector<lex_func_type2> funcs = {
+        [this](char c, ptr_type& ptr, lps::token::Token<TagName>& tok) -> bool {
+          return lex_preprocessing_operator(c, ptr, tok);
+        },
+        [this](char c, ptr_type& ptr, lps::token::Token<TagName>& tok) -> bool {
+          return lex_operator_or_punctuator_or_keyword_operator(c, ptr, tok);
+        },
+    };
+    return lex_something_parallel(c, ptr, tok, funcs);
   }
 
   template <char StartChar, diag::DiagKind DiagKind>
-  inline uint32_t lex_char_seq(const char*& ptr,
-                               lps::token::Token<TagName>& tok) {
+  inline uint32_t lex_char_seq(ptr_type& ptr, lps::token::Token<TagName>& tok) {
     uint32_t cnt_char = 0;
     while (*ptr != StartChar) {
       if (*ptr == '\\') {
         advance(ptr);
       }
-      if (*ptr == '\n' || *ptr == '\r' ||
-          (*ptr == 0 && ptr == this->end_ - 1)) {
+      if (*ptr == '\n' || *ptr == '\r' || ptr.eof()) {
         this->diag(ptr, DiagKind);
         return cnt_char;
       }
@@ -191,8 +583,7 @@ class Base : virtual public lps::basic::mem::TraceTag<TagName> {
     return cnt_char;
   }
 
-  inline bool lex_identifier(const char*& ptr,
-                             lps::token::Token<TagName>& tok) {
+  inline bool lex_identifier(ptr_type& ptr, lps::token::Token<TagName>& tok) {
     using namespace basic::str::ascii;
     while (true) {
       char c = *ptr;
@@ -219,12 +610,13 @@ class Base : virtual public lps::basic::mem::TraceTag<TagName> {
       break;
     }
 
-    this->token_formulate(tok, ptr, lps::token::tok::TokenKind::raw_identifier);
+    this->token_formulate(tok, ptr,
+                          lps::token::details::TokenKind::raw_identifier);
     auto ident_str = tok.template str<meta::S("ident_str")>();
-    if (lps::token::tok::IdentInfo::instance().kw_has(ident_str)) {
-      tok.kind(lps::token::tok::IdentInfo::instance().kw_at(ident_str));
+    if (lps::token::details::IdentInfo::instance().kw_has(ident_str)) {
+      tok.kind(lps::token::details::IdentInfo::instance().kw_at(ident_str));
     } else {
-      tok.kind(token::tok::TokenKind::identifier);
+      tok.kind(token::details::TokenKind::identifier);
     }
 
     return true;
@@ -233,7 +625,7 @@ class Base : virtual public lps::basic::mem::TraceTag<TagName> {
   // header-name:
   // 	`<`, h_char_sequence, `>`
   // 	`"`, q_char_sequence, `"`
-  inline bool lex_header_name(char c, const char*& ptr,
+  inline bool lex_header_name(char c, ptr_type& ptr,
                               lps::token::Token<TagName>& tok) {
     bool flg = false;
     if (c == '<') {
@@ -253,28 +645,28 @@ class Base : virtual public lps::basic::mem::TraceTag<TagName> {
     }
     if (flg) {
       this->token_formulate(tok, ptr + 1,
-                            lps::token::tok::TokenKind::header_name);
+                            lps::token::details::TokenKind::header_name);
       return true;
     }
     return false;
   }
 
-  inline bool lex_encoding_prefix(char c, const char*& ptr,
+  inline bool lex_encoding_prefix(char c, ptr_type& ptr,
                                   lps::token::Token<TagName>& /*tok*/) {
     if (c == 'u') {
       if (*ptr == '8') {
-        ptr++;
+        ++ptr;
       }
       return true;
     }
     return c == 'U' || c == 'L';
   }
 
-  inline bool lex_character_literal(char c_, const char*& ptr,
+  inline bool lex_character_literal(char c_, ptr_type& ptr,
                                     lps::token::Token<TagName>& tok) {
 
-    const char* start = ptr - 1;
-    const char* tmp_ptr = ptr;
+    ptr_type start = ptr - 1;
+    ptr_type tmp_ptr = ptr;
     bool flg = lex_encoding_prefix(c_, tmp_ptr, tok);
     if (flg) {
       ptr = tmp_ptr;
@@ -282,7 +674,7 @@ class Base : virtual public lps::basic::mem::TraceTag<TagName> {
 
     if (flg) {
       if (*ptr == '\'') {
-        ptr++;
+        ++ptr;
       } else {
         return false;
       }
@@ -300,68 +692,69 @@ class Base : virtual public lps::basic::mem::TraceTag<TagName> {
         this->diag(ptr, diag::empty_char_literal);
         return false;
       }
-      this->token_formulate(tok, ptr + 1, token::tok::TokenKind::char_literal);
+      this->token_formulate(tok, ptr + 1,
+                            token::details::TokenKind::char_literal);
     }
 
     return flg;
   }
-  inline bool lex_integer_suffix(const char*& ptr) {
+  inline bool lex_integer_suffix(ptr_type& ptr) {
 
     auto c_sz = char_size(ptr);
     auto c = std::get<0>(c_sz);
     auto sz_tmp = std::get<1>(c_sz);
     if (c == 'l') {  //l
-      ptr++;
+      ++ptr;
       if (*ptr == 'l') {  //ll
-        ptr++;
+        ++ptr;
         if (*ptr == 'u') {  //llu
-          ptr++;
+          ++ptr;
         } else if (*ptr == 'U') {  // llU
-          ptr++;
+          ++ptr;
         }
       } else if (*ptr == 'U') {  // lU
-        ptr++;
+        ++ptr;
       } else if (*ptr == 'u') {  // lu
-        ptr++;
+        ++ptr;
       }
     } else if (c == 'L') {  // L
-      ptr++;
+      ++ptr;
       if (*ptr == 'L') {  // LL
-        ptr++;
+        ++ptr;
         if (*ptr == 'u') {  // LLu
-          ptr++;
+          ++ptr;
         } else if (*ptr == 'U') {  // LLU
-          ptr++;
+          ++ptr;
         }
       } else if (*ptr == 'U') {  // LU
-        ptr++;
+        ++ptr;
       } else if (*ptr == 'u') {  // Lu
-        ptr++;
+        ++ptr;
       }
     } else if (c == 'u') {
-      ptr++;
+      ++ptr;
       if (*ptr == 'l') {  //ul
-        ptr++;
+        ++ptr;
         if (*ptr == 'l') {  //ull
-          ptr++;
+          ++ptr;
         }
       } else if (*ptr == 'L') {  // uL
-        ptr++;
+        ++ptr;
         if (*ptr == 'L') {  // uLL
-          ptr++;
+          ++ptr;
         }
       }
     } else if (c == 'U') {
-      ptr++;
+      ++ptr;
       if (*ptr == 'l') {  //Ul
-        ptr++;
+        ++ptr;
         if (*ptr == 'l') {  //Ull
-          ptr++;
+          ++ptr;
         }
       } else if (*ptr == 'L') {  // UL
-        ptr++;
+        ++ptr;
         if (*ptr == 'L') {  // ULL
-          ptr++;
+          ++ptr;
         }
       }
     } else {
@@ -370,25 +763,25 @@ class Base : virtual public lps::basic::mem::TraceTag<TagName> {
     return true;
   }
 
-  inline bool lex_octal_digit(const char*& ptr) {
+  inline bool lex_octal_digit(ptr_type& ptr) {
     if (*ptr >= '0' && *ptr <= '7') {
-      ptr++;
+      ++ptr;
       return true;
     }
     return false;
   }
 
-  template <auto FuncDigit, lps::token::tok::TokenKind TokenKind>
-  inline bool lex_number_literal(const char*& ptr,
+  template <auto FuncDigit, lps::token::details::TokenKind TokenKind>
+  inline bool lex_number_literal(ptr_type& ptr,
                                  lps::token::Token<TagName>& tok) {
 
     if (!FuncDigit(ptr)) {
       return false;
     }
-    const char* matched_ptr = ptr;
+    ptr_type matched_ptr = ptr;
 
     if (*ptr == '\'') {
-      ptr++;
+      ++ptr;
     }
 
     if (lex_number_literal<FuncDigit, TokenKind>(ptr, tok)) {
@@ -400,76 +793,80 @@ class Base : virtual public lps::basic::mem::TraceTag<TagName> {
     return true;
   }
 
-  inline bool lex_octal_literal(const char*& ptr,
+  inline bool lex_octal_literal(ptr_type& ptr,
                                 lps::token::Token<TagName>& tok) {
-    return lex_number_literal<[](const char*& ptr) {
+    return lex_number_literal<[](ptr_type& ptr) {
       if (*ptr >= '0' && *ptr <= '7') {
-        ptr++;
+        ++ptr;
         return true;
       }
       return false;
     },
-                              token::tok::TokenKind::octal_literal>(ptr, tok);
+                              token::details::TokenKind::octal_literal>(ptr,
+                                                                        tok);
   }
 
-  inline bool lex_decimal_literal(const char*& ptr,
+  inline bool lex_decimal_literal(ptr_type& ptr,
                                   lps::token::Token<TagName>& tok) {
-    return lex_number_literal<[](const char*& ptr) {
+    return lex_number_literal<[](ptr_type& ptr) {
       if (*ptr >= '0' && *ptr <= '9') {
-        ptr++;
+        ++ptr;
         return true;
       }
       return false;
     },
-                              token::tok::TokenKind::decimal_literal>(ptr, tok);
-  }
-
-  inline bool lex_hexadecimal_literal(const char*& ptr,
-                                      lps::token::Token<TagName>& tok) {
-    return lex_number_literal<[](const char*& ptr) {
-      if (*ptr >= '0' && *ptr <= '9' || *ptr >= 'a' && *ptr <= 'f' ||
-          *ptr >= 'A' && *ptr <= 'F') {
-        ptr++;
-        return true;
-      }
-      return false;
-    },
-                              token::tok::TokenKind::hexadecimal_literal>(ptr,
+                              token::details::TokenKind::decimal_literal>(ptr,
                                                                           tok);
   }
 
-  inline bool lex_binary_literal(const char*& ptr,
-                                 lps::token::Token<TagName>& tok) {
-    return lex_number_literal<[](const char*& ptr) {
-      if (*ptr == '0' || *ptr == '1') {
-        ptr++;
+  inline bool lex_hexadecimal_literal(ptr_type& ptr,
+                                      lps::token::Token<TagName>& tok) {
+    return lex_number_literal<[](ptr_type& ptr) {
+      if (*ptr >= '0' && *ptr <= '9' || *ptr >= 'a' && *ptr <= 'f' ||
+          *ptr >= 'A' && *ptr <= 'F') {
+        ++ptr;
         return true;
       }
       return false;
     },
-                              token::tok::TokenKind::binary_literal>(ptr, tok);
+                              token::details::TokenKind::hexadecimal_literal>(
+        ptr, tok);
   }
 
-  template <auto FuncDigit, lps::token::tok::TokenKind TokenKind0,
-            lps::token::tok::TokenKind TokenKind1>
-  inline bool lex_fractional_constant_any(char c, const char*& ptr,
+  inline bool lex_binary_literal(ptr_type& ptr,
+                                 lps::token::Token<TagName>& tok) {
+    return lex_number_literal<[](ptr_type& ptr) {
+      if (*ptr == '0' || *ptr == '1') {
+        ++ptr;
+        return true;
+      }
+      return false;
+    },
+                              token::details::TokenKind::binary_literal>(ptr,
+                                                                         tok);
+  }
+
+  template <auto FuncDigit, lps::token::details::TokenKind TokenKind0,
+            lps::token::details::TokenKind TokenKind1>
+  inline bool lex_fractional_constant_any(char c, ptr_type& ptr,
                                           lps::token::Token<TagName>& tok) {
-    const char* p_dot = ptr;
+    ptr_type p_dot = ptr;
+    p_dot.ws_skip(true);
     bool has_first_digit_seq = false;
     if (c != '.') {
       if (lex_number_literal<FuncDigit, TokenKind0>(ptr, tok)) {
         has_first_digit_seq = true;
         p_dot = ptr;
       }
-      ws_skipping(p_dot);
+      p_dot++;
       if (*p_dot != '.') {
         return false;
       }
       p_dot++;
     }
-    ws_skipping(p_dot);
+    p_dot++;
     ptr = p_dot;
-    const char* end = ptr;
+    ptr_type end = ptr;
     if (lex_number_literal<FuncDigit, TokenKind0>(ptr, tok)) {
       end = ptr;
     } else {
@@ -487,44 +884,44 @@ class Base : virtual public lps::basic::mem::TraceTag<TagName> {
   // 	hexadecimal_digit_sequence[opt], `.`, hexadecimal_digit_sequence
   // 	hexadecimal_digit_sequence, `.`
   inline bool lex_hexadecimal_fractional_constant(
-      char c, const char*& ptr, lps::token::Token<TagName>& tok) {
+      char c, ptr_type& ptr, lps::token::Token<TagName>& tok) {
     return lex_fractional_constant_any<
-        [](const char*& ptr) {
+        [](ptr_type& ptr) {
           if (*ptr >= '0' && *ptr <= '9' || *ptr >= 'a' && *ptr <= 'f' ||
               *ptr >= 'A' && *ptr <= 'F') {
-            ptr++;
+            ++ptr;
             return true;
           }
           return false;
         },
-        token::tok::TokenKind::hexadecimal_literal,
-        token::tok::TokenKind::fractional_constant>(c, ptr, tok);
+        token::details::TokenKind::hexadecimal_literal,
+        token::details::TokenKind::fractional_constant>(c, ptr, tok);
   }
 
   // fractional-constant:
   // 	digit_sequence[opt], `.`, digit_sequence
   // 	digit_sequence, `.`
-  inline bool lex_fractional_constant(char c, const char*& ptr,
+  inline bool lex_fractional_constant(char c, ptr_type& ptr,
                                       lps::token::Token<TagName>& tok) {
     return lex_fractional_constant_any<
-        [](const char*& ptr) {
+        [](ptr_type& ptr) {
           if (*ptr >= '0' && *ptr <= '9') {
-            ptr++;
+            ++ptr;
             return true;
           }
           return false;
         },
-        token::tok::TokenKind::decimal_literal,
-        token::tok::TokenKind::fractional_constant>(c, ptr, tok);
+        token::details::TokenKind::decimal_literal,
+        token::details::TokenKind::fractional_constant>(c, ptr, tok);
   }
 
-  inline bool lex_exponent_part_any(const char*& ptr,
+  inline bool lex_exponent_part_any(ptr_type& ptr,
                                     lps::token::Token<TagName>& tok,
                                     char part_char0, char part_char1) {
     if (*ptr == part_char0 || *ptr == part_char1) {
-      ptr++;
+      ++ptr;
       if (*ptr == '+' || *ptr == '-') {
-        ptr++;
+        ++ptr;
       }
       if (lex_decimal_literal(ptr, tok)) {
         return true;
@@ -536,14 +933,14 @@ class Base : virtual public lps::basic::mem::TraceTag<TagName> {
   // exponent-part:
   // 	`e`, sign[opt], digit_sequence
   // 	`E`, sign[opt], digit_sequence
-  inline bool lex_exponent_part(const char*& ptr,
+  inline bool lex_exponent_part(ptr_type& ptr,
                                 lps::token::Token<TagName>& tok) {
     return lex_exponent_part_any(ptr, tok, 'e', 'E');
   }
 
-  inline bool lex_floating_point_suffix(const char*& ptr) {
+  inline bool lex_floating_point_suffix(ptr_type& ptr) {
     if (*ptr == 'L' || *ptr == 'l' || *ptr == 'F' || *ptr == 'f') {
-      ptr++;
+      ++ptr;
       return true;
     }
     return false;
@@ -553,9 +950,9 @@ class Base : virtual public lps::basic::mem::TraceTag<TagName> {
   // 	fractional_constant, exponent_part[opt], floating_point_suffix[opt]
   // 	digit_sequence, exponent_part[opt], floating_point_suffix[opt]
   inline bool lex_decimal_floating_point_literal(
-      char c, const char*& ptr, lps::token::Token<TagName>& tok) {
-    const char* tmp_ptr0 = ptr;
-    const char* tmp_ptr1 = ptr;
+      char c, ptr_type& ptr, lps::token::Token<TagName>& tok) {
+    ptr_type tmp_ptr0 = ptr;
+    ptr_type tmp_ptr1 = ptr;
     bool is_type0 = false;
     bool has_exponent_part = false;
     bool has_floating_point_suffix = false;
@@ -581,14 +978,14 @@ class Base : virtual public lps::basic::mem::TraceTag<TagName> {
       return is_type0;
     }
     this->token_formulate(
-        tok, ptr, token::tok::TokenKind::decimal_floating_point_literal);
+        tok, ptr, token::details::TokenKind::decimal_floating_point_literal);
     return true;
   }
 
   // binary-exponent-part:
   // 	`p`, sign[opt], digit_sequence
   // 	`P`, sign[opt], digit_sequence
-  inline bool lex_binary_exponent_part(const char*& ptr,
+  inline bool lex_binary_exponent_part(ptr_type& ptr,
                                        lps::token::Token<TagName>& tok) {
     return lex_exponent_part_any(ptr, tok, 'p', 'P');
   }
@@ -597,12 +994,12 @@ class Base : virtual public lps::basic::mem::TraceTag<TagName> {
   // 	hexadecimal_prefix, hexadecimal_fractional_constant, binary_exponent_part, floating_point_suffix[opt]
   // 	hexadecimal_prefix, hexadecimal_digit_sequence, binary_exponent_part, floating_point_suffix[opt]
   inline bool lex_hexadecimal_floating_point_literal(
-      char c, const char*& ptr, lps::token::Token<TagName>& tok) {
+      char c, ptr_type& ptr, lps::token::Token<TagName>& tok) {
     if (c == '0') {
       if (*ptr == 'x' || *ptr == 'X') {
-        ptr++;
+        ++ptr;
         char z = *ptr;
-        const char* tmp_ptr = ptr;
+        ptr_type tmp_ptr = ptr;
         bool hexadecimal_fractional_constant_ok = false;
         if (!lex_hexadecimal_fractional_constant(z, tmp_ptr, tok)) {
           tmp_ptr = ptr;
@@ -622,7 +1019,7 @@ class Base : virtual public lps::basic::mem::TraceTag<TagName> {
         }
         this->token_formulate(
             tok, ptr,
-            token::tok::TokenKind::hexadecimal_floating_point_literal);
+            token::details::TokenKind::hexadecimal_floating_point_literal);
         return true;
       }
     }
@@ -632,11 +1029,11 @@ class Base : virtual public lps::basic::mem::TraceTag<TagName> {
   // floating-point-literal:
   // 	decimal_floating_point_literal
   // 	hexadecimal_floating_point_literal
-  inline bool lex_floating_point_literal(char c, const char*& ptr,
+  inline bool lex_floating_point_literal(char c, ptr_type& ptr,
                                          lps::token::Token<TagName>& tok) {
 
-    const char* tmp_ptr0 = ptr;
-    const char* tmp_ptr1 = ptr;
+    ptr_type tmp_ptr0 = ptr;
+    ptr_type tmp_ptr1 = ptr;
     bool flg = false;
     if (lex_hexadecimal_floating_point_literal(c, tmp_ptr0, tok)) {
       ptr = tmp_ptr0;
@@ -648,7 +1045,7 @@ class Base : virtual public lps::basic::mem::TraceTag<TagName> {
 
     if (flg) {
       this->token_formulate(tok, ptr,
-                            token::tok::TokenKind::floating_point_literal);
+                            token::details::TokenKind::floating_point_literal);
       return true;
     }
     return false;
@@ -661,21 +1058,21 @@ class Base : virtual public lps::basic::mem::TraceTag<TagName> {
   // 	octal_literal, integer_suffix[opt]
   // 	decimal_literal, integer_suffix[opt]
   // 	hexadecimal_literal, integer_suffix[opt]
-  inline bool lex_integer_literal(char c, const char*& ptr,
+  inline bool lex_integer_literal(char c, ptr_type& ptr,
                                   lps::token::Token<TagName>& tok) {
-    const char* matched_ptr = ptr;
-    token::tok::TokenKind kind = token::tok::TokenKind::unknown;
+    ptr_type matched_ptr = ptr;
+    token::details::TokenKind kind = token::details::TokenKind::unknown;
     bool flg = false;
     if (c == '0') {
       if (*ptr == 'b' || *ptr == 'B') {
-        ptr++;
+        ++ptr;
         if (lex_binary_literal(ptr, tok)) {
           matched_ptr = ptr;
           kind = tok.kind();
           flg = true;
         }
       } else if (*ptr == 'x' || *ptr == 'X') {
-        ptr++;
+        ++ptr;
         if (lex_hexadecimal_literal(ptr, tok)) {
           matched_ptr = ptr;
           kind = tok.kind();
@@ -690,7 +1087,7 @@ class Base : virtual public lps::basic::mem::TraceTag<TagName> {
       }
     } else if (c >= '1' && c <= '9') {
       if (*ptr == '\'') {
-        ptr++;
+        ++ptr;
       }
       if (lex_decimal_literal(ptr, tok)) {
         matched_ptr = ptr;
@@ -710,14 +1107,13 @@ class Base : virtual public lps::basic::mem::TraceTag<TagName> {
 
   // raw-string:
   // 	`"`, d_char_sequence[opt], `(`, r_char_sequence[opt], `)`, d_char_sequence[opt], `"`
-  inline bool lex_raw_string(const char*& ptr,
-                             lps::token::Token<TagName>& tok) {
+  inline bool lex_raw_string(ptr_type& ptr, lps::token::Token<TagName>& tok) {
     using namespace basic::str::ascii;
 
     if (*ptr != '"') {
       return false;
     }
-    ptr++;
+    ++ptr;
 
     //A string-literal that has an R in the prefix is a raw string literal.
     //The d-char-sequence serves as a delimiter. The terminating d-char-sequence
@@ -729,7 +1125,7 @@ class Base : virtual public lps::basic::mem::TraceTag<TagName> {
     }
 
     if (ptr[prefix_len] != '(') {  // not a delimiter
-      const char* prefix_end = ptr + prefix_len;
+      ptr_type prefix_end = ptr + prefix_len;
       if (prefix_len == 16) {
         this->diag(prefix_end, diag::DiagKind::raw_string_delimiter_too_long);
       } else {
@@ -738,21 +1134,21 @@ class Base : virtual public lps::basic::mem::TraceTag<TagName> {
       return false;
     }
 
-    const char* prefix_start = ptr;
+    ptr_type prefix_start = ptr;
     ptr = ptr + prefix_len + 1;
     while (*ptr != ')') {  //find next `)`
-      ptr++;
+      ++ptr;
     }
-    ptr++;
-    if (ptr + prefix_len + 1 >= this->end_) {
+    ++ptr;
+    if ((ptr + prefix_len + 1).eof()) {
       this->diag(ptr, diag::DiagKind::unfinished_raw_string);
       return false;
     }
-    if (std::strncmp(prefix_start, ptr, prefix_len) == 0) {
+    if (basic::FileVisitor::strncmp(prefix_start, ptr, prefix_len) == 0) {
       ptr = ptr + prefix_len;
       if (*ptr == '"') {
         this->token_formulate(tok, ptr + 1,
-                              lps::token::tok::TokenKind::raw_string);
+                              lps::token::details::TokenKind::raw_string);
         return true;
       }
       this->diag(ptr, diag::DiagKind::unfinished_raw_string_expect_quotation);
@@ -767,14 +1163,14 @@ class Base : virtual public lps::basic::mem::TraceTag<TagName> {
   // string-literal:
   // 	encoding_prefix[opt], `"`, s_char_sequence[opt], `"`
   // 	encoding_prefix[opt], `R`, raw_string
-  inline bool lex_string_literal(char c, const char*& ptr,
+  inline bool lex_string_literal(char c, ptr_type& ptr,
                                  lps::token::Token<TagName>& tok) {
-    const char* tmp_ptr = ptr;
+    ptr_type tmp_ptr = ptr;
     bool flg = lex_encoding_prefix(c, tmp_ptr, tok);
     if (flg) {
       ptr = tmp_ptr;
       c = *ptr;
-      ptr++;
+      ++ptr;
     }
     if (c == '"') {
       uint32_t cnt_char =
@@ -782,14 +1178,14 @@ class Base : virtual public lps::basic::mem::TraceTag<TagName> {
               ptr, tok);
       if (*ptr == '"') {
         this->token_formulate(tok, ptr + 1,
-                              lps::token::tok::TokenKind::string_literal);
+                              lps::token::details::TokenKind::string_literal);
         return true;
       }
 
     } else if (c == 'R') {
       if (lex_raw_string(ptr, tok)) {
         this->token_formulate(tok, ptr + 1,
-                              lps::token::tok::TokenKind::string_literal);
+                              lps::token::details::TokenKind::string_literal);
         return true;
       }
     }
@@ -797,11 +1193,36 @@ class Base : virtual public lps::basic::mem::TraceTag<TagName> {
     return false;
   }
 
+  inline typename lps::token::Token<TagName>::tokens_type lex_identifier_list(
+      char c, ptr_type& ptr, lps::token::Token<TagName>& tok) {
+    typename lps::token::Token<TagName>::tokens_type tokens;
+    if (lex_something_recursive<token::details::TokenKind::identifiers>(
+            c, ptr, tok,
+            [this, &tokens](char /*c*/, ptr_type& ptr,
+                            lps::token::Token<TagName>& tok) -> bool {
+              auto tmp_ptr = ptr;
+              lps::token::Token<TagName> tmp_tok;
+              if (lex_identifier(tmp_ptr, tmp_tok)) {
+                if (tmp_tok.kind() == token::details::TokenKind::identifier) {
+                  ptr = tmp_ptr;
+                  tok = tmp_tok;
+                  tokens.append(tok);
+                  return true;
+                }
+              }
+              return false;
+            })) {
+      return tokens;
+    }
+    return typename lps::token::Token<TagName>::tokens_type();
+  }
+
   MethodType type_{MethodType::kNone};
-  const char* ptr_{nullptr};
+  ptr_type ptr_{nullptr, nullptr, []() {
+                  throw basic::vfile::Eof();
+                }};
   uint32_t file_id_{0};
   size_t pos_{0};
-  const char* end_{nullptr};
 };
 
 }  // namespace lps::lexer::details

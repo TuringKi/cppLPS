@@ -26,13 +26,15 @@
 #include <cstdint>
 #include <filesystem>
 #include <fstream>
-#include "basic/exception.h"
+#include <utility>
 #include "vec.h"
+#include "vfile.h"
 
 namespace lps::basic {
 
-class File {
+class File : public vfile::File<char> {
  public:
+  using base = vfile::File<char>;
   using type = File;
   using ptr_type = std::unique_ptr<type>;
   using buffer_type =
@@ -42,25 +44,28 @@ class File {
   using str_type = StringRef<TagNameOther>;
 
   template <meta::Str TagNameOther>
-  explicit File(const StringRef<TagNameOther>& path) {
-    set(path.data());
+  explicit File(const StringRef<TagNameOther>& path, uint32_t file_id) {
+    set(path.data(), file_id);
   }
 
-  explicit File(const char* path) { set(path); }
+  explicit File(const char* path, uint32_t file_id) { set(path, file_id); }
 
   File(File&& file) {
     this->buffer_ = std::move(file.buffer_);
     file.buffer_ = nullptr;
     this->file_id_ = file.file_id_;
+    this->first_ = file.first_;
+    this->size_ = file.size_;
   }
 
   template <meta::Str TagNameOther>
-  static ptr_type create(const StringRef<TagNameOther>& path) {
-    return std::make_unique<type>(path);
+  static ptr_type create(const StringRef<TagNameOther>& path,
+                         uint32_t file_id) {
+    return std::make_unique<type>(path, file_id);
   }
 
-  static ptr_type create(const char* path) {
-    return std::make_unique<type>(path);
+  static ptr_type create(const char* path, uint32_t file_id) {
+    return std::make_unique<type>(path, file_id);
   }
 
   template <meta::Str TagNameOther>
@@ -69,13 +74,10 @@ class File {
     return StringRef<TagNameOther>(buffer_->top(), buffer_->capacity());
   }
 
-  bool empty() { return buffer_->capacity() == 0; }
-  [[nodiscard]] size_t size() const { return buffer_->capacity(); }
   [[nodiscard]] const std::filesystem::path& path() const { return path_; }
-  [[nodiscard]] uint32_t file_id() const { return file_id_; }
 
  private:
-  size_t set(const char* path) {
+  size_t set(const char* path, uint32_t file_id) {
     std::ifstream the_file(path);
     LPS_CHECK_ERROR(meta::S("file"), the_file.is_open(),
                     "the path is not exists:", path);
@@ -84,21 +86,92 @@ class File {
     std::streamsize size = the_file.tellg();
     if (size == 0) {
       buffer_ = buffer_type::create();
+      this->first_ = buffer_->top();
+      this->size_ = 0;
+      this->file_id_ = file_id;
       return size;
     }
     the_file.seekg(0, std::ios::beg);
     buffer_ = buffer_type::create(size);
     the_file.read(buffer_->top(), size);
 
-    static uint32_t k_file_id = 0;
-    file_id_ = ++k_file_id;
+    this->first_ = buffer_->top();
+    this->size_ = size;
+    this->file_id_ = file_id;
 
     return size;
   }
 
   buffer_ptr_type buffer_;
   std::filesystem::path path_;
-  uint32_t file_id_;
+};
+
+class FileVisitor : public vfile::Visitor<char>,
+                    public vfile::Operator<FileVisitor> {
+
+ public:
+  using base = vfile::Visitor<char>;
+  static int strncmp(const FileVisitor& a, const FileVisitor& b, size_t n) {
+    return std::strncmp(a.start_, b.start_, n);
+  }
+  static int strncmp(const char* a, const char* b, size_t n) {
+    return std::strncmp(a, b, n);
+  }
+  explicit FileVisitor(const char* start, const char* end,
+                       base::check_eof_callback_type check_eof_callback,
+                       uint32_t file_id = 0)
+      : base(start, end, std::move(check_eof_callback), file_id) {}
+
+  void vertws_skip(bool flg) { flg_skip_vertws_ = flg; }
+  void horzws_skip(bool flg) { flg_skip_horzws_ = flg; }
+  void ws_skip(bool flg) {
+    vertws_skip(flg);
+    horzws_skip(flg);
+  }
+
+  void vertws_skipping() {
+    if (flg_skip_vertws_) {
+      next();
+      return;
+    }
+    vertws_skip(true);
+    next();
+    vertws_skip(false);
+  }
+  void horzws_skipping() {
+    if (flg_skip_horzws_) {
+      next();
+      return;
+    }
+    horzws_skip(true);
+    next();
+    horzws_skip(false);
+  }
+
+  void ws_skipping() {
+    horzws_skipping();
+    vertws_skipping();
+  }
+
+ private:
+  void skipping() {
+    if (flg_skip_vertws_ && flg_skip_horzws_) {
+      while (str::ascii::is::Ws(*start_)) {
+        next();
+      }
+    } else if (flg_skip_vertws_) {
+      while (str::ascii::is::VertWs(*start_)) {
+        next();
+      }
+    } else if (flg_skip_horzws_) {
+      while (str::ascii::is::HorzWs(*start_)) {
+        next();
+      }
+    }
+  }
+
+  bool flg_skip_vertws_{false};
+  bool flg_skip_horzws_{false};
 };
 
 }  // namespace lps::basic

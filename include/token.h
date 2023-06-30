@@ -26,8 +26,12 @@
 #include <cstdint>
 #include <unordered_map>
 #include "basic/exception.h"
+#include "basic/file.h"
 #include "basic/map.h"
-#include "basic/vec.h"
+
+namespace lps::src {
+class Manager;
+}
 namespace lps::token {
 
 template <meta::Str TagName = meta::S("location")>
@@ -67,11 +71,13 @@ class Location {
   static const id_type kMask = 1ULL << (8 * sizeof(id_type) - 1);
 };
 
-namespace tok {
+namespace details {
 
 enum class TokenKind : uint16_t {
 #define TOK(X) X,
+#define CXX_KEYWORD_OPERATOR(X, Y) kw_##X,
 #include "token/kinds.def"
+#undef CXX_KEYWORD_OPERATOR
 #undef TOK
   kNum
 };
@@ -80,7 +86,9 @@ static constexpr std::array<std::pair<TokenKind, const char*>,
                             static_cast<uint16_t>(TokenKind::kNum)>
     kLists = {{
 #define TOK(X) {TokenKind::X, #X},
+#define CXX_KEYWORD_OPERATOR(X, Y) {TokenKind::kw_##X, #X},
 #include "token/kinds.def"
+#undef CXX_KEYWORD_OPERATOR
 #undef TOK
     }};
 
@@ -120,7 +128,9 @@ class IdentInfo {
     kw_map_ = {
 #define KEYWORD(NAME, FLAGS) {IdentStringRef(#NAME), TokenKind::kw_##NAME},
 #define ALIAS(NAME, TOK, FLAGS) {IdentStringRef(NAME), TokenKind::kw_##TOK},
+#define CXX_KEYWORD_OPERATOR(X, Y) {IdentStringRef(#X), TokenKind::kw_##X},
 #include "token/kinds.def"
+#undef CXX_KEYWORD_OPERATOR
 #undef KEYWORD
 #undef ALIAS
     };
@@ -142,7 +152,7 @@ inline std::ostream& operator<<(std::ostream& s, TokenKind kind) {
   return s;
 }
 
-};  // namespace tok
+};  // namespace details
 
 enum Flag : uint16_t {
   kStartOfLine = 0x01,
@@ -159,6 +169,7 @@ template <meta::Str TagName>
 struct Token : virtual public basic::mem::TraceTag<TagName> {
 
  public:
+  using tokens_type = basic::Vector<4, lps::token::Token<TagName>, TagName>;
 #define SET(A, B)             \
   (A)->data_ = (B).data();    \
   (A)->loc_ = (B).location(); \
@@ -189,7 +200,7 @@ struct Token : virtual public basic::mem::TraceTag<TagName> {
   void clear() {
     this->data_ = nullptr;
     this->loc_.clear();
-    this->kind_ = tok::TokenKind::unknown;
+    this->kind_ = details::TokenKind::unknown;
     this->flags_ = 0;
   }
   void set_flag(Flag flg) {
@@ -214,10 +225,10 @@ struct Token : virtual public basic::mem::TraceTag<TagName> {
   [[nodiscard]] uint32_t file_id() const {
     return loc_.file_id();
   }
-  [[nodiscard]] tok::TokenKind kind() const {
+  [[nodiscard]] details::TokenKind kind() const {
     return kind_;
   }
-  void kind(tok::TokenKind kind) {
+  void kind(details::TokenKind kind) {
     kind_ = kind;
   }
   void location(const Location<TagName + "_location">& loc) {
@@ -228,6 +239,10 @@ struct Token : virtual public basic::mem::TraceTag<TagName> {
   }
   void data(const char* ptr) {
     data_ = const_cast<char*>(ptr);
+  }
+  void data(const basic::FileVisitor& ptr) {
+    lps_assert(TagName, !ptr.eof());
+    data_ = const_cast<char*>(ptr.cur());
   }
   [[nodiscard]] const char* ptr() const {
     return static_cast<char*>(data_);
@@ -259,14 +274,35 @@ struct Token : virtual public basic::mem::TraceTag<TagName> {
     last_token_ = other;
   }
 
+  void next_visitor_offset(size_t offset) {
+    next_visitor_.offset_ = offset;
+  }
+
+  void next_visitor_file_id(uint32_t file_id) {
+    next_visitor_.file_id_ = file_id;
+  }
+
+  void next_visitor(size_t offset, uint32_t file_id) {
+    next_visitor_ = {offset, file_id};
+  }
+
+  [[nodiscard]] std::pair<size_t, uint32_t> next_visitor() const {
+    return {next_visitor_.offset_, next_visitor_.file_id_};
+  }
+
  private:
   Location<TagName + "_location"> loc_;
-  tok::TokenKind kind_{tok::TokenKind::unknown};
+  details::TokenKind kind_{details::TokenKind::unknown};
   void* data_{nullptr};
 
   uint16_t flags_{0};
   const archived_type* last_token_{nullptr};
   const archived_type* next_token_{nullptr};
+
+  struct {
+    size_t offset_;
+    uint32_t file_id_;
+  } next_visitor_{0, 0};
 };
 
 template <meta::Str TagName>
@@ -280,4 +316,54 @@ std::ostream& operator<<(std::ostream& s, const Token<TagName>& tok) {
   s << tok.template str<meta::S("operator<<_str")>();
   return s;
 }
+
+class TokenListsVisitor : public basic::vfile::Visitor<archived_type>,
+                          public basic::vfile::Operator<TokenListsVisitor> {
+ public:
+  using base = basic::vfile::Visitor<archived_type>;
+  explicit TokenListsVisitor(
+      const archived_type* start, const archived_type* end,
+      base::check_eof_callback_type check_eof_callback = []() {},
+      uint32_t file_id = 0)
+      : base(start, end, std::move(check_eof_callback), file_id) {}
+};
+
+class TokenContainer : public basic::vfile::File<archived_type> {
+
+ public:
+  friend class src::Manager;
+  using tokens_type =
+      basic::Vector<4, archived_type, meta::S("token::TokenContainer::tokens")>;
+  using base = basic::vfile::File<archived_type>;
+  using type = TokenContainer;
+  using ptr_type = std::unique_ptr<type>;
+
+  virtual TokenListsVisitor visitor() {
+    lps_assert(kTagName, first_ != nullptr);
+    lps_assert(kTagName, size_ > 0);
+    return TokenListsVisitor(first_, first_ + size_ - 1);
+  }
+
+  static ptr_type create(tokens_type&& tokens, uint32_t file_id) {
+    return std::make_unique<type>(std::move(tokens), file_id);
+  }
+
+  explicit TokenContainer(tokens_type&& tokens, uint32_t file_id)
+      : tokens_(std::move(tokens)) {
+    first_ = tokens_.data();
+    size_ = tokens_.size();
+    file_id_ = file_id;
+  }
+
+  TokenContainer(TokenContainer&& file) {
+    this->tokens_ = std::move(file.tokens_);
+    this->file_id_ = file.file_id_;
+    this->first_ = file.first_;
+    this->size_ = file.size_;
+  }
+
+ private:
+  tokens_type tokens_;
+};
+
 }  // namespace lps::token

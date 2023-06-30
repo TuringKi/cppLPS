@@ -42,7 +42,7 @@ void Parser::parse(uint32_t file_id) {
                        content.data() + content.size());
     lexer.lex(next_tok);
     params.cur_token_ = next_tok;
-    if (next_tok.kind() != token::tok::TokenKind::unknown) {
+    if (next_tok.kind() != token::details::TokenKind::unknown) {
       token::TokenLists::instance().append(next_tok);
     }
     details::TranslationUnit func(params);

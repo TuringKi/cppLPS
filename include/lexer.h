@@ -30,6 +30,7 @@
 #include "lex/base.h"
 #include "lex/basic.h"
 #include "lex/pp.h"
+#include "src.h"
 namespace lps::lexer {
 
 class Lexer {
@@ -38,19 +39,23 @@ class Lexer {
   void lex(lps::token::Token<TagName>& tok,
            details::MethodType method = details::MethodType::kBasic) {
     tok.clear();
-    if (finish()) {
-      tok.kind(token::tok::TokenKind::eof);
+    if (src::Manager::instance().has<1>(file_id_)) {
+      // if current file is token_file, we just return the recorded next token.
+      token::TokenListsVisitor visitor = src::Manager::instance().ref(file_id_);
+      visitor += ++pos_;
+      tok = *visitor;
       return;
     }
+    const char* end = start_ + src::Manager::instance().size(file_id_);
     switch (method) {
       case details::kBasic: {
-        details::Basic<TagName> m(file_id_, cur(), end_);
+        details::Basic<TagName> m(file_id_, cur(), end);
         m.lex(tok);
         inc(m.pos());
         break;
       }
       case details::kPreprocessing: {
-        details::Preprocessing<TagName> m(file_id_, cur(), end_);
+        details::pp::Preprocessing<TagName> m(file_id_, cur(), end);
         m.lex(tok);
         inc(m.pos());
         break;
@@ -64,17 +69,24 @@ class Lexer {
   }
 
   Lexer() = delete;
-  explicit Lexer(uint32_t start_file_id, const char* ptr, const char* end)
-      : file_id_(start_file_id), ptr_(ptr), end_(end) {}
-  [[nodiscard]] bool finish(size_t len) const { return !(pos_ < len); }
-  [[nodiscard]] bool finish() const { return !(pos_ < (end_ - ptr_)); }
-  [[nodiscard]] const char* cur() const { return ptr_ + pos_; }
+  explicit Lexer(uint32_t start_file_id, const char* ptr)
+      : file_id_(start_file_id), start_(ptr) {}
+  explicit Lexer(uint32_t start_file_id, size_t offset)
+      : file_id_(start_file_id) {
+    if (src::Manager::instance().has<0>(start_file_id)) {  // char_files
+      start_ = token::TokenLists::Info::start(start_file_id);
+      pos_ = offset;
+    } else if (src::Manager::instance().has<1>(start_file_id)) {  // token_files
+      pos_ = offset;
+    }
+  }
+
+  [[nodiscard]] const char* cur() const { return start_ + pos_; }
 
  private:
   void inc(size_t n) { pos_ += n; }
 
-  const char* ptr_{nullptr};
-  const char* end_{nullptr};
+  const char* start_{nullptr};
   uint32_t file_id_{0};
   size_t pos_{0};
 };

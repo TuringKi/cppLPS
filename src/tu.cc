@@ -21,37 +21,31 @@
 * SOFTWARE.
 */
 
-#include <iostream>
+#include "tu.h"
 #include "basic/exception.h"
-#include "lexer.h"
 #include "src.h"
 #include "token.h"
-int main(int argc, char** argv) {
 
-  lps_assert(meta::S("test_lexer"), argc == 2);
+namespace lps::tu {
 
-  const char* file_path = argv[1];
+uint32_t TU::record_expanded_tokens_as_virtual_file(
+    const char* cur_tok_data_ptr, uint32_t cur_tok_file_id,
+    token::TokenContainer::tokens_type&& tokens) {
+  constexpr meta::Str kTag = meta::S("record_expanded_tokens_as_virtual_file");
 
-  auto file_id = lps::src::Manager::instance().append(file_path);
-  lps_assert(meta::S("test_lexer"), file_id > 0);
+  const char* cur_tok_file_data_ptr =
+      token::TokenLists::Info::start(cur_tok_file_id);
+  lps_assert(kTag, cur_tok_data_ptr != nullptr);
+  size_t absolute_offset = cur_tok_file_data_ptr - cur_tok_data_ptr +
+                           tokens.back().next_visitor().first;
 
-  auto contents =
-      lps::src::Manager::instance().ref<meta::S("file_contents")>(file_id);
-  lps_assert(meta::S("test_lexer"), contents.capacity() > 0);
+  tokens.back().next_visitor(absolute_offset, cur_tok_file_id);
 
-  lps::token::Token<meta::S("parse_start_token")> tok;
-  while (tok.kind() != lps::token::details::TokenKind::eof) {
-    if (tok.kind() == lps::token::details::TokenKind::unknown) {
-      lps::lexer::Lexer lexer(file_id, contents.data());
-      lexer.lex(tok);
-    } else {
-      lps::lexer::Lexer lexer(tok.next_visitor().second,
-                              tok.next_visitor().first);
-      lexer.lex(tok);
-    }
-
-    std::cout << tok << "\n";
-  }
-
-  return 0;
+  return src::Manager::instance().append(std::move(tokens));
 }
+
+token::TokenListsVisitor TU::get_visitor_of_token_file(uint32_t file_id) {
+  lps_assert(kTag, src::Manager::instance().template has<1>(file_id));
+  return src::Manager::instance().ref(file_id);
+}
+}  // namespace lps::tu
