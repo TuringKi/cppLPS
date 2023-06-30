@@ -365,9 +365,8 @@ class ParseFunction : virtual public basic::mem::TraceTag<TagName> {
         }
       }
       if (flg_use_lexer) {
-        lexer::Lexer lexer(output.cur_token_.file_id(), output.cur_token_.ptr(),
-                           func->eof());
-        lexer.lex(next_tok);
+        lexer::Lexer lexer(output.cur_token_.next_visitor().second,
+                           output.cur_token_.next_visitor().first);
         lexer.lex(next_tok);
 
         lps_assert(TagName,

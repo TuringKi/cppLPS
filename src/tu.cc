@@ -22,10 +22,30 @@
 */
 
 #include "tu.h"
+#include "basic/exception.h"
 #include "src.h"
+#include "token.h"
 
 namespace lps::tu {
 
-void TU::record_expanded_tokens_as_virtual_file(
-    const pp_ast_node_type::tokens_type& tokens) {}
+uint32_t TU::record_expanded_tokens_as_virtual_file(
+    const char* cur_tok_data_ptr, uint32_t cur_tok_file_id,
+    token::TokenContainer::tokens_type&& tokens) {
+  constexpr meta::Str kTag = meta::S("record_expanded_tokens_as_virtual_file");
+
+  const char* cur_tok_file_data_ptr =
+      token::TokenLists::Info::start(cur_tok_file_id);
+  lps_assert(kTag, cur_tok_data_ptr != nullptr);
+  size_t absolute_offset = cur_tok_file_data_ptr - cur_tok_data_ptr +
+                           tokens.back().next_visitor().first;
+
+  tokens.back().next_visitor(absolute_offset, cur_tok_file_id);
+
+  return src::Manager::instance().append(std::move(tokens));
+}
+
+token::TokenListsVisitor TU::get_visitor_of_token_file(uint32_t file_id) {
+  lps_assert(kTag, src::Manager::instance().template has<1>(file_id));
+  return src::Manager::instance().ref(file_id);
+}
 }  // namespace lps::tu

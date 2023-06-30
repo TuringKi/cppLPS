@@ -24,6 +24,7 @@
 #pragma once
 
 #include "lex/base.h"
+#include "token.h"
 
 namespace lps::lexer::details {
 
@@ -189,9 +190,19 @@ class Basic : public Base<TagName> {
       case 'z':
       case '_':
         if (this->lex_identifier(ptr, tok)) {
-          // todo(@mxlol233): should we expand the macro here?
           // a valid identifier, we must check if it was defined by `TU`.
-          if (tu::TU::instance().defined(tok)) {}
+          if (tok.kind() != token::details::TokenKind::identifier) {
+            return;
+          }
+          if (tu::TU::instance().defined(tok)) {
+            auto new_tok = tu::TU::instance().expand(tok);
+            if (new_tok.kind() != token::details::TokenKind::unknown) {
+              return;
+            }
+            //if the defined macro is empty, we skip this token and lex next one.
+            ptr += tok.offset();
+            goto next;
+          }
           return;
         }
       case '$':

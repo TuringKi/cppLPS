@@ -123,10 +123,12 @@ class Visitor {
   using check_eof_callback_type = std::function<void()>;
   Visitor(
       const VisitedType* start, const VisitedType* end,
-      check_eof_callback_type check_eof_callback = []() {})
+      check_eof_callback_type check_eof_callback = []() {},
+      uint32_t file_id = 0)
       : start_(start),
         end_(end),
-        check_eof_callback_(std::move(check_eof_callback)) {
+        check_eof_callback_(std::move(check_eof_callback)),
+        file_id_(file_id) {
     lps_assert(kTagName, start <= end);
   }
 
@@ -137,7 +139,7 @@ class Visitor {
   bool operator!=(const VisitedType* other) const { return start_ != other; }
   bool operator==(const VisitedType* other) const { return start_ == other; }
 
-  explicit operator bool() { return !eof(); }
+  explicit operator bool() { return !eof() && start_; }
 
   VisitedType operator*() const { return *cur(); }
 
@@ -169,23 +171,22 @@ class Visitor {
   size_t pos_{0};
   VisitedType eof_;
   check_eof_callback_type check_eof_callback_;
+  uint32_t file_id_{0};
 };
 
 template <typename StoredType>
 class File {
  public:
   constexpr static meta::Str kTagName = meta::S("vfile::File");
-  virtual Visitor<StoredType> visitor() {
-    lps_assert(kTagName, first_ != nullptr);
-    lps_assert(kTagName, size_ > 0);
-    return Visitor<StoredType>(first_, first_ + size_);
-  }
+
   bool empty() { return size_ == 0; }
   [[nodiscard]] size_t size() const { return size_; }
+  [[nodiscard]] uint32_t file_id() const { return file_id_; }
 
  protected:
   const StoredType* first_{nullptr};
-  size_t size_;
+  size_t size_{0};
+  uint32_t file_id_{0};
 };
 
 };  // namespace lps::basic::vfile

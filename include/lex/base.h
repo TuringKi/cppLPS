@@ -28,7 +28,7 @@
 #include "basic/str.h"
 #include "basic/vec.h"
 #include "diag.h"
-#include "token.h"
+#include "src.h"
 #include "tu.h"
 
 namespace lps::lexer::details {
@@ -188,6 +188,9 @@ class Base : virtual public lps::basic::mem::TraceTag<TagName> {
     tok.file_id(file_id_);
     tok.kind(kind);
     tok.data(this->cur());
+    lps_assert(TagName, src::Manager::instance().has(file_id_));
+    auto tok_info = token::TokenLists::Info::create(tok);
+    tok.next_visitor(tok_info.offset_ + offset, file_id_);
   }
 
   template <auto Func>

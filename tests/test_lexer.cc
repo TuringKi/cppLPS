@@ -25,6 +25,7 @@
 #include "basic/exception.h"
 #include "lexer.h"
 #include "src.h"
+#include "token.h"
 int main(int argc, char** argv) {
 
   lps_assert(meta::S("test_lexer"), argc == 2);
@@ -38,11 +39,17 @@ int main(int argc, char** argv) {
       lps::src::Manager::instance().ref<meta::S("file_contents")>(file_id);
   lps_assert(meta::S("test_lexer"), contents.capacity() > 0);
 
-  lps::lexer::Lexer lexer(file_id, contents.data(),
-                          contents.data() + contents.size());
-  while (!lexer.finish(contents.capacity())) {
-    lps::token::Token<meta::S("parse_start_token")> tok;
-    lexer.lex(tok);
+  lps::token::Token<meta::S("parse_start_token")> tok;
+  while (tok.kind() != lps::token::details::TokenKind::eof) {
+    if (tok.kind() == lps::token::details::TokenKind::unknown) {
+      lps::lexer::Lexer lexer(file_id, contents.data());
+      lexer.lex(tok);
+    } else {
+      lps::lexer::Lexer lexer(tok.next_visitor().second,
+                              tok.next_visitor().first);
+      lexer.lex(tok);
+    }
+
     std::cout << tok << "\n";
   }
 

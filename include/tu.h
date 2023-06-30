@@ -24,8 +24,10 @@
 #pragma once
 
 #include "basic/exception.h"
+#include "basic/vfile.h"
 #include "diag.h"
 #include "lex/pp_ast.h"
+#include "token.h"
 
 namespace lps::tu {
 
@@ -103,21 +105,21 @@ class TU : virtual public basic::mem::TraceTag<meta::S("TU")> {
     }
   }
   template <meta::Str TagName>
-  void expand(
+  token::Token<TagName> expand(
       const token::Token<TagName>& tok,
       const typename lps::token::Token<TagName>::tokens_type& parameter_tokens =
           typename lps::token::Token<TagName>::tokens_type{}) {
     check_define(tok);
     lps_assert(TagName, already_defined(tok));
-    auto node = define_tokens_[str(tok)].node_;
+    const auto& node = define_tokens_[str(tok)].node_;
     const auto& expanded_tokens = node->expand();
     using expanded_tokens_type = decltype(expanded_tokens);
-    pp_ast_node_type::tokens_type full_expanded_tokens;
-    auto expand = [this](expanded_tokens_type tokens,
-                         pp_ast_node_type::tokens_type& out_tokens) {
+    token::TokenContainer::tokens_type full_expanded_tokens;
+    [this](expanded_tokens_type tokens,
+           token::TokenContainer::tokens_type& out_tokens) -> void {
       auto expand_impl = [this](expanded_tokens_type tokens,
-                                pp_ast_node_type::tokens_type& out_tokens,
-                                auto func) {
+                                token::TokenContainer::tokens_type& out_tokens,
+                                auto func) -> void {
         for (const auto& t : tokens) {
           if (t.kind() == token::details::TokenKind::identifier) {
             if (defined(t)) {
@@ -130,16 +132,46 @@ class TU : virtual public basic::mem::TraceTag<meta::S("TU")> {
               }
             }
           }
-          out_tokens.append(t);
+          token::TokenContainer::tokens_type::ele_type t0;
+          t0 = t;
+          out_tokens.append(t0);
+          if (out_tokens.size() > 1) {
+            // set `next` information
+            out_tokens[out_tokens.size() - 2].next_visitor_offset(
+                out_tokens.size() - 1);
+          }
         }
       };
-      return expand_impl(tokens, out_tokens, expand_impl);
+      expand_impl(tokens, out_tokens, expand_impl);
     }(expanded_tokens, full_expanded_tokens);
+    token::Token<TagName> returned_tok;
+    if (!full_expanded_tokens.empty()) {
+
+      full_expanded_tokens.back().next_visitor(tok.offset(), tok.file_id());
+
+      auto file_id = record_expanded_tokens_as_virtual_file(
+          tok.ptr(), tok.file_id(), std::move(full_expanded_tokens));
+      lps_assert(kTag, file_id > 0);
+      // the expanded list is valid, and recorded by `src::Manager`,
+      // now we can return the first element of the expanded list.
+      auto visitor = get_visitor_of_token_file(file_id);
+      lps_assert(kTag, !visitor.eof());
+
+      returned_tok = *visitor.cur();
+
+    } else {
+      // todo(@mxlol233): what if the expanded list is empty?
+      // Should we just skip this token?
+    }
+
+    return returned_tok;
   }
 
  private:
-  void record_expanded_tokens_as_virtual_file(
-      const pp_ast_node_type::tokens_type& tokens);
+  static uint32_t record_expanded_tokens_as_virtual_file(
+      const char* cur_tok_data_ptr, uint32_t cur_tok_file_id,
+      token::TokenContainer::tokens_type&& tokens);
+  static token::TokenListsVisitor get_visitor_of_token_file(uint32_t file_id);
 
   template <meta::Str TagName>
   IdentStringRef str(const token::Token<TagName>& tok) {

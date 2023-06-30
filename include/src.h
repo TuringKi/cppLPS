@@ -24,15 +24,17 @@
 #pragma once
 
 #include <filesystem>
+#include <limits>
 #include <map>
 #include "basic/exception.h"
 #include "basic/file.h"
+#include "basic/mem.h"
 #include "basic/vec.h"
 #include "token.h"
 
 namespace lps::src {
 
-class Manager {
+class Manager : virtual public basic::mem::TraceTag<meta::S("src::Manager")> {
 
  public:
   using FilePathStaticString =
@@ -45,18 +47,42 @@ class Manager {
     return mng;
   }
   uint32_t append(const char* path) {
-    auto file = lps::basic::File::create(path);
+    auto file = lps::basic::File::create(path, ++file_count_);
+    lps_assert(kTag, file_count_ < std::numeric_limits<uint32_t>::max());
     if (file == nullptr) {
-      return -1;
+      --file_count_;
+      return 0;
     }
     auto file_id = file->file_id();
-    files_[file_id] = std::move(file);
+    char_files_[file_id] = std::move(file);
 
     return file_id;
   }
 
+  uint32_t append(token::TokenContainer::tokens_type&& tokens) {
+    auto file = token::TokenContainer::create(std::move(tokens), ++file_count_);
+    lps_assert(kTag, file_count_ < std::numeric_limits<uint32_t>::max());
+    if (file == nullptr) {
+      --file_count_;
+      return 0;
+    }
+    auto file_id = file->file_id();
+    token_files_[file_id] = std::move(file);
+
+    fill_next_info_for_token_file(file_id);
+
+    return file_id;
+  }
+
+  template <uint8_t CheckWhich = 0>
   [[nodiscard]] bool has(uint32_t file_id) const {
-    return files_.contains(file_id);
+    if (CheckWhich == 0) {
+      return char_files_.contains(file_id);
+    }
+    if (CheckWhich == 1) {
+      return token_files_.contains(file_id);
+    }
+    return char_files_.contains(file_id) || token_files_.contains(file_id);
   }
 
   [[nodiscard]] FilePathStringRef path(uint32_t file_id) {
@@ -65,9 +91,10 @@ class Manager {
       return FilePathStringRef();
     }
     if (!abs_file_paths_.contains(file_id)) {
-      auto the_path = std::filesystem::canonical(
-                          std::filesystem::absolute(files_.at(file_id)->path()))
-                          .string();
+      auto the_path =
+          std::filesystem::canonical(
+              std::filesystem::absolute(char_files_.at(file_id)->path()))
+              .string();
       abs_file_paths_[file_id] = FilePathStaticString::from(the_path);
     }
     if (!abs_file_paths_.contains(file_id)) {
@@ -79,13 +106,13 @@ class Manager {
     return FilePathStringRef(abs_file_paths_[file_id]);
   }
 
-  template <meta::Str TagNameOther>
+  template <meta::Str TagNameOther, typename T = void>
   basic::StringRef<TagNameOther> ref(uint32_t file_id) const {
-    if (!has(file_id)) {
-      LPS_ERROR(TagNameOther, "file_id = ", file_id, "not exists");
-      return basic::StringRef<TagNameOther>();
-    }
-    return files_.at(file_id)->ref<TagNameOther>();
+    return ref_char_file<TagNameOther>(file_id);
+  }
+
+  token::TokenListsVisitor ref(uint32_t file_id) const {
+    return ref_token_file(file_id);
   }
 
   [[nodiscard]] size_t size(uint32_t file_id) const {
@@ -93,13 +120,53 @@ class Manager {
       LPS_ERROR(meta::Str("manager.size"), "file_id = ", file_id, "not exists");
       return -1;
     }
-    return files_.at(file_id)->size();
+    if (char_files_.contains(file_id)) {
+      return char_files_.at(file_id)->size();
+    }
+    return token_files_.at(file_id)->size();
   }
 
  private:
+  template <meta::Str TagNameOther>
+  basic::StringRef<TagNameOther> ref_char_file(uint32_t file_id) const {
+    if (!char_files_.contains(file_id)) {
+      LPS_ERROR(kTag, "file_id = ", file_id, "not exists");
+      return basic::StringRef<TagNameOther>();
+    }
+    return char_files_.at(file_id)->ref<TagNameOther>();
+  }
+
+  token::TokenListsVisitor ref_token_file(uint32_t file_id) const {
+    if (!token_files_.contains(file_id)) {
+      LPS_ERROR(kTag, "file_id = ", file_id, "not exists");
+      return token::TokenListsVisitor(nullptr, nullptr);
+    }
+    return token_files_.at(file_id)->visitor();
+  }
+
+  void fill_next_info_for_token_file(uint32_t file_id) {
+    if (!token_files_.contains(file_id)) {
+      LPS_ERROR(kTag, "file_id = ", file_id, "not exists");
+      return;
+    }
+
+    for (auto& tok : token_files_[file_id]->tokens_) {
+      auto next_info = tok.next_visitor();
+      lps_assert(kTag, next_info.first > 0);
+      if (next_info.second == 0) {
+        tok.next_visitor_file_id(file_id);
+      } else {
+        lps_assert(kTag, next_info.second > 0);
+        lps_assert(kTag, has(next_info.second));  // must be a char_file
+      }
+    }
+  }
+
   explicit Manager() = default;
-  std::unordered_map<uint32_t, basic::File::ptr_type> files_;
+  std::unordered_map<uint32_t, basic::File::ptr_type> char_files_;
+  std::unordered_map<uint32_t, token::TokenContainer::ptr_type> token_files_;
   std::unordered_map<uint32_t, FilePathStaticString> abs_file_paths_;
+  uint32_t file_count_{0};
 };
 
 }  // namespace lps::src
@@ -117,6 +184,12 @@ class TokenLists {
       uint64_t offset = tok.ptr() - start;
       lps_assert(meta::S("TokenLists"), offset >= 0);
       return {tok.file_id(), offset};
+    }
+    static const char* start(uint32_t file_id) {
+      auto content =
+          src::Manager::instance().ref<meta::S("TokenLists_file_contents")>(
+              file_id);
+      return content.data();
     }
     uint32_t file_id_{0};
     uint64_t offset_{0};

@@ -28,6 +28,10 @@
 #include "basic/exception.h"
 #include "basic/file.h"
 #include "basic/map.h"
+
+namespace lps::src {
+class Manager;
+}
 namespace lps::token {
 
 template <meta::Str TagName = meta::S("location")>
@@ -270,6 +274,22 @@ struct Token : virtual public basic::mem::TraceTag<TagName> {
     last_token_ = other;
   }
 
+  void next_visitor_offset(size_t offset) {
+    next_visitor_.offset_ = offset;
+  }
+
+  void next_visitor_file_id(uint32_t file_id) {
+    next_visitor_.file_id_ = file_id;
+  }
+
+  void next_visitor(size_t offset, uint32_t file_id) {
+    next_visitor_ = {offset, file_id};
+  }
+
+  [[nodiscard]] std::pair<size_t, uint32_t> next_visitor() const {
+    return {next_visitor_.offset_, next_visitor_.file_id_};
+  }
+
  private:
   Location<TagName + "_location"> loc_;
   details::TokenKind kind_{details::TokenKind::unknown};
@@ -278,6 +298,11 @@ struct Token : virtual public basic::mem::TraceTag<TagName> {
   uint16_t flags_{0};
   const archived_type* last_token_{nullptr};
   const archived_type* next_token_{nullptr};
+
+  struct {
+    size_t offset_;
+    uint32_t file_id_;
+  } next_visitor_{0, 0};
 };
 
 template <meta::Str TagName>
@@ -291,4 +316,54 @@ std::ostream& operator<<(std::ostream& s, const Token<TagName>& tok) {
   s << tok.template str<meta::S("operator<<_str")>();
   return s;
 }
+
+class TokenListsVisitor : public basic::vfile::Visitor<archived_type>,
+                          public basic::vfile::Operator<TokenListsVisitor> {
+ public:
+  using base = basic::vfile::Visitor<archived_type>;
+  explicit TokenListsVisitor(
+      const archived_type* start, const archived_type* end,
+      base::check_eof_callback_type check_eof_callback = []() {},
+      uint32_t file_id = 0)
+      : base(start, end, std::move(check_eof_callback), file_id) {}
+};
+
+class TokenContainer : public basic::vfile::File<archived_type> {
+
+ public:
+  friend class src::Manager;
+  using tokens_type =
+      basic::Vector<4, archived_type, meta::S("token::TokenContainer::tokens")>;
+  using base = basic::vfile::File<archived_type>;
+  using type = TokenContainer;
+  using ptr_type = std::unique_ptr<type>;
+
+  virtual TokenListsVisitor visitor() {
+    lps_assert(kTagName, first_ != nullptr);
+    lps_assert(kTagName, size_ > 0);
+    return TokenListsVisitor(first_, first_ + size_ - 1);
+  }
+
+  static ptr_type create(tokens_type&& tokens, uint32_t file_id) {
+    return std::make_unique<type>(std::move(tokens), file_id);
+  }
+
+  explicit TokenContainer(tokens_type&& tokens, uint32_t file_id)
+      : tokens_(std::move(tokens)) {
+    first_ = tokens_.data();
+    size_ = tokens_.size();
+    file_id_ = file_id;
+  }
+
+  TokenContainer(TokenContainer&& file) {
+    this->tokens_ = std::move(file.tokens_);
+    this->file_id_ = file.file_id_;
+    this->first_ = file.first_;
+    this->size_ = file.size_;
+  }
+
+ private:
+  tokens_type tokens_;
+};
+
 }  // namespace lps::token

@@ -34,6 +34,7 @@ namespace lps::basic {
 
 class File : public vfile::File<char> {
  public:
+  using base = vfile::File<char>;
   using type = File;
   using ptr_type = std::unique_ptr<type>;
   using buffer_type =
@@ -43,25 +44,28 @@ class File : public vfile::File<char> {
   using str_type = StringRef<TagNameOther>;
 
   template <meta::Str TagNameOther>
-  explicit File(const StringRef<TagNameOther>& path) {
-    set(path.data());
+  explicit File(const StringRef<TagNameOther>& path, uint32_t file_id) {
+    set(path.data(), file_id);
   }
 
-  explicit File(const char* path) { set(path); }
+  explicit File(const char* path, uint32_t file_id) { set(path, file_id); }
 
   File(File&& file) {
     this->buffer_ = std::move(file.buffer_);
     file.buffer_ = nullptr;
     this->file_id_ = file.file_id_;
+    this->first_ = file.first_;
+    this->size_ = file.size_;
   }
 
   template <meta::Str TagNameOther>
-  static ptr_type create(const StringRef<TagNameOther>& path) {
-    return std::make_unique<type>(path);
+  static ptr_type create(const StringRef<TagNameOther>& path,
+                         uint32_t file_id) {
+    return std::make_unique<type>(path, file_id);
   }
 
-  static ptr_type create(const char* path) {
-    return std::make_unique<type>(path);
+  static ptr_type create(const char* path, uint32_t file_id) {
+    return std::make_unique<type>(path, file_id);
   }
 
   template <meta::Str TagNameOther>
@@ -71,22 +75,20 @@ class File : public vfile::File<char> {
   }
 
   [[nodiscard]] const std::filesystem::path& path() const { return path_; }
-  [[nodiscard]] uint32_t file_id() const { return file_id_; }
 
  private:
-  size_t set(const char* path) {
+  size_t set(const char* path, uint32_t file_id) {
     std::ifstream the_file(path);
     LPS_CHECK_ERROR(meta::S("file"), the_file.is_open(),
                     "the path is not exists:", path);
     path_ = std::filesystem::path(path);
     the_file.seekg(0, std::ios::end);
     std::streamsize size = the_file.tellg();
-    static uint32_t k_file_id = 0;
-    file_id_ = ++k_file_id;
     if (size == 0) {
       buffer_ = buffer_type::create();
       this->first_ = buffer_->top();
       this->size_ = 0;
+      this->file_id_ = file_id;
       return size;
     }
     the_file.seekg(0, std::ios::beg);
@@ -95,13 +97,13 @@ class File : public vfile::File<char> {
 
     this->first_ = buffer_->top();
     this->size_ = size;
+    this->file_id_ = file_id;
 
     return size;
   }
 
   buffer_ptr_type buffer_;
   std::filesystem::path path_;
-  uint32_t file_id_;
 };
 
 class FileVisitor : public vfile::Visitor<char>,
@@ -118,7 +120,7 @@ class FileVisitor : public vfile::Visitor<char>,
   explicit FileVisitor(const char* start, const char* end,
                        base::check_eof_callback_type check_eof_callback,
                        uint32_t file_id = 0)
-      : base(start, end, std::move(check_eof_callback)), file_id_(file_id) {}
+      : base(start, end, std::move(check_eof_callback), file_id) {}
 
   void vertws_skip(bool flg) { flg_skip_vertws_ = flg; }
   void horzws_skip(bool flg) { flg_skip_horzws_ = flg; }
@@ -168,7 +170,6 @@ class FileVisitor : public vfile::Visitor<char>,
     }
   }
 
-  uint32_t file_id_{0};
   bool flg_skip_vertws_{false};
   bool flg_skip_horzws_{false};
 };
