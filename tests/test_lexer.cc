@@ -28,18 +28,17 @@
 #include "token.h"
 int main(int argc, char** argv) {
 
-  lps_assert(meta::S("test_lexer"), argc == 2);
+  lps_assert("test_lexer", argc == 2);
 
   const char* file_path = argv[1];
 
   auto file_id = lps::src::Manager::instance().append(file_path);
-  lps_assert(meta::S("test_lexer"), file_id > 0);
+  lps_assert("test_lexer", file_id > 0);
 
-  auto contents =
-      lps::src::Manager::instance().ref<meta::S("file_contents")>(file_id);
-  lps_assert(meta::S("test_lexer"), contents.capacity() > 0);
+  auto contents = lps::src::Manager::instance().visitor_of_char_file(file_id);
+  lps_assert("test_lexer", contents.capacity() > 0);
 
-  lps::token::Token<meta::S("parse_start_token")> tok;
+  lps::token::Token tok;
   while (tok.kind() != lps::token::details::TokenKind::eof) {
     if (tok.kind() == lps::token::details::TokenKind::unknown) {
       lps::lexer::Lexer lexer(file_id, contents.data());

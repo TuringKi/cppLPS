@@ -32,15 +32,16 @@
 
 namespace lps::lexer::details::pp {
 
-template <meta::Str TagName>
-class Preprocessing : public Base<TagName> {
-  using base = Base<TagName>;
+class Preprocessing : public Base {
 
  public:
+  using base = Base;
+  constexpr static basic::mem::TraceTag::tag_type kTag =
+      "lps::lexer::details::pp::Preprocessing";
   explicit Preprocessing(uint32_t start_file_id, const char* ptr,
                          const char* end)
       : base(start_file_id, ptr, end, MethodType::kPreprocessing) {}
-  inline void lex_impl(lps::token::Token<TagName>& tok) override {
+  inline void lex_impl(lps::token::Token& tok) override {
     // do a tiny parsing process.
     typename base::ptr_type ptr = this->cur();
     if (*ptr == '#') {  // control-line
@@ -48,7 +49,7 @@ class Preprocessing : public Base<TagName> {
       lex_control_line(ptr, tok);
     }
     if (!this->lex_identifier(ptr, tok)) {
-      unreachable(TagName);
+      unreachable(kTag);
     }
   }
 
@@ -67,9 +68,9 @@ class Preprocessing : public Base<TagName> {
   // 	pp_number, `.`
 
   inline bool lex_pp_number(char c, typename base::ptr_type& ptr,
-                            lps::token::Token<TagName>& tok) {
+                            lps::token::Token& tok) {
     return [this](char c, typename base::ptr_type& ptr,
-                  lps::token::Token<TagName>& tok) {
+                  lps::token::Token& tok) {
       auto digit = [](typename base::ptr_type& ptr) {
         return base::template lex_char<basic::str::ascii::is::Digit>(ptr);
       };
@@ -84,7 +85,7 @@ class Preprocessing : public Base<TagName> {
 
       auto lex = [this, &digit, &nodigit, &sign](
                      char c, typename base::ptr_type& ptr,
-                     lps::token::Token<TagName>& tok, auto func) -> bool {
+                     lps::token::Token& tok, auto func) -> bool {
         bool flg = false;
         if (basic::str::ascii::is::Digit(c)) {  // 	digit
           flg = true;
@@ -154,18 +155,17 @@ class Preprocessing : public Base<TagName> {
   // 	preprocessing_op_or_punc
   // each non-whitespace character that cannot be one of the above
   inline bool lex_preprocessing_token(char c, typename base::ptr_type& ptr,
-                                      lps::token::Token<TagName>& tok) {
-#define TRY(FUNC)                             \
-  [&](char c_, typename base::ptr_type& ptr_, \
-      lps::token::Token<TagName>& tok_) {     \
-    typename base::ptr_type tmp_ptr = ptr_;   \
-    lps::token::Token<TagName> tmp_tok;       \
-    if (FUNC(c_, tmp_ptr, tmp_tok)) {         \
-      tok_ = tmp_tok;                         \
-      ptr_ = tmp_ptr;                         \
-      return true;                            \
-    }                                         \
-    return false;                             \
+                                      lps::token::Token& tok) {
+#define TRY(FUNC)                                                        \
+  [&](char c_, typename base::ptr_type& ptr_, lps::token::Token& tok_) { \
+    typename base::ptr_type tmp_ptr = ptr_;                              \
+    lps::token::Token tmp_tok;                                           \
+    if (FUNC(c_, tmp_ptr, tmp_tok)) {                                    \
+      tok_ = tmp_tok;                                                    \
+      ptr_ = tmp_ptr;                                                    \
+      return true;                                                       \
+    }                                                                    \
+    return false;                                                        \
   }(c, ptr, tok)
 #define CASE(func) \
   if (TRY(func)) { \
@@ -174,7 +174,7 @@ class Preprocessing : public Base<TagName> {
 
     auto try_keyword = [this](token::details::TokenKind kind) {
       return [this, kind](char /*c*/, typename base::ptr_type& ptr,
-                          lps::token::Token<TagName>& tok) {
+                          lps::token::Token& tok) {
         if (this->lex_identifier(ptr, tok)) {
           return tok.kind() == kind;
         }
@@ -189,7 +189,7 @@ class Preprocessing : public Base<TagName> {
 
 #define TRY_UD(FUNC, KIND)                                 \
   [this, &try_ident](char c, typename base::ptr_type& ptr, \
-                     lps::token::Token<TagName>& tok) {    \
+                     lps::token::Token& tok) {             \
     if (FUNC(c, ptr, tok)) {                               \
       char cc = *ptr;                                      \
       ++ptr;                                               \
@@ -229,14 +229,14 @@ class Preprocessing : public Base<TagName> {
   // pp-tokens:
   // 	preprocessing_token
   // 	pp_tokens, preprocessing_token
-  inline typename lps::token::Token<TagName>::tokens_type lex_pp_tokens(
-      char c, typename base::ptr_type& ptr, lps::token::Token<TagName>& tok) {
-    typename lps::token::Token<TagName>::tokens_type tokens;
+  inline typename lps::token::Token::tokens_type lex_pp_tokens(
+      char c, typename base::ptr_type& ptr, lps::token::Token& tok) {
+    typename lps::token::Token::tokens_type tokens;
     if (this->template lex_something_recursive<
             token::details::TokenKind::pp_tokens>(
             c, ptr, tok,
             [this, &tokens](char c, typename base::ptr_type& ptr,
-                            lps::token::Token<TagName>& tok) -> bool {
+                            lps::token::Token& tok) -> bool {
               if (this->lex_preprocessing_token(c, ptr, tok)) {
                 tokens.append(tok);
                 return false;
@@ -245,7 +245,7 @@ class Preprocessing : public Base<TagName> {
             })) {
       return tokens;
     }
-    return typename lps::token::Token<TagName>::tokens_type();
+    return typename lps::token::Token::tokens_type();
   }
 
   // control-line:
@@ -261,7 +261,7 @@ class Preprocessing : public Base<TagName> {
   // 	`#`, `pragma`, pp_tokens[opt], new_line
   // 	`#`, new_line
   inline bool lex_control_line(typename base::ptr_type& ptr,
-                               lps::token::Token<TagName>& tok) {
+                               lps::token::Token& tok) {
     using namespace basic::str::ascii;
 
     typename base::ptr_type tmp_ptr = ptr;
@@ -269,7 +269,7 @@ class Preprocessing : public Base<TagName> {
       switch (tok.kind()) {
         case token::details::TokenKind::kw_define:
         case token::details::TokenKind::kw_undef: {
-          lps::token::Token<TagName> define_tok;
+          lps::token::Token define_tok;
           if (!this->lex_identifier(tmp_ptr, define_tok)) {
             this->diag(tmp_ptr,
                        diag::DiagKind::expected_ident_after_define_undef);
@@ -284,7 +284,7 @@ class Preprocessing : public Base<TagName> {
           if (tok.kind() == token::details::TokenKind::kw_define) {
             typename base::ptr_type tmp_ptr2 = tmp_ptr;
             tmp_ptr2++;
-            lps::token::Token<TagName> next_tok;
+            lps::token::Token next_tok;
             // replacement-list: pp_tokens[opt]
             auto replacement_tokens =
                 lex_pp_tokens(*tmp_ptr, tmp_ptr2, next_tok);
@@ -307,12 +307,11 @@ class Preprocessing : public Base<TagName> {
                 // 3. identifier_list, `...`
                 char tmp_c = *tmp_ptr2;
                 tmp_ptr2++;
-                typename lps::token::Token<TagName>::tokens_type
-                    parameter_tokens;
+                typename lps::token::Token::tokens_type parameter_tokens;
                 std::vector<typename base::lex_func_type2> funcs = {
-                    [this, &parameter_tokens](
-                        char c, typename base::ptr_type& ptr,
-                        lps::token::Token<TagName>& tok) -> bool {
+                    [this, &parameter_tokens](char c,
+                                              typename base::ptr_type& ptr,
+                                              lps::token::Token& tok) -> bool {
                       auto tmp_ptr = ptr;
                       auto tmp_tok = tok;
                       if (this->lex_operator_or_punctuator(c, tmp_ptr,
@@ -327,9 +326,9 @@ class Preprocessing : public Base<TagName> {
                       }
                       return false;
                     },
-                    [this, &parameter_tokens](
-                        char c, typename base::ptr_type& ptr,
-                        lps::token::Token<TagName>& tok) -> bool {
+                    [this, &parameter_tokens](char c,
+                                              typename base::ptr_type& ptr,
+                                              lps::token::Token& tok) -> bool {
                       {
                         auto tmp_ptr = ptr;
                         auto tmp_tok = tok;
@@ -359,13 +358,13 @@ class Preprocessing : public Base<TagName> {
                 };
                 if (this->lex_something_parallel(tmp_c, tmp_ptr2, next_tok,
                                                  funcs)) {
-                  unreachable(TagName);
+                  unreachable(kTag);
                   // now check: `)`, replacement_list, new_line
                   tmp_ptr2.horzws_skipping();
                   if (*tmp_ptr2 == ')') {
                     // record replacement_list
                     auto tmp_ptr3 = tmp_ptr2;
-                    lps::token::Token<TagName> replacement_token;
+                    lps::token::Token replacement_token;
                     tmp_ptr3.horzws_skipping();
                     char tmp_c = *tmp_ptr3;
                     tmp_ptr3++;
@@ -393,7 +392,7 @@ class Preprocessing : public Base<TagName> {
         case token::details::TokenKind::kw_pragma:
 
         default:
-          unreachable(TagName);
+          unreachable(kTag);
       }
       ptr = tmp_ptr;
     }

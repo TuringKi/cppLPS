@@ -24,6 +24,7 @@
 #pragma once
 
 #include <functional>
+#include <utility>
 #include "basic/exception.h"
 #include "basic/str.h"
 #include "basic/vec.h"
@@ -46,18 +47,19 @@ inline bool operator==(const std::tuple<char, uint32_t>& cz0, const char& c1) {
   return c0 == c1;
 }
 
-template <meta::Str TagName>
-class Base : virtual public lps::basic::mem::TraceTag<TagName> {
+class Base {
 
  public:
-  using type = Base<TagName>;
+  static constexpr basic::mem::TraceTag::tag_type kTag =
+      "lps::lexer::details::Base";
+  using type = Base;
   using const_ptr_type = const type*;
   using ptr_type = basic::FileVisitor;
   using lex_func_type1 =
       std::function<token::details::TokenKind(char, ptr_type&)>;
   using lex_func_type2 =
-      std::function<bool(char, ptr_type&, lps::token::Token<TagName>&)>;
-  inline void lex(lps::token::Token<TagName>& tok) {
+      std::function<bool(char, ptr_type&, lps::token::Token&)>;
+  inline void lex(lps::token::Token& tok) {
     try {
       lex_impl(tok);
     } catch (basic::vfile::Eof& except_eof) {
@@ -66,7 +68,7 @@ class Base : virtual public lps::basic::mem::TraceTag<TagName> {
       return;
     }
   }
-  inline virtual void lex_impl(lps::token::Token<TagName>& tok) = 0;
+  inline virtual void lex_impl(lps::token::Token& tok) = 0;
   [[nodiscard]] MethodType method() const { return type_; }
   explicit Base(uint32_t start_file_id, const char* ptr, const char* end,
                 MethodType m)
@@ -76,7 +78,7 @@ class Base : virtual public lps::basic::mem::TraceTag<TagName> {
   [[nodiscard]] inline size_t pos() const { return pos_; }
 
  protected:
-  static inline uint32_t escaped_newline_scanning(ptr_type ptr) {
+  static inline uint32_t escaped_newline_scanning(const ptr_type& ptr) {
     using namespace basic::str::ascii;
     uint32_t sz = 0;
 
@@ -125,7 +127,7 @@ class Base : virtual public lps::basic::mem::TraceTag<TagName> {
     return *ptr;
   }
 
-  static inline ptr_type consume_char(ptr_type ptr, uint32_t sz) {
+  static inline ptr_type consume_char(const ptr_type& ptr, uint32_t sz) {
     if (sz == 1) {
       return ptr + sz;
     }
@@ -164,31 +166,36 @@ class Base : virtual public lps::basic::mem::TraceTag<TagName> {
   }
 
   [[nodiscard]] inline ptr_type cur() const { return ptr_ + pos_; }
+  [[nodiscard]] inline const char* cur_char_ptr() const {
+    return (ptr_ + pos_).cur();
+  }
   inline void inc(size_t n) { pos_ += n; }
 
   inline void diag(ptr_type ptr, diag::DiagKind kind) {
-    diag::DiagInputs<TagName> diag_input;
+    diag::DiagInputs diag_input;
     diag_input.kind_ = kind;
-    lps::token::Token<TagName> tok_error;
-    this->token_formulate(tok_error, ptr, token::details::TokenKind::unknown);
+    lps::token::Token tok_error;
+    this->token_formulate(tok_error, std::move(ptr),
+                          token::details::TokenKind::unknown);
     tok_error.data(this->cur());
     diag_input.main_token_ = tok_error;
-    diag::doing<TagName>(diag_input.main_token_, diag_input.kind_,
-                         diag_input.context_tokens_);
+    diag::doing(diag_input.main_token_, diag_input.kind_,
+                diag_input.context_tokens_);
   }
 
-  inline void token_formulate(lps::token::Token<TagName>& tok, ptr_type end,
+  inline void token_formulate(lps::token::Token& tok, ptr_type end,
                               lps::token::details::TokenKind kind) {
-    lps_assert(TagName, this->cur() != nullptr);
+
+    lps_assert(kTag, this->cur_char_ptr() != nullptr);
     auto offset = end - this->cur();
-    lps_assert(TagName,
+    lps_assert(kTag,
                offset >= 0 && offset < std::numeric_limits<uint32_t>::max());
 
     tok.offset(offset);
     tok.file_id(file_id_);
     tok.kind(kind);
     tok.data(this->cur());
-    lps_assert(TagName, src::Manager::instance().has(file_id_));
+    lps_assert(kTag, src::Manager::instance().has(file_id_));
     auto tok_info = token::TokenLists::Info::create(tok);
     tok.next_visitor(tok_info.offset_ + offset, file_id_);
   }
@@ -202,8 +209,7 @@ class Base : virtual public lps::basic::mem::TraceTag<TagName> {
     return false;
   }
 
-  inline bool lex_something(char c, ptr_type& ptr,
-                            lps::token::Token<TagName>& tok,
+  inline bool lex_something(char c, ptr_type& ptr, lps::token::Token& tok,
                             const lex_func_type1& func) {
 
     ptr_type tmp_ptr = ptr;
@@ -217,11 +223,11 @@ class Base : virtual public lps::basic::mem::TraceTag<TagName> {
   }
 
   inline bool lex_something_parallel(char c, ptr_type& ptr,
-                                     lps::token::Token<TagName>& tok,
+                                     lps::token::Token& tok,
                                      const std::vector<lex_func_type2>& funcs) {
     for (const auto& f : funcs) {
       ptr_type tmp_ptr = ptr;
-      lps::token::Token<TagName> tmp_tok;
+      lps::token::Token tmp_tok;
       if (f(c, tmp_ptr, tmp_tok)) {
         ptr = tmp_ptr;
         tok = tmp_tok;
@@ -233,19 +239,19 @@ class Base : virtual public lps::basic::mem::TraceTag<TagName> {
 
   template <token::details::TokenKind OutKind>
   inline bool lex_something_recursive(char c, ptr_type& ptr,
-                                      lps::token::Token<TagName>& tok,
+                                      lps::token::Token& tok,
                                       const lex_func_type2& first_lex_func) {
-    return [this](char c, ptr_type& ptr, lps::token::Token<TagName>& tok,
+    return [this](char c, ptr_type& ptr, lps::token::Token& tok,
                   const lex_func_type2& first_lex_func) {
       auto lex = [this, &first_lex_func](char c, ptr_type& ptr,
-                                         lps::token::Token<TagName>& tok,
+                                         lps::token::Token& tok,
                                          const auto& func) -> bool {
         if (first_lex_func(c, ptr, tok)) {
           ptr_type tmp_ptr = ptr;
           tmp_ptr.horzws_skipping();  // skip space, `\t` etc.
           char tmp_c = *ptr;
           tmp_ptr++;
-          lps::token::Token<TagName> tmp_tok;
+          lps::token::Token tmp_tok;
           if (func(tmp_c, tmp_ptr, tmp_tok, func)) {
             ptr = tmp_ptr;
             tok = tmp_tok;
@@ -265,7 +271,7 @@ class Base : virtual public lps::basic::mem::TraceTag<TagName> {
   // 	`%:`
   // 	`%:%:`
   inline bool lex_preprocessing_operator(char c, ptr_type& ptr,
-                                         lps::token::Token<TagName>& tok) {
+                                         lps::token::Token& tok) {
     return lex_something(
         c, ptr, tok,
         [this](char c, ptr_type& ptr) -> token::details::TokenKind {
@@ -299,7 +305,7 @@ class Base : virtual public lps::basic::mem::TraceTag<TagName> {
   }
 
   inline bool lex_operator_or_punctuator(char c, ptr_type& ptr,
-                                         lps::token::Token<TagName>& tok) {
+                                         lps::token::Token& tok) {
     return lex_something(
         c, ptr, tok,
         [this](char c, ptr_type& ptr) -> token::details::TokenKind {
@@ -528,7 +534,7 @@ class Base : virtual public lps::basic::mem::TraceTag<TagName> {
   //	and or xor not bitand bitor compl
   //	and_eq or_eq xor_eq not_eq
   inline bool lex_operator_or_punctuator_or_keyword_operator(
-      char c, ptr_type& ptr, lps::token::Token<TagName>& tok) {
+      char c, ptr_type& ptr, lps::token::Token& tok) {
     if (!lex_operator_or_punctuator(c, ptr, tok)) {
       if (this->lex_identifier(ptr, tok)) {
         //	one of following key_words:
@@ -554,12 +560,12 @@ class Base : virtual public lps::basic::mem::TraceTag<TagName> {
   }
 
   inline bool lex_preprocessing_op_or_punc(char c, ptr_type& ptr,
-                                           lps::token::Token<TagName>& tok) {
+                                           lps::token::Token& tok) {
     std::vector<lex_func_type2> funcs = {
-        [this](char c, ptr_type& ptr, lps::token::Token<TagName>& tok) -> bool {
+        [this](char c, ptr_type& ptr, lps::token::Token& tok) -> bool {
           return lex_preprocessing_operator(c, ptr, tok);
         },
-        [this](char c, ptr_type& ptr, lps::token::Token<TagName>& tok) -> bool {
+        [this](char c, ptr_type& ptr, lps::token::Token& tok) -> bool {
           return lex_operator_or_punctuator_or_keyword_operator(c, ptr, tok);
         },
     };
@@ -567,7 +573,7 @@ class Base : virtual public lps::basic::mem::TraceTag<TagName> {
   }
 
   template <char StartChar, diag::DiagKind DiagKind>
-  inline uint32_t lex_char_seq(ptr_type& ptr, lps::token::Token<TagName>& tok) {
+  inline uint32_t lex_char_seq(ptr_type& ptr, lps::token::Token& tok) {
     uint32_t cnt_char = 0;
     while (*ptr != StartChar) {
       if (*ptr == '\\') {
@@ -583,7 +589,7 @@ class Base : virtual public lps::basic::mem::TraceTag<TagName> {
     return cnt_char;
   }
 
-  inline bool lex_identifier(ptr_type& ptr, lps::token::Token<TagName>& tok) {
+  inline bool lex_identifier(ptr_type& ptr, lps::token::Token& tok) {
     using namespace basic::str::ascii;
     while (true) {
       char c = *ptr;
@@ -612,7 +618,7 @@ class Base : virtual public lps::basic::mem::TraceTag<TagName> {
 
     this->token_formulate(tok, ptr,
                           lps::token::details::TokenKind::raw_identifier);
-    auto ident_str = tok.template str<meta::S("ident_str")>();
+    auto ident_str = tok.str();
     if (lps::token::details::IdentInfo::instance().kw_has(ident_str)) {
       tok.kind(lps::token::details::IdentInfo::instance().kw_at(ident_str));
     } else {
@@ -625,8 +631,7 @@ class Base : virtual public lps::basic::mem::TraceTag<TagName> {
   // header-name:
   // 	`<`, h_char_sequence, `>`
   // 	`"`, q_char_sequence, `"`
-  inline bool lex_header_name(char c, ptr_type& ptr,
-                              lps::token::Token<TagName>& tok) {
+  inline bool lex_header_name(char c, ptr_type& ptr, lps::token::Token& tok) {
     bool flg = false;
     if (c == '<') {
       uint32_t cnt_char =
@@ -652,7 +657,7 @@ class Base : virtual public lps::basic::mem::TraceTag<TagName> {
   }
 
   inline bool lex_encoding_prefix(char c, ptr_type& ptr,
-                                  lps::token::Token<TagName>& /*tok*/) {
+                                  lps::token::Token& /*tok*/) {
     if (c == 'u') {
       if (*ptr == '8') {
         ++ptr;
@@ -663,7 +668,7 @@ class Base : virtual public lps::basic::mem::TraceTag<TagName> {
   }
 
   inline bool lex_character_literal(char c_, ptr_type& ptr,
-                                    lps::token::Token<TagName>& tok) {
+                                    lps::token::Token& tok) {
 
     ptr_type start = ptr - 1;
     ptr_type tmp_ptr = ptr;
@@ -772,8 +777,7 @@ class Base : virtual public lps::basic::mem::TraceTag<TagName> {
   }
 
   template <auto FuncDigit, lps::token::details::TokenKind TokenKind>
-  inline bool lex_number_literal(ptr_type& ptr,
-                                 lps::token::Token<TagName>& tok) {
+  inline bool lex_number_literal(ptr_type& ptr, lps::token::Token& tok) {
 
     if (!FuncDigit(ptr)) {
       return false;
@@ -793,8 +797,7 @@ class Base : virtual public lps::basic::mem::TraceTag<TagName> {
     return true;
   }
 
-  inline bool lex_octal_literal(ptr_type& ptr,
-                                lps::token::Token<TagName>& tok) {
+  inline bool lex_octal_literal(ptr_type& ptr, lps::token::Token& tok) {
     return lex_number_literal<[](ptr_type& ptr) {
       if (*ptr >= '0' && *ptr <= '7') {
         ++ptr;
@@ -806,8 +809,7 @@ class Base : virtual public lps::basic::mem::TraceTag<TagName> {
                                                                         tok);
   }
 
-  inline bool lex_decimal_literal(ptr_type& ptr,
-                                  lps::token::Token<TagName>& tok) {
+  inline bool lex_decimal_literal(ptr_type& ptr, lps::token::Token& tok) {
     return lex_number_literal<[](ptr_type& ptr) {
       if (*ptr >= '0' && *ptr <= '9') {
         ++ptr;
@@ -819,8 +821,7 @@ class Base : virtual public lps::basic::mem::TraceTag<TagName> {
                                                                           tok);
   }
 
-  inline bool lex_hexadecimal_literal(ptr_type& ptr,
-                                      lps::token::Token<TagName>& tok) {
+  inline bool lex_hexadecimal_literal(ptr_type& ptr, lps::token::Token& tok) {
     return lex_number_literal<[](ptr_type& ptr) {
       if (*ptr >= '0' && *ptr <= '9' || *ptr >= 'a' && *ptr <= 'f' ||
           *ptr >= 'A' && *ptr <= 'F') {
@@ -833,8 +834,7 @@ class Base : virtual public lps::basic::mem::TraceTag<TagName> {
         ptr, tok);
   }
 
-  inline bool lex_binary_literal(ptr_type& ptr,
-                                 lps::token::Token<TagName>& tok) {
+  inline bool lex_binary_literal(ptr_type& ptr, lps::token::Token& tok) {
     return lex_number_literal<[](ptr_type& ptr) {
       if (*ptr == '0' || *ptr == '1') {
         ++ptr;
@@ -849,7 +849,7 @@ class Base : virtual public lps::basic::mem::TraceTag<TagName> {
   template <auto FuncDigit, lps::token::details::TokenKind TokenKind0,
             lps::token::details::TokenKind TokenKind1>
   inline bool lex_fractional_constant_any(char c, ptr_type& ptr,
-                                          lps::token::Token<TagName>& tok) {
+                                          lps::token::Token& tok) {
     ptr_type p_dot = ptr;
     p_dot.ws_skip(true);
     bool has_first_digit_seq = false;
@@ -883,8 +883,8 @@ class Base : virtual public lps::basic::mem::TraceTag<TagName> {
   // hexadecimal-fractional-constant:
   // 	hexadecimal_digit_sequence[opt], `.`, hexadecimal_digit_sequence
   // 	hexadecimal_digit_sequence, `.`
-  inline bool lex_hexadecimal_fractional_constant(
-      char c, ptr_type& ptr, lps::token::Token<TagName>& tok) {
+  inline bool lex_hexadecimal_fractional_constant(char c, ptr_type& ptr,
+                                                  lps::token::Token& tok) {
     return lex_fractional_constant_any<
         [](ptr_type& ptr) {
           if (*ptr >= '0' && *ptr <= '9' || *ptr >= 'a' && *ptr <= 'f' ||
@@ -902,7 +902,7 @@ class Base : virtual public lps::basic::mem::TraceTag<TagName> {
   // 	digit_sequence[opt], `.`, digit_sequence
   // 	digit_sequence, `.`
   inline bool lex_fractional_constant(char c, ptr_type& ptr,
-                                      lps::token::Token<TagName>& tok) {
+                                      lps::token::Token& tok) {
     return lex_fractional_constant_any<
         [](ptr_type& ptr) {
           if (*ptr >= '0' && *ptr <= '9') {
@@ -915,8 +915,7 @@ class Base : virtual public lps::basic::mem::TraceTag<TagName> {
         token::details::TokenKind::fractional_constant>(c, ptr, tok);
   }
 
-  inline bool lex_exponent_part_any(ptr_type& ptr,
-                                    lps::token::Token<TagName>& tok,
+  inline bool lex_exponent_part_any(ptr_type& ptr, lps::token::Token& tok,
                                     char part_char0, char part_char1) {
     if (*ptr == part_char0 || *ptr == part_char1) {
       ++ptr;
@@ -933,8 +932,7 @@ class Base : virtual public lps::basic::mem::TraceTag<TagName> {
   // exponent-part:
   // 	`e`, sign[opt], digit_sequence
   // 	`E`, sign[opt], digit_sequence
-  inline bool lex_exponent_part(ptr_type& ptr,
-                                lps::token::Token<TagName>& tok) {
+  inline bool lex_exponent_part(ptr_type& ptr, lps::token::Token& tok) {
     return lex_exponent_part_any(ptr, tok, 'e', 'E');
   }
 
@@ -949,8 +947,8 @@ class Base : virtual public lps::basic::mem::TraceTag<TagName> {
   // decimal-floating-point-literal:
   // 	fractional_constant, exponent_part[opt], floating_point_suffix[opt]
   // 	digit_sequence, exponent_part[opt], floating_point_suffix[opt]
-  inline bool lex_decimal_floating_point_literal(
-      char c, ptr_type& ptr, lps::token::Token<TagName>& tok) {
+  inline bool lex_decimal_floating_point_literal(char c, ptr_type& ptr,
+                                                 lps::token::Token& tok) {
     ptr_type tmp_ptr0 = ptr;
     ptr_type tmp_ptr1 = ptr;
     bool is_type0 = false;
@@ -985,16 +983,15 @@ class Base : virtual public lps::basic::mem::TraceTag<TagName> {
   // binary-exponent-part:
   // 	`p`, sign[opt], digit_sequence
   // 	`P`, sign[opt], digit_sequence
-  inline bool lex_binary_exponent_part(ptr_type& ptr,
-                                       lps::token::Token<TagName>& tok) {
+  inline bool lex_binary_exponent_part(ptr_type& ptr, lps::token::Token& tok) {
     return lex_exponent_part_any(ptr, tok, 'p', 'P');
   }
 
   // hexadecimal-floating-point-literal:
   // 	hexadecimal_prefix, hexadecimal_fractional_constant, binary_exponent_part, floating_point_suffix[opt]
   // 	hexadecimal_prefix, hexadecimal_digit_sequence, binary_exponent_part, floating_point_suffix[opt]
-  inline bool lex_hexadecimal_floating_point_literal(
-      char c, ptr_type& ptr, lps::token::Token<TagName>& tok) {
+  inline bool lex_hexadecimal_floating_point_literal(char c, ptr_type& ptr,
+                                                     lps::token::Token& tok) {
     if (c == '0') {
       if (*ptr == 'x' || *ptr == 'X') {
         ++ptr;
@@ -1030,7 +1027,7 @@ class Base : virtual public lps::basic::mem::TraceTag<TagName> {
   // 	decimal_floating_point_literal
   // 	hexadecimal_floating_point_literal
   inline bool lex_floating_point_literal(char c, ptr_type& ptr,
-                                         lps::token::Token<TagName>& tok) {
+                                         lps::token::Token& tok) {
 
     ptr_type tmp_ptr0 = ptr;
     ptr_type tmp_ptr1 = ptr;
@@ -1059,7 +1056,7 @@ class Base : virtual public lps::basic::mem::TraceTag<TagName> {
   // 	decimal_literal, integer_suffix[opt]
   // 	hexadecimal_literal, integer_suffix[opt]
   inline bool lex_integer_literal(char c, ptr_type& ptr,
-                                  lps::token::Token<TagName>& tok) {
+                                  lps::token::Token& tok) {
     ptr_type matched_ptr = ptr;
     token::details::TokenKind kind = token::details::TokenKind::unknown;
     bool flg = false;
@@ -1107,7 +1104,7 @@ class Base : virtual public lps::basic::mem::TraceTag<TagName> {
 
   // raw-string:
   // 	`"`, d_char_sequence[opt], `(`, r_char_sequence[opt], `)`, d_char_sequence[opt], `"`
-  inline bool lex_raw_string(ptr_type& ptr, lps::token::Token<TagName>& tok) {
+  inline bool lex_raw_string(ptr_type& ptr, lps::token::Token& tok) {
     using namespace basic::str::ascii;
 
     if (*ptr != '"') {
@@ -1164,7 +1161,7 @@ class Base : virtual public lps::basic::mem::TraceTag<TagName> {
   // 	encoding_prefix[opt], `"`, s_char_sequence[opt], `"`
   // 	encoding_prefix[opt], `R`, raw_string
   inline bool lex_string_literal(char c, ptr_type& ptr,
-                                 lps::token::Token<TagName>& tok) {
+                                 lps::token::Token& tok) {
     ptr_type tmp_ptr = ptr;
     bool flg = lex_encoding_prefix(c, tmp_ptr, tok);
     if (flg) {
@@ -1193,15 +1190,15 @@ class Base : virtual public lps::basic::mem::TraceTag<TagName> {
     return false;
   }
 
-  inline typename lps::token::Token<TagName>::tokens_type lex_identifier_list(
-      char c, ptr_type& ptr, lps::token::Token<TagName>& tok) {
-    typename lps::token::Token<TagName>::tokens_type tokens;
+  inline typename lps::token::Token::tokens_type lex_identifier_list(
+      char c, ptr_type& ptr, lps::token::Token& tok) {
+    typename lps::token::Token::tokens_type tokens;
     if (lex_something_recursive<token::details::TokenKind::identifiers>(
             c, ptr, tok,
             [this, &tokens](char /*c*/, ptr_type& ptr,
-                            lps::token::Token<TagName>& tok) -> bool {
+                            lps::token::Token& tok) -> bool {
               auto tmp_ptr = ptr;
-              lps::token::Token<TagName> tmp_tok;
+              lps::token::Token tmp_tok;
               if (lex_identifier(tmp_ptr, tmp_tok)) {
                 if (tmp_tok.kind() == token::details::TokenKind::identifier) {
                   ptr = tmp_ptr;
@@ -1214,7 +1211,7 @@ class Base : virtual public lps::basic::mem::TraceTag<TagName> {
             })) {
       return tokens;
     }
-    return typename lps::token::Token<TagName>::tokens_type();
+    return typename lps::token::Token::tokens_type();
   }
 
   MethodType type_{MethodType::kNone};

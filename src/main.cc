@@ -56,8 +56,7 @@ int main(int argc, char** argv) {
     return 0;
   }
 
-  auto contents =
-      lps::src::Manager::instance().ref<meta::S("file_contents")>(file_id);
+  auto contents = lps::src::Manager::instance().visitor_of_char_file(file_id);
 
   using lps::basic::str::details::operator<<;
   std::cout << contents;

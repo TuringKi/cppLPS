@@ -33,14 +33,15 @@
 
 namespace lps::basic::mem {
 
-template <meta::Str TagName>
 class TraceTag {
  public:
-  [[nodiscard]] virtual constexpr const char* tag() const {
-    return TagName.value;
-  }
+  using tag_type = const char*;
+  explicit TraceTag() : tag_("") {}
+  explicit TraceTag(tag_type tag) : tag_(tag) {}
+  [[nodiscard]] tag_type tag() const { return tag_; }
 
-  static constexpr meta::Str kTag = TagName;
+ protected:
+  tag_type tag_{nullptr};
 };
 
 namespace details {
@@ -85,28 +86,26 @@ void val_remove(T* ptr, Size size) {
   }
 }
 
-template <meta::Str TagName, typename Size, typename T>
-class Data : virtual public TraceTag<TagName> {
+template <typename Size, typename T>
+class Data : virtual public TraceTag {
 
   using pointer = T*;
   using const_pointer = const T*;
-  using type = Data<TagName, Size, T>;
+  using type = Data<Size, T>;
   using ptr_type = std::unique_ptr<type>;
-
-  friend ptr_type std::make_unique<type>(pointer&, Size&);
 
  public:
   pointer ptr() { return data_; }
   Size size() const { return size_; }
 
-  static ptr_type create(Size size) {
+  static ptr_type create(TraceTag::tag_type tag, Size size) {
     std::allocator<T> allocator;
     auto ptr = allocator.allocate(size);
     if (ptr == nullptr) {
-      LPS_ERROR(TagName, "allocate memory failed");
+      LPS_ERROR("mem::Data::create", "allocate memory failed");
     }
     val_init(ptr, size);
-    return std::make_unique<type>(ptr, size);
+    return std::make_unique<type>(tag, ptr, size);
   }
 
   ~Data() {
@@ -117,69 +116,70 @@ class Data : virtual public TraceTag<TagName> {
     }
   }
 
- private:
-  explicit Data(pointer data, Size size) : data_(data), size_(size) {}
+  explicit Data(TraceTag::tag_type tag, pointer data, Size size)
+      : TraceTag(tag), data_(data), size_(size) {}
 
+ private:
   pointer data_;
   Size size_;
 };
 
-template <meta::Str TagName, size_t N, typename T, class Enable = void>
-class StaticBuffer : virtual public TraceTag<TagName> {
+template <size_t N, typename T, class Enable = void>
+class StaticBuffer : virtual public TraceTag {
   using pointer = T*;
-  using type = StaticBuffer<TagName, N, T>;
+  using type = StaticBuffer<N, T>;
   using ptr_type = std::unique_ptr<type>;
-
-  friend ptr_type std::make_unique<type>();
 
  public:
   virtual ~StaticBuffer() = default;
-  static ptr_type create() { return std::make_unique<type>(); }
+  static ptr_type create(mem::TraceTag::tag_type tag) {
+    return std::make_unique<type>(tag);
+  }
   pointer ptr() { return data_; }
 
- private:
-  StaticBuffer() = default;
+  explicit StaticBuffer(mem::TraceTag::tag_type tag) : TraceTag(tag) {}
 
+ private:
   T data_[N];
 };
 
-template <meta::Str TagName, size_t N, typename T>
-class StaticBuffer<TagName, N, T,
+template <size_t N, typename T>
+class StaticBuffer<N, T,
                    typename std::enable_if<!(
                        (std::is_trivially_copy_constructible<T>::value) &&
                        (std::is_trivially_move_constructible<T>::value) &&
                        std::is_trivially_destructible<T>::value)>::type>
-    : virtual public TraceTag<TagName> {
+    : virtual public TraceTag {
   using pointer = T*;
-  using type = StaticBuffer<TagName, N, T>;
+  using type = StaticBuffer<N, T>;
   using ptr_type = std::unique_ptr<type>;
-
-  friend ptr_type std::make_unique<type>();
 
  public:
   virtual ~StaticBuffer() {
-    lps_assert(TagName, ptr() != nullptr);
+    lps_assert(tag_, ptr() != nullptr);
     val_remove(ptr(), N);
     std::allocator<T> allocator;
     allocator.deallocate(ptr(), N);
   }
-  static ptr_type create() { return std::make_unique<type>(); }
+  static ptr_type create(TraceTag::tag_type tag) {
+    return std::make_unique<type>(tag);
+  }
   pointer ptr() { return data_; }
+  explicit StaticBuffer(TraceTag::tag_type tag) : TraceTag(tag) {
+    std::allocator<T> allocator;
+    data_ = allocator.allocate(N);
+    lps_assert(tag_, ptr() != nullptr);
+    val_init(data_, N);
+  }
 
  private:
   T* data_;
-  StaticBuffer() {
-    std::allocator<T> allocator;
-    data_ = allocator.allocate(N);
-    lps_assert(TagName, ptr() != nullptr);
-    val_init(data_, N);
-  }
 };
 
-template <meta::Str TagName, typename BlockSizeType, typename T>
-class BlockInBuffer : virtual public TraceTag<TagName> {
+template <typename BlockSizeType, typename T>
+class BlockInBuffer : virtual public TraceTag {
 
-  template <meta::Str TagName0, typename BlockSizeType0, typename T0>
+  template <typename BlockSizeType0, typename T0>
   friend class Block;
 
  public:
@@ -187,7 +187,8 @@ class BlockInBuffer : virtual public TraceTag<TagName> {
   [[nodiscard]] size_t pos() const { return pos_; }
 
  protected:
-  explicit BlockInBuffer(size_t buffer_size) : buffer_size_(buffer_size) {}
+  explicit BlockInBuffer(TraceTag::tag_type tag, size_t buffer_size)
+      : TraceTag(tag), buffer_size_(buffer_size) {}
 
   [[nodiscard]] bool ok() const { return pos_ >= 0 && pos_ < buffer_size_; }
   bool ok(BlockSizeType block_size) const {
@@ -237,24 +238,22 @@ void copy(T* src, size_t size, T* dst) {
   }
 }
 
-template <meta::Str TagName, typename Size, typename T>
-class DynamicBuffer : virtual public TraceTag<TagName> {
+template <typename Size, typename T>
+class DynamicBuffer : virtual public TraceTag {
   using pointer = T*;
   using const_pointer = const T*;
-  static constexpr meta::Str kDataTagname = TagName + "_data";
-  using data_type = Data<kDataTagname, Size, T>;
-  using type = DynamicBuffer<TagName, Size, T>;
+  static constexpr const char* kDataTagname = "DynamicBuffer_data";
+  using data_type = Data<Size, T>;
+  using type = DynamicBuffer<Size, T>;
   using ptr_type = std::unique_ptr<type>;
   using data_ptr_type = std::unique_ptr<data_type>;
-
-  friend ptr_type std::make_unique<type>(Size&);
 
  public:
   DynamicBuffer() = delete;
   virtual ~DynamicBuffer() = default;
 
-  static ptr_type create(Size capacity) {
-    return std::make_unique<type>(capacity);
+  static ptr_type create(TraceTag::tag_type tag, Size capacity) {
+    return std::make_unique<type>(tag, capacity);
   }
 
   pointer ptr() { return data_->ptr(); }
@@ -267,37 +266,37 @@ class DynamicBuffer : virtual public TraceTag<TagName> {
   static Size new_capacity(Size min, Size old_capacity) {
     constexpr auto kTheMaxSize = std::numeric_limits<Size>::max();
     if (min > kTheMaxSize) {
-      LPS_ERROR(TagName, "overflow");
+      LPS_ERROR(kDataTagname, "overflow");
     }
     if (old_capacity == kTheMaxSize) {
-      LPS_ERROR(TagName, "already at maximum size");
+      LPS_ERROR(kDataTagname, "already at maximum size");
     }
     Size new_capacity = 2 * old_capacity + 1;
     return std::clamp(new_capacity, min, kTheMaxSize);
   }
 
   void grow(Size min) {
-    auto new_capacity =
-        DynamicBuffer<TagName, Size, T>::new_capacity(min, capacity());
+    auto new_capacity = DynamicBuffer<Size, T>::new_capacity(min, capacity());
 
-    data_ptr_type new_data = data_type::create(new_capacity);
+    data_ptr_type new_data = data_type::create(tag_, new_capacity);
     details::copy(this->data_->ptr(), this->data_->size(), new_data->ptr());
-    //std::copy_n(other->ptr(), other->size(), ptr());
+
     this->data_ = std::move(new_data);
   }
 
- private:
-  explicit DynamicBuffer(Size capacity) : data_(data_type::create(capacity)) {}
+  explicit DynamicBuffer(TraceTag::tag_type tag, Size capacity)
+      : TraceTag(tag), data_(data_type::create(tag, capacity)) {}
 
+ private:
   data_ptr_type data_{nullptr};
   Size size_;
 };
 
 }  // namespace details
 
-template <meta::Str TagName, typename Size, typename T>
-class Block : virtual public TraceTag<TagName> {
-  using manager_type = details::BlockInBuffer<TagName, Size, T>;
+template <typename Size, typename T>
+class Block : virtual public TraceTag {
+  using manager_type = details::BlockInBuffer<Size, T>;
   using pointer = T*;
 
  private:
@@ -310,53 +309,52 @@ class Block : virtual public TraceTag<TagName> {
   Block& operator=(const Block&) = delete;
 
  private:
-  static std::unique_ptr<Block<TagName, Size, T>> create(manager_type& manager,
-                                                         pointer ptr, Size n) {
-    return std::make_unique<Block<TagName, Size, T>>(manager, ptr, n);
+  static std::unique_ptr<Block<Size, T>> create(TraceTag::tag_type tag,
+                                                manager_type& manager,
+                                                pointer ptr, Size n) {
+    return std::make_unique<Block<Size, T>>(tag, manager, ptr, n);
   }
-  explicit Block(manager_type& manager, void* ptr, Size n)
-      : manager_(manager), ptr_(ptr), n_(n) {
+  explicit Block(TraceTag::tag_type tag, manager_type& manager, void* ptr,
+                 Size n)
+      : TraceTag(tag), manager_(manager), ptr_(ptr), n_(n) {
     manager_.add(n_);
   }
   virtual ~Block() { manager_.remove(n_); }
 };
 
-template <typename T, size_t BufferSize, typename BlockSizeType,
-          meta::Str TagName>
-class MemoryBuffer : public details::BlockInBuffer<TagName, BlockSizeType, T> {
-  using type = MemoryBuffer<T, BufferSize, BlockSizeType, TagName>;
+template <typename T, size_t BufferSize, typename BlockSizeType>
+class MemoryBuffer : public details::BlockInBuffer<BlockSizeType, T>,
+                     virtual public TraceTag {
+  using type = MemoryBuffer<T, BufferSize, BlockSizeType>;
   using ptr_type = std::unique_ptr<type>;
-  using manager_type = details::BlockInBuffer<TagName, BlockSizeType, T>;
-  using static_buffer_type = details::StaticBuffer<TagName, BufferSize, T>;
+  using manager_type = details::BlockInBuffer<BlockSizeType, T>;
+  using static_buffer_type = details::StaticBuffer<BufferSize, T>;
   using static_buffer_ptr_type = std::unique_ptr<static_buffer_type>;
-  using dynamic_buffer_type = details::DynamicBuffer<TagName, BlockSizeType, T>;
+  using dynamic_buffer_type = details::DynamicBuffer<BlockSizeType, T>;
   using dynamic_buffer_ptr_type = std::unique_ptr<dynamic_buffer_type>;
-  using block_type = Block<TagName, BlockSizeType, T>;
+  using block_type = Block<BlockSizeType, T>;
   using block_ptr_type = std::unique_ptr<block_type>;
 
   using pointer = T*;
   using const_pointer = const T*;
-
-  friend ptr_type std::make_unique<type>();
-  friend ptr_type std::make_unique<type>(size_t&);
 
  public:
   MemoryBuffer(const MemoryBuffer&) = delete;
   MemoryBuffer& operator=(const MemoryBuffer&) = delete;
   virtual ~MemoryBuffer() = default;
 
-  static ptr_type create(size_t capacity = 0) {
+  static ptr_type create(TraceTag::tag_type tag, size_t capacity = 0) {
     if (BufferSize > 0 && capacity == 0) {
-      return std::make_unique<type>();
+      return std::make_unique<type>(tag);
     }
-    lps_assert(TagName, capacity > 0);
-    return std::make_unique<type>(capacity);
+    lps_assert(tag, capacity > 0);
+    return std::make_unique<type>(tag, capacity);
   }
 
   void grow() {
     if (dynamic_ == nullptr) {
-      LPS_NOTE(TagName, "grow to heap");
-      dynamic_ = dynamic_buffer_type::create(BufferSize * 2 + 1);
+      LPS_NOTE(tag_, "grow to heap");
+      dynamic_ = dynamic_buffer_type::create(tag_, BufferSize * 2 + 1);
       this->set_max(BufferSize * 2 + 1);
       this->clear();
       details::copy(top_, BufferSize, dynamic_->ptr());
@@ -365,7 +363,7 @@ class MemoryBuffer : public details::BlockInBuffer<TagName, BlockSizeType, T> {
       location_ = Location::kHeap;
     } else {
       auto sz = dynamic_->capacity() * 2 + 1;
-      LPS_NOTE(TagName, "the heap grow[size = ", sz, "]");
+      LPS_NOTE(tag_, "the heap grow[size = ", sz, "]");
       dynamic_->grow(sz);
       top_ = dynamic_->ptr();
     }
@@ -379,19 +377,20 @@ class MemoryBuffer : public details::BlockInBuffer<TagName, BlockSizeType, T> {
         // static buffer is full, now we need to use the heap
         grow();
       } else {
-        return block_ptr_type::create(*this, this->top_ + this->pos_,
+        return block_ptr_type::create(tag_, *this, this->top_ + this->pos_,
                                       block_size);
       }
     }
     if (dynamic_) {
-      LPS_NOTE(TagName, "using heap to create block");
+      LPS_NOTE(tag_, "using heap to create block");
       if (!this->ok(block_size)) {
         grow();
       }
-      return block_ptr_type::create(*this, this->top_ + this->pos_, block_size);
+      return block_ptr_type::create(tag_, *this, this->top_ + this->pos_,
+                                    block_size);
     }
 
-    unreachable(TagName);
+    unreachable(tag_);
   }
 
   pointer top() { return top_; }
@@ -400,18 +399,21 @@ class MemoryBuffer : public details::BlockInBuffer<TagName, BlockSizeType, T> {
     return dynamic_ ? dynamic_->capacity() : BufferSize;
   }
 
- private:
-  MemoryBuffer()
-      : manager_type(BufferSize), static_(static_buffer_type::create()) {
+  explicit MemoryBuffer(TraceTag::tag_type tag)
+      : TraceTag(tag),
+        manager_type(tag, BufferSize),
+        static_(static_buffer_type::create(tag)) {
     top_ = static_->ptr();
   }
 
-  explicit MemoryBuffer(size_t capacity)
-      : manager_type(BufferSize),
-        dynamic_(dynamic_buffer_type::create(capacity)) {
+  explicit MemoryBuffer(TraceTag::tag_type tag, size_t capacity)
+      : TraceTag(tag),
+        manager_type(tag, BufferSize),
+        dynamic_(dynamic_buffer_type::create(tag, capacity)) {
     top_ = dynamic_->ptr();
   }
 
+ private:
   enum Location : uint8_t { kStack = 0, kHeap };
 
   dynamic_buffer_ptr_type dynamic_{nullptr};

@@ -24,6 +24,7 @@
 #pragma once
 
 #include "basic/exception.h"
+#include "basic/mem.h"
 #include "basic/vfile.h"
 #include "diag.h"
 #include "lex/pp_ast.h"
@@ -32,19 +33,19 @@
 namespace lps::tu {
 
 // The `compiler`'s target: `TranslationUnit`
-class TU : virtual public basic::mem::TraceTag<meta::S("TU")> {
+class TU {
  public:
-  using trace_tag_type = basic::mem::TraceTag<meta::S("TU")>;
-  constexpr static meta::Str kIdentStringTagName = meta::S("TU::ident_str");
-  using IdentStringRef = lps::basic::StringRef<kIdentStringTagName>;
-  using defined_token_type = token::Token<meta::S("TU::defined_token")>;
-  constexpr static meta::Str kMacroInfoTagName = meta::S("TU::MacroInfo");
-  using pp_ast_node_type = lexer::details::pp::ast::Node<kMacroInfoTagName>;
-  template <meta::Str TagName>
+  constexpr static basic::mem::TraceTag::tag_type kTag = "TU";
+  using IdentStringRef = lps::basic::StringRef;
+  using defined_token_type = token::Token;
+  constexpr static basic::mem::TraceTag::tag_type kMacroInfoTagName =
+      "TU::MacroInfo";
+  using pp_ast_node_type = lexer::details::pp::ast::Node;
+
   struct MacroInfo {
     pp_ast_node_type::ptr_type node_;
   };
-  using macro_info_type = MacroInfo<kMacroInfoTagName>;
+  using macro_info_type = MacroInfo;
   using defined_tokens_type =
       std::unordered_map<IdentStringRef, macro_info_type,
                          token::details::IdentInfo::IdentHash<IdentStringRef>>;
@@ -53,19 +54,17 @@ class TU : virtual public basic::mem::TraceTag<meta::S("TU")> {
     static TU tu;
     return tu;
   }
-  template <meta::Str TagName>
-  bool defined(const token::Token<TagName>& tok) {
+
+  bool defined(const token::Token& tok) {
     check_define(tok);
     return already_defined(tok);
   }
 
-  template <meta::Str TagName>
-  void define(
-      const token::Token<TagName>& tok,
-      typename lps::token::Token<TagName>::tokens_type&& parameter_tokens =
-          typename lps::token::Token<TagName>::tokens_type{},
-      typename lps::token::Token<TagName>::tokens_type&& expand_tokens =
-          typename lps::token::Token<TagName>::tokens_type{}) {
+  void define(const token::Token& tok,
+              typename lps::token::Token::tokens_type&& parameter_tokens =
+                  typename lps::token::Token::tokens_type{},
+              typename lps::token::Token::tokens_type&& expand_tokens =
+                  typename lps::token::Token::tokens_type{}) {
     check_define(tok);
     if (already_defined(tok)) {
       diag(tok, diag::DiagKind::redefine_ident_in_preprocessing);
@@ -75,28 +74,26 @@ class TU : virtual public basic::mem::TraceTag<meta::S("TU")> {
     pp_ast_node_type::ptr_type node = nullptr;
     if (!parameter_tokens.empty() && !expand_tokens.empty()) {
       auto tmp_tok = tok;
-      node = Factory::create<DefineWithParameters<kMacroInfoTagName>>(
-          std::move(tmp_tok), std::move(parameter_tokens),
-          std::move(expand_tokens));
+      node = Factory::create<DefineWithParameters>(std::move(tmp_tok),
+                                                   std::move(parameter_tokens),
+                                                   std::move(expand_tokens));
     } else {
       auto tmp_tok = tok;
-      node = Factory::create<Define<kMacroInfoTagName>>(
-          std::move(tmp_tok), std::move(expand_tokens));
+      node =
+          Factory::create<Define>(std::move(tmp_tok), std::move(expand_tokens));
     }
 
-    lps_assert(TagName, "node can not be nullptr");
+    lps_assert(kTag, "node can not be nullptr");
 
     define_tokens_[str(tok)] = {std::move(node)};
   }
 
-  template <meta::Str TagName>
-  bool already_defined(const token::Token<TagName>& tok) {
+  bool already_defined(const token::Token& tok) {
     check_define(tok);
     return define_tokens_.contains(str(tok));
   }
 
-  template <meta::Str TagName>
-  void undef(const token::Token<TagName>& tok) {
+  void undef(const token::Token& tok) {
     check_define(tok);
     if (!already_defined(tok)) {
       diag(tok, diag::DiagKind::undef_on_no_defined_ident);
@@ -104,13 +101,13 @@ class TU : virtual public basic::mem::TraceTag<meta::S("TU")> {
       define_tokens_.erase(str(tok));
     }
   }
-  template <meta::Str TagName>
-  token::Token<TagName> expand(
-      const token::Token<TagName>& tok,
-      const typename lps::token::Token<TagName>::tokens_type& parameter_tokens =
-          typename lps::token::Token<TagName>::tokens_type{}) {
+
+  token::Token expand(
+      const token::Token& tok,
+      const typename lps::token::Token::tokens_type& parameter_tokens =
+          typename lps::token::Token::tokens_type{}) {
     check_define(tok);
-    lps_assert(TagName, already_defined(tok));
+    lps_assert(kTag, already_defined(tok));
     const auto& node = define_tokens_[str(tok)].node_;
     const auto& expanded_tokens = node->expand();
     using expanded_tokens_type = decltype(expanded_tokens);
@@ -144,7 +141,7 @@ class TU : virtual public basic::mem::TraceTag<meta::S("TU")> {
       };
       expand_impl(tokens, out_tokens, expand_impl);
     }(expanded_tokens, full_expanded_tokens);
-    token::Token<TagName> returned_tok;
+    token::Token returned_tok;
     if (!full_expanded_tokens.empty()) {
 
       full_expanded_tokens.back().next_visitor(tok.offset(), tok.file_id());
@@ -173,23 +170,19 @@ class TU : virtual public basic::mem::TraceTag<meta::S("TU")> {
       token::TokenContainer::tokens_type&& tokens);
   static token::TokenListsVisitor get_visitor_of_token_file(uint32_t file_id);
 
-  template <meta::Str TagName>
-  IdentStringRef str(const token::Token<TagName>& tok) {
-    return tok.template str<meta::S("TU::ident_str")>();
+  static IdentStringRef str(const token::Token& tok) { return tok.str(); }
+
+  static void check_define(const token::Token& tok) {
+    lps_assert(kTag, tok.kind() == token::details::TokenKind::identifier);
+    lps_assert(kTag, tok.ptr() != nullptr && tok.offset() > 0);
   }
-  template <meta::Str TagName>
-  void check_define(const token::Token<TagName>& tok) {
-    constexpr auto kAssertTag = trace_tag_type::kTag + "_" + TagName;
-    lps_assert(kAssertTag, tok.kind() == token::details::TokenKind::identifier);
-    lps_assert(kAssertTag, tok.ptr() != nullptr && tok.offset() > 0);
-  }
-  template <meta::Str TagName>
-  inline void diag(const token::Token<TagName>& tok, diag::DiagKind kind) {
-    diag::DiagInputs<TagName> diag_input;
+
+  static inline void diag(const token::Token& tok, diag::DiagKind kind) {
+    diag::DiagInputs diag_input;
     diag_input.kind_ = kind;
     diag_input.main_token_ = tok;
-    diag::doing<TagName>(diag_input.main_token_, diag_input.kind_,
-                         diag_input.context_tokens_);
+    diag::doing(diag_input.main_token_, diag_input.kind_,
+                diag_input.context_tokens_);
   }
 
   defined_tokens_type define_tokens_;

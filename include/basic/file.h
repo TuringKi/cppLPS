@@ -37,14 +37,12 @@ class File : public vfile::File<char> {
   using base = vfile::File<char>;
   using type = File;
   using ptr_type = std::unique_ptr<type>;
-  using buffer_type =
-      mem::MemoryBuffer<char, 0, SizeType<char>, meta::S("file_memory_buffer")>;
+  using buffer_type = mem::MemoryBuffer<char, 0, SizeType<char>>;
   using buffer_ptr_type = std::unique_ptr<buffer_type>;
-  template <meta::Str TagNameOther>
-  using str_type = StringRef<TagNameOther>;
 
-  template <meta::Str TagNameOther>
-  explicit File(const StringRef<TagNameOther>& path, uint32_t file_id) {
+  using str_type = StringRef;
+
+  explicit File(const StringRef& path, uint32_t file_id) {
     set(path.data(), file_id);
   }
 
@@ -58,9 +56,7 @@ class File : public vfile::File<char> {
     this->size_ = file.size_;
   }
 
-  template <meta::Str TagNameOther>
-  static ptr_type create(const StringRef<TagNameOther>& path,
-                         uint32_t file_id) {
+  static ptr_type create(const StringRef& path, uint32_t file_id) {
     return std::make_unique<type>(path, file_id);
   }
 
@@ -68,10 +64,9 @@ class File : public vfile::File<char> {
     return std::make_unique<type>(path, file_id);
   }
 
-  template <meta::Str TagNameOther>
-  StringRef<TagNameOther> ref() {
-    lps_assert(meta::S("file"), buffer_->top());
-    return StringRef<TagNameOther>(buffer_->top(), buffer_->capacity());
+  StringRef ref() {
+    lps_assert("file", buffer_->top());
+    return StringRef(buffer_->top(), buffer_->capacity());
   }
 
   [[nodiscard]] const std::filesystem::path& path() const { return path_; }
@@ -79,20 +74,20 @@ class File : public vfile::File<char> {
  private:
   size_t set(const char* path, uint32_t file_id) {
     std::ifstream the_file(path);
-    LPS_CHECK_ERROR(meta::S("file"), the_file.is_open(),
+    LPS_CHECK_ERROR("file", the_file.is_open(),
                     "the path is not exists:", path);
     path_ = std::filesystem::path(path);
     the_file.seekg(0, std::ios::end);
     std::streamsize size = the_file.tellg();
     if (size == 0) {
-      buffer_ = buffer_type::create();
+      buffer_ = buffer_type::create("file");
       this->first_ = buffer_->top();
       this->size_ = 0;
       this->file_id_ = file_id;
       return size;
     }
     the_file.seekg(0, std::ios::beg);
-    buffer_ = buffer_type::create(size);
+    buffer_ = buffer_type::create("file", size);
     the_file.read(buffer_->top(), size);
 
     this->first_ = buffer_->top();

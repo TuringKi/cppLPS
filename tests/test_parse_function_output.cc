@@ -27,10 +27,10 @@
 #include "src.h"
 int main(int argc, char** argv) {
 
-  lps::parser::details::ParseFunctionOutputs<meta::S("1")> o1;
+  lps::parser::details::ParseFunctionOutputs o1;
   {
 
-    lps::parser::details::ParseFunctionOutputs<meta::S("0")> o0;
+    lps::parser::details::ParseFunctionOutputs o0;
     decltype(o0.diag_inputs_)::ele_type a;
     decltype(a.context_tokens_)::ele_type token;
     a.context_tokens_.append(token);

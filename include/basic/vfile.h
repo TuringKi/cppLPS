@@ -26,6 +26,7 @@
 
 #include <functional>
 #include <utility>
+#include "basic/mem.h"
 #include "exception.h"
 
 namespace lps::basic::vfile {
@@ -33,7 +34,7 @@ namespace lps::basic::vfile {
 template <typename T>
 class Operator {
  public:
-  constexpr static meta::Str kTagName = meta::S("vfile::Operator");
+  constexpr static mem::TraceTag::tag_type kTagName = "vfile::Operator";
   T operator++(int) {
     T a(*static_cast<T*>(this));
     operator++();
@@ -119,7 +120,7 @@ class Visitor {
  public:
   template <typename T>
   friend class Operator;
-  constexpr static meta::Str kTagName = meta::S("vfile::Visitor");
+  constexpr static mem::TraceTag::tag_type kTagName = "vfile::Visitor";
   using check_eof_callback_type = std::function<void()>;
   Visitor(
       const VisitedType* start, const VisitedType* end,
@@ -177,7 +178,7 @@ class Visitor {
 template <typename StoredType>
 class File {
  public:
-  constexpr static meta::Str kTagName = meta::S("vfile::File");
+  constexpr static mem::TraceTag::tag_type kTagName = "vfile::File";
 
   bool empty() { return size_ == 0; }
   [[nodiscard]] size_t size() const { return size_; }

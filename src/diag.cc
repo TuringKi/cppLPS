@@ -39,9 +39,7 @@ namespace details {
 std::pair<size_t, size_t> TokenInfo::line_col(uint32_t file_id,
                                               const char* ptr) {
   const char* content_begin =
-      src::Manager::instance()
-          .template ref<meta::Str("details::underline file content")>(file_id)
-          .data();
+      src::Manager::instance().visitor_of_char_file(file_id).data();
   const char* p = content_begin;
   size_t line_n = 1;
   const char* cur_line_start_ptr = content_begin;
@@ -76,7 +74,7 @@ void table(DiagKind kind, uint32_t file_id, const char* ptr, uint32_t token_len,
       break;
     }
     default:
-      unreachable(meta::Str("diag_table"));
+      unreachable("diag_table");
       break;
   }
 
@@ -159,9 +157,7 @@ std::string underline(uint32_t print_offset,
                       const char* ptr, uint32_t token_len,
                       const VecTokenInfos& context_token_infos) {
   const char* content_begin =
-      src::Manager::instance()
-          .template ref<meta::Str("details::underline file content")>(file_id)
-          .data();
+      src::Manager::instance().visitor_of_char_file(file_id).data();
   int64_t content_size = src::Manager::instance().size(file_id);
 
   const char* content_end = content_begin + content_size;
@@ -185,7 +181,7 @@ std::string underline(uint32_t print_offset,
     int64_t offset_before = ptr - start_of_line;
     offset_before = std::min<int64_t>(offset_before, 64);
 
-    lps_assert(meta::S("diag_underline"), offset_before > 0);
+    lps_assert("diag_underline", offset_before > 0);
     start_of_line = ptr - offset_before;
     return {offset_before, start_of_line};
   };
@@ -208,7 +204,7 @@ std::string underline(uint32_t print_offset,
     const char* end_of_line = p;
     int64_t offset_after = end_of_line - ptr;
     offset_after = std::min<int64_t>(offset_after, 64);
-    lps_assert(meta::S("diag_underline"), offset_after > 0);
+    lps_assert("diag_underline", offset_after > 0);
     end_of_line = ptr + offset_after;
     return {offset_after, end_of_line};
   };
@@ -220,17 +216,14 @@ std::string underline(uint32_t print_offset,
   auto out = std::string(start_of_line, end_of_line - start_of_line) + "\n";
 
   // first, we need `underline` the context tokens.
-  using UlString = basic::StaticString<meta::Str("context_ul_str")>;
+  using UlString = basic::StaticString;
   using PosUlStr =
       basic::Pair<basic::Pair<size_t, UlString>, basic::tui::color::Shell>;
-  basic::Vector<4, PosUlStr, meta::Str("context_ul_str_vec")> context_uls;
+  basic::Vector<4, PosUlStr> context_uls;
   std::string context_ul(print_offset, ' ');
   for (const auto& a : context_token_infos) {
     const char* content_begin =
-        src::Manager::instance()
-            .template ref<meta::Str("details::underline file content")>(
-                a.file_id)
-            .data();
+        src::Manager::instance().visitor_of_char_file(a.file_id).data();
     auto offset_before_and_start_of_line =
         find_offset_before(a.ptr, content_begin);
     auto offset_before = offset_before_and_start_of_line.first;
@@ -286,7 +279,7 @@ void Summarize::summary() {
         .font_align(tabulate::FontAlign::center)
         .font_style({tabulate::FontStyle::bold});
   }
-  using VecCntIdx = basic::Vector<4, size_t, meta::Str("cnt_vec")>;
+  using VecCntIdx = basic::Vector<4, size_t>;
   VecCntIdx cnt_errors;
   VecCntIdx cnt_warnings;
   size_t idx = 0;

@@ -35,13 +35,14 @@ namespace lps::lexer {
 
 class Lexer {
  public:
-  template <meta::Str TagName>
-  void lex(lps::token::Token<TagName>& tok,
+  constexpr static basic::mem::TraceTag::tag_type kTag = "lps::lexer::Lexer";
+  void lex(lps::token::Token& tok,
            details::MethodType method = details::MethodType::kBasic) {
     tok.clear();
     if (src::Manager::instance().has<1>(file_id_)) {
       // if current file is token_file, we just return the recorded next token.
-      token::TokenListsVisitor visitor = src::Manager::instance().ref(file_id_);
+      token::TokenListsVisitor visitor =
+          src::Manager::instance().visitor_of_token_file(file_id_);
       visitor += ++pos_;
       tok = *visitor;
       return;
@@ -49,20 +50,20 @@ class Lexer {
     const char* end = start_ + src::Manager::instance().size(file_id_);
     switch (method) {
       case details::kBasic: {
-        details::Basic<TagName> m(file_id_, cur(), end);
+        details::Basic m(file_id_, cur(), end);
         m.lex(tok);
         inc(m.pos());
         break;
       }
       case details::kPreprocessing: {
-        details::pp::Preprocessing<TagName> m(file_id_, cur(), end);
+        details::pp::Preprocessing m(file_id_, cur(), end);
         m.lex(tok);
         inc(m.pos());
         break;
       }
       case details::kNone:
       default:
-        unreachable(TagName);
+        unreachable(kTag);
         break;
     }
     inc(tok.offset());

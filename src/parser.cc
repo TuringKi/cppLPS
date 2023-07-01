@@ -32,14 +32,12 @@ namespace lps::parser {
 
 // cpp grammar: https://timsong-cpp.github.io/cppwp/n4868/gram
 void Parser::parse(uint32_t file_id) {
-  auto content =
-      src::Manager::instance().ref<meta::S("file_contents")>(file_id);
+  auto content = src::Manager::instance().visitor_of_char_file(file_id);
   if (!content.empty()) {
-    details::ParseFunctionInputs<meta::Str("translation_unit_param")> params;
+    details::ParseFunctionInputs params;
     params.opt_ = false;
-    token::Token<meta::S("first_token")> next_tok;
-    lexer::Lexer lexer(file_id, content.data(),
-                       content.data() + content.size());
+    token::Token next_tok;
+    lexer::Lexer lexer(file_id, content.data());
     lexer.lex(next_tok);
     params.cur_token_ = next_tok;
     if (next_tok.kind() != token::details::TokenKind::unknown) {
@@ -48,8 +46,7 @@ void Parser::parse(uint32_t file_id) {
     details::TranslationUnit func(params);
     auto output = func();
     for (const auto& a : output.diag_inputs_) {
-      diag::doing<details::TranslationUnit::kTag>(a.main_token_, a.kind_,
-                                                  a.context_tokens_);
+      diag::doing(a.main_token_, a.kind_, a.context_tokens_);
     }
     if (output.work_) {
       for (const auto& node : output.node_.sub_nodes_) {

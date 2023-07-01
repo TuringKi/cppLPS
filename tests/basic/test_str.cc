@@ -25,7 +25,7 @@
 #include "basic/vec.h"
 int main(int argc, char** argv) {
   lps::basic::String s("maxiao");
-  auto ss = lps::basic::StaticString<>::from("s");
+  auto ss = lps::basic::StaticString::from("s");
   auto z = std::move(ss);
   return 0;
 }

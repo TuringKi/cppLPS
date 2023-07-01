@@ -222,13 +222,13 @@ inline auto do_from_chars(std::string_view s) -> T {
     if (ptr == last) {
       return x;
     }
-    LPS_ERROR(meta::S("arg_parser"), "pattern does not match to the end");
+    LPS_ERROR("arg_parser", "pattern does not match to the end");
   }
   if (ec == std::errc::invalid_argument) {
-    LPS_ERROR(meta::S("arg_parser"), "pattern not found");
+    LPS_ERROR("arg_parser", "pattern not found");
   }
   if (ec == std::errc::result_out_of_range) {
-    LPS_ERROR(meta::S("arg_parser"), "not representable");
+    LPS_ERROR("arg_parser", "not representable");
   }
   return x;  // unreachable
 }
@@ -246,7 +246,7 @@ struct parse_number<T, radix_16> {
     if (auto [ok, rest] = consume_hex_prefix(s); ok) {
       return do_from_chars<T, radix_16>(rest);
     }
-    LPS_ERROR(meta::S("arg_parser"), "pattern not found");
+    LPS_ERROR("arg_parser", "pattern not found");
   }
 };
 
@@ -280,7 +280,7 @@ inline const auto generic_strtod<long double> = strtold;
 template <class T>
 inline auto do_strtod(std::string const& s) -> T {
   if (isspace(static_cast<unsigned char>(s[0])) || s[0] == '+') {
-    LPS_ERROR(meta::S("arg_parser"), "pattern not found");
+    LPS_ERROR("arg_parser", "pattern not found");
   }
 
   auto [first, last] = pointer_range(s);
@@ -292,10 +292,10 @@ inline auto do_strtod(std::string const& s) -> T {
     if (ptr == last) {
       return x;
     }
-    LPS_ERROR(meta::S("arg_parser"), "pattern does not match to the end");
+    LPS_ERROR("arg_parser", "pattern does not match to the end");
   }
   if (errno == ERANGE) {
-    LPS_ERROR(meta::S("arg_parser"), "not representable");
+    LPS_ERROR("arg_parser", "not representable");
   }
   return x;  // unreachable
 }
@@ -304,8 +304,7 @@ template <class T>
 struct parse_number<T, chars_format::general> {
   auto operator()(std::string const& s) -> T {
     if (auto r = consume_hex_prefix(s); r.is_hexadecimal) {
-      LPS_ERROR(meta::S("arg_parser"),
-                "chars_format::general does not parse hexfloat");
+      LPS_ERROR("arg_parser", "chars_format::general does not parse hexfloat");
     }
 
     return do_strtod<T>(s);
@@ -316,7 +315,7 @@ template <class T>
 struct parse_number<T, chars_format::hex> {
   auto operator()(std::string const& s) -> T {
     if (auto r = consume_hex_prefix(s); !r.is_hexadecimal) {
-      LPS_ERROR(meta::S("arg_parser"), "chars_format::hex parses hexfloat");
+      LPS_ERROR("arg_parser", "chars_format::hex parses hexfloat");
     }
 
     return do_strtod<T>(s);
@@ -327,11 +326,11 @@ template <class T>
 struct parse_number<T, chars_format::scientific> {
   auto operator()(std::string const& s) -> T {
     if (auto r = consume_hex_prefix(s); r.is_hexadecimal) {
-      LPS_ERROR(meta::S("arg_parser"),
+      LPS_ERROR("arg_parser",
                 "chars_format::scientific does not parse hexfloat");
     }
     if (s.find_first_of("eE") == std::string::npos) {
-      LPS_ERROR(meta::S("arg_parser"),
+      LPS_ERROR("arg_parser",
                 "chars_format::scientific requires exponent part");
     }
 
@@ -343,11 +342,10 @@ template <class T>
 struct parse_number<T, chars_format::fixed> {
   auto operator()(std::string const& s) -> T {
     if (auto r = consume_hex_prefix(s); r.is_hexadecimal) {
-      LPS_ERROR(meta::S("arg_parser"),
-                "chars_format::fixed does not parse hexfloat");
+      LPS_ERROR("arg_parser", "chars_format::fixed does not parse hexfloat");
     }
     if (s.find_first_of("eE") != std::string::npos) {
-      LPS_ERROR(meta::S("arg_parser"),
+      LPS_ERROR("arg_parser",
                 "chars_format::fixed does not parse exponent part");
     }
 
@@ -552,7 +550,7 @@ class Argument {
   Iterator consume(Iterator start, Iterator end,
                    std::string_view used_name = {}) {
     if (!m_is_repeatable && m_is_used) {
-      LPS_ERROR(meta::S("arg_parser"), "Duplicate argument");
+      LPS_ERROR("arg_parser", "Duplicate argument");
     }
     m_is_used = true;
     m_used_name = used_name;
@@ -577,7 +575,7 @@ class Argument {
             std::bind(is_optional, std::placeholders::_1, m_prefix_chars));
         dist = static_cast<std::size_t>(std::distance(start, end));
         if (dist < num_args_min) {
-          LPS_ERROR(meta::S("arg_parser"), "Too few arguments");
+          LPS_ERROR("arg_parser", "Too few arguments");
         }
       }
 
@@ -605,7 +603,7 @@ class Argument {
     if (m_default_value.has_value()) {
       return start;
     }
-    LPS_ERROR(meta::S("arg_parser"),
+    LPS_ERROR("arg_parser",
               "Too few arguments for '" + std::string(m_used_name) + "'.");
     return start;
   }
@@ -752,8 +750,7 @@ class Argument {
     NArgsRange(std::size_t minimum, std::size_t maximum)
         : m_min(minimum), m_max(maximum) {
       if (minimum > maximum) {
-        LPS_ERROR(meta::S("arg_parser"),
-                  "Range of number of arguments is invalid");
+        LPS_ERROR("arg_parser", "Range of number of arguments is invalid");
       }
     }
 
@@ -811,19 +808,19 @@ class Argument {
       stream << m_num_args_range.get_min() << " or more";
     }
     stream << " argument(s) expected. " << m_values.size() << " provided.";
-    LPS_ERROR(meta::S("arg_parser"), stream.str());
+    LPS_ERROR("arg_parser", stream.str());
   }
 
   void throw_required_arg_not_used_error() const {
     std::stringstream stream;
     stream << m_names.front() << ": required.";
-    LPS_ERROR(meta::S("arg_parser"), stream.str());
+    LPS_ERROR("arg_parser", stream.str());
   }
 
   void throw_required_arg_no_value_provided_error() const {
     std::stringstream stream;
     stream << m_used_name << ": no value provided.";
-    LPS_ERROR(meta::S("arg_parser"), stream.str());
+    LPS_ERROR("arg_parser", stream.str());
   }
 
   static constexpr int eof = std::char_traits<char>::eof();
@@ -1025,8 +1022,7 @@ class Argument {
       }
     }
 
-    LPS_ERROR(meta::S("arg_parser"),
-              "No value provided for '" + m_names.back() + "'.");
+    LPS_ERROR("arg_parser", "No value provided for '" + m_names.back() + "'.");
     return T();
   }
 
@@ -1038,8 +1034,7 @@ class Argument {
   template <typename T>
   auto present() const -> std::optional<T> {
     if (m_default_value.has_value()) {
-      LPS_ERROR(meta::S("arg_parser"),
-                "Argument with default value always presents");
+      LPS_ERROR("arg_parser", "Argument with default value always presents");
     }
     if (m_values.empty()) {
       return std::nullopt;
@@ -1230,8 +1225,7 @@ class ArgumentParser {
       if (subparser_it != m_subparser_map.end()) {
         return subparser_it->second->get();
       }
-      LPS_ERROR(meta::S("arg_parser"),
-                "No such subparser: " + std::string(name));
+      LPS_ERROR("arg_parser", "No such subparser: " + std::string(name));
     }
   }
 
@@ -1300,8 +1294,7 @@ class ArgumentParser {
   template <typename T = std::string>
   T get(std::string_view arg_name) const {
     if (!m_is_parsed) {
-      LPS_ERROR(meta::S("arg_parser"),
-                "Nothing parsed, no arguments are available.");
+      LPS_ERROR("arg_parser", "Nothing parsed, no arguments are available.");
     }
     return (*this)[arg_name].get<T>();
   }
@@ -1362,8 +1355,7 @@ class ArgumentParser {
         return *(it->second);
       }
     }
-    LPS_ERROR(meta::S("arg_parser"),
-              "No such argument: " + std::string(arg_name));
+    LPS_ERROR("arg_parser", "No such argument: " + std::string(arg_name));
     return *(it->second);
   }
 
@@ -1583,7 +1575,7 @@ class ArgumentParser {
                 unprocessed_arguments);
           }
 
-          LPS_ERROR(meta::S("arg_parser"),
+          LPS_ERROR("arg_parser",
                     "Maximum number of positional arguments exceeded");
         }
         auto argument = positional_argument_it++;
@@ -1607,13 +1599,11 @@ class ArgumentParser {
             auto argument = arg_map_it2->second;
             it = argument->consume(it, end, arg_map_it2->first);
           } else {
-            LPS_ERROR(meta::S("arg_parser"),
-                      "Unknown argument: " + current_argument);
+            LPS_ERROR("arg_parser", "Unknown argument: " + current_argument);
           }
         }
       } else {
-        LPS_ERROR(meta::S("arg_parser"),
-                  "Unknown argument: " + current_argument);
+        LPS_ERROR("arg_parser", "Unknown argument: " + current_argument);
       }
     }
     m_is_parsed = true;

@@ -30,8 +30,7 @@ namespace lps::sema {
 
 namespace details {
 
-template <meta::Str TagName>
-class Unit : virtual public basic::mem::TraceTag<TagName> {
+class Unit {
  public:
   virtual void build() = 0;
 
@@ -45,7 +44,7 @@ class Unit : virtual public basic::mem::TraceTag<TagName> {
 // reference, function, type, template, namespace or value as a name
 // introduced by a declaration in another scope:
 
-class TranslationUnit : public Unit<meta::S("TranslationUnit")> {
+class TranslationUnit : public Unit {
 
  public:
   void build() override;

@@ -27,12 +27,12 @@
 #include "src.h"
 int main(int argc, char** argv) {
 
-  lps_assert(meta::S("test_lexer"), argc == 2);
+  lps_assert("test_lexer", argc == 2);
 
   const char* file_path = argv[1];
 
   auto file_id = lps::src::Manager::instance().append(file_path);
-  lps_assert(meta::S("test_parser"), file_id > 0);
+  lps_assert("test_parser", file_id > 0);
 
   lps::parser::Parser parser;
   parser.parse(file_id);

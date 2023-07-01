@@ -26,89 +26,60 @@
 #include <cstring>
 #include <memory>
 #include "basic/exception.h"
+#include "basic/vec.h"
 #include "token.h"
 
 namespace lps::lexer::details::pp::ast {
 
-template <meta::Str TagName>
-class Node : virtual public basic::mem::TraceTag<TagName> {
+class Node {
 
  public:
-  using tokens_type = typename token::Token<TagName>::tokens_type;
-  using token_type = token::Token<TagName>;
-  using ptr_type = std::unique_ptr<Node<TagName>>;
+  using tokens_type = typename token::Token::tokens_type;
+  using token_type = token::Token;
+  using ptr_type = std::unique_ptr<Node>;
   template <class... Args>
   explicit Node(token_type&& name, Args&&... /*args*/)
       : name_(std::move(name)){};
-  template <meta::Str TagNameOther, class... Args>
-  explicit Node(token::Token<TagNameOther>&& name, Args&&... /*args*/)
-      : name_(std::move(name)){};
+
   virtual const tokens_type& expand() { return expanded_tokens_; };
-  const token_type& name() const { return name_; }
-  template <meta::Str TagNameOther>
-  basic::StringRef<TagNameOther> name_str() const {
-    return name_.template str<TagNameOther>();
-  }
+  [[nodiscard]] const token_type& name() const { return name_; }
+
+  [[nodiscard]] basic::StringRef name_str() const { return name_.str(); }
 
  protected:
   token_type name_;
   tokens_type expanded_tokens_;
 };
 
-template <meta::Str TagName>
-class Define : public Node<TagName> {
+class Define : public Node {
 
  public:
-  using base = Node<TagName>;
+  using base = Node;
   template <class... Args>
   Define(typename base::token_type&& name, typename base::tokens_type&& body,
          Args... args)
       : base(std::move(name), std::forward<Args>(args)...),
         body_(std::move(body)) {}
-  template <meta::Str TagNameOther, class... Args>
-  Define(token::Token<TagNameOther>&& name,
-         typename token::Token<TagNameOther>::tokens_type&& body, Args... args)
-      : base(std::move(name), std::forward<Args>(args)...),
-        body_(std::move(body)) {}
-  template <meta::Str TagNameOther0, meta::Str TagNameOther1, class... Args>
-  Define(token::Token<TagNameOther0>&& name,
-         typename token::Token<TagNameOther1>::tokens_type&& body, Args... args)
-      : base(std::move(name), std::forward<Args>(args)...),
-        body_(std::move(body)) {}
+
   const typename base::tokens_type& expand() override { return body_; }
 
  protected:
   typename base::tokens_type body_;
 };
 
-template <meta::Str TagName>
-class DefineWithParameters : public Define<TagName> {
+class DefineWithParameters : public Define {
 
  public:
-  using base = Define<TagName>;
+  using base = Define;
   template <class... Args>
   DefineWithParameters(typename base::token_type&& name,
                        typename base::tokens_type&& parameters,
                        typename base::tokens_type&& body, Args... args)
       : base(std::move(name), std::move(body), std::forward<Args>(args)...),
         parameters_(std::move(parameters)) {}
-  template <meta::Str TagNameOther, class... Args>
-  DefineWithParameters(
-      token::Token<TagNameOther>&& name,
-      typename token::Token<TagNameOther>::tokens_type&& parameters,
-      typename token::Token<TagNameOther>::tokens_type&& body, Args... args)
-      : base(std::move(name), std::move(body), std::forward<Args>(args)...),
-        parameters_(std::move(parameters)) {}
-  template <meta::Str TagNameOther0, meta::Str TagNameOther1,
-            meta::Str TagNameOther2, class... Args>
-  DefineWithParameters(
-      token::Token<TagNameOther0>&& name,
-      typename token::Token<TagNameOther1>::tokens_type&& parameters,
-      typename token::Token<TagNameOther2>::tokens_type&& body, Args... args)
-      : base(std::move(name), std::move(body), std::forward<Args>(args)...),
-        parameters_(std::move(parameters)) {}
+
   const typename base::tokens_type& expand() override {
-    unreachable(TagName);
+    unreachable("DefineWithParameters");
     if (!this->expanded_tokens_.empty()) {
       return this->expanded_tokens_;
     }
@@ -142,7 +113,7 @@ class Factory {
 
  public:
   template <class Type, class... Args>
-  static std::unique_ptr<Node<Type::kTag>> create(Args&&... args) {
+  static std::unique_ptr<Node> create(Args&&... args) {
     return std::make_unique<Type>(std::forward<Args>(args)...);
   }
 };
