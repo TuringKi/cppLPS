@@ -113,7 +113,7 @@ class FileVisitor : public vfile::Visitor<char>,
     return std::strncmp(a, b, n);
   }
   explicit FileVisitor(const char* start, const char* end,
-                       base::check_eof_callback_type check_eof_callback,
+                       const base::check_eof_callback_type& check_eof_callback,
                        uint32_t file_id = 0)
       : base(start, end, std::move(check_eof_callback), file_id) {}
 

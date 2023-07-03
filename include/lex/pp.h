@@ -27,6 +27,7 @@
 #include "basic/str.h"
 #include "diag.h"
 #include "lex/base.h"
+#include "src.h"
 #include "token.h"
 #include "tu.h"
 
@@ -42,14 +43,23 @@ class Preprocessing : public Base {
                          const char* end)
       : base(start_file_id, ptr, end, MethodType::kPreprocessing) {}
   inline void lex_impl(lps::token::Token& tok) override {
-    // do a tiny parsing process.
+
     typename base::ptr_type ptr = this->cur();
+    auto first_ptr = ptr;
     if (*ptr == '#') {  // control-line
       ++ptr;
-      lex_control_line(ptr, tok);
-    }
-    if (!this->lex_identifier(ptr, tok)) {
-      unreachable(kTag);
+      auto tmp_ptr = ptr;
+      if (lex_control_line(first_ptr, tmp_ptr, tok)) {
+        ptr = tmp_ptr;
+        return;
+      }
+    } else {
+      if (basic::str::ascii::is::NonDigit(*first_ptr)) {
+        ++ptr;
+        if (!this->lex_identifier(first_ptr, ptr, tok)) {
+          unreachable(kTag);
+        }
+      }
     }
   }
 
@@ -67,10 +77,11 @@ class Preprocessing : public Base {
   // 	pp_number, `P`, sign
   // 	pp_number, `.`
 
-  inline bool lex_pp_number(char c, typename base::ptr_type& ptr,
+  inline bool lex_pp_number(const typename base::ptr_type& first_ptr,
+                            typename base::ptr_type& ptr,
                             lps::token::Token& tok) {
-    return [this](char c, typename base::ptr_type& ptr,
-                  lps::token::Token& tok) {
+    return [this](const typename base::ptr_type& first_ptr,
+                  typename base::ptr_type& ptr, lps::token::Token& tok) {
       auto digit = [](typename base::ptr_type& ptr) {
         return base::template lex_char<basic::str::ascii::is::Digit>(ptr);
       };
@@ -84,10 +95,11 @@ class Preprocessing : public Base {
       };
 
       auto lex = [this, &digit, &nodigit, &sign](
-                     char c, typename base::ptr_type& ptr,
-                     lps::token::Token& tok, auto func) -> bool {
+                     const typename base::ptr_type& first_ptr,
+                     typename base::ptr_type& ptr, lps::token::Token& tok,
+                     auto func) -> bool {
         bool flg = false;
-        if (basic::str::ascii::is::Digit(c)) {  // 	digit
+        if (basic::str::ascii::is::Digit(*first_ptr)) {  // 	digit
           flg = true;
         }
         if (!flg) {
@@ -103,8 +115,8 @@ class Preprocessing : public Base {
         if (flg) {
           typename base::ptr_type tmp_ptr = ptr;
           bool sub_flg = true;
-          char cc = *tmp_ptr;
-          tmp_ptr++;
+          auto cc = tmp_ptr;
+          ++tmp_ptr;
           if (func(cc, tmp_ptr, tok, func)) {  // 	pp_number, ...
             ptr = tmp_ptr;
             sub_flg = false;
@@ -131,14 +143,14 @@ class Preprocessing : public Base {
                sign(++tmp_ptr));  // pp_number, x, sign
           CASE(*tmp_ptr == '.');  // pp_number, `.`
 #undef CASE
-          this->token_formulate(tok, ptr,
+          this->token_formulate(tok, first_ptr, ptr,
                                 lps::token::details::TokenKind::pp_number);
           return true;
         }
         return false;
       };
-      return lex(c, ptr, tok, lex);
-    }(c, ptr, tok);
+      return lex(first_ptr, ptr, tok, lex);
+    }(first_ptr, ptr, tok);
   }
 
   // preprocessing-token:
@@ -154,32 +166,41 @@ class Preprocessing : public Base {
   // 	user_defined_string_literal
   // 	preprocessing_op_or_punc
   // each non-whitespace character that cannot be one of the above
-  inline bool lex_preprocessing_token(char c, typename base::ptr_type& ptr,
+  inline bool lex_preprocessing_token(const typename base::ptr_type& first_ptr,
+                                      typename base::ptr_type& ptr,
                                       lps::token::Token& tok) {
-#define TRY(FUNC)                                                        \
-  [&](char c_, typename base::ptr_type& ptr_, lps::token::Token& tok_) { \
-    typename base::ptr_type tmp_ptr = ptr_;                              \
-    lps::token::Token tmp_tok;                                           \
-    if (FUNC(c_, tmp_ptr, tmp_tok)) {                                    \
-      tok_ = tmp_tok;                                                    \
-      ptr_ = tmp_ptr;                                                    \
-      return true;                                                       \
-    }                                                                    \
-    return false;                                                        \
-  }(c, ptr, tok)
+#define TRY(FUNC)                                                              \
+  [&](const typename base::ptr_type& first_ptr, typename base::ptr_type& ptr_, \
+      lps::token::Token& tok_) {                                               \
+    typename base::ptr_type tmp_ptr = ptr_;                                    \
+    lps::token::Token tmp_tok;                                                 \
+    try {                                                                      \
+      if (FUNC(first_ptr, tmp_ptr, tmp_tok)) {                                 \
+        tok_ = tmp_tok;                                                        \
+        ptr_ = tmp_ptr;                                                        \
+        return true;                                                           \
+      }                                                                        \
+    } catch (basic::vfile::Eof & except_eof) {                                 \
+      return false;                                                            \
+    }                                                                          \
+    return false;                                                              \
+  }(first_ptr, ptr, tok)
 #define CASE(func) \
   if (TRY(func)) { \
     return true;   \
   }
 
     auto try_keyword = [this](token::details::TokenKind kind) {
-      return [this, kind](char /*c*/, typename base::ptr_type& ptr,
-                          lps::token::Token& tok) {
-        if (this->lex_identifier(ptr, tok)) {
-          return tok.kind() == kind;
-        }
-        return false;
-      };
+      return
+          [this, kind](const typename base::ptr_type& first_ptr,
+                       typename base::ptr_type& ptr, lps::token::Token& tok) {
+            if (basic::str::ascii::is::NonDigit(*first_ptr)) {
+              if (this->lex_identifier(first_ptr, ptr, tok)) {
+                return tok.kind() == kind;
+              }
+            }
+            return false;
+          };
     };
 
     auto try_import = try_keyword(token::details::TokenKind::kw_import);
@@ -187,18 +208,18 @@ class Preprocessing : public Base {
     auto try_export = try_keyword(token::details::TokenKind::kw_export);
     auto try_ident = try_keyword(token::details::TokenKind::identifier);
 
-#define TRY_UD(FUNC, KIND)                                 \
-  [this, &try_ident](char c, typename base::ptr_type& ptr, \
-                     lps::token::Token& tok) {             \
-    if (FUNC(c, ptr, tok)) {                               \
-      char cc = *ptr;                                      \
-      ++ptr;                                               \
-      if (try_ident(cc, ptr, tok)) {                       \
-        this->token_formulate(tok, ptr, KIND);             \
-        return true;                                       \
-      }                                                    \
-    }                                                      \
-    return false;                                          \
+#define TRY_UD(FUNC, KIND)                                                   \
+  [this, &try_ident](const typename base::ptr_type& first_ptr,               \
+                     typename base::ptr_type& ptr, lps::token::Token& tok) { \
+    if (FUNC(first_ptr, ptr, tok)) {                                         \
+      auto cc = ptr;                                                         \
+      ++ptr;                                                                 \
+      if (try_ident(cc, ptr, tok)) {                                         \
+        this->token_formulate(tok, first_ptr, ptr, KIND);                    \
+        return true;                                                         \
+      }                                                                      \
+    }                                                                        \
+    return false;                                                            \
   }
 
     auto try_char_literal_ud =
@@ -209,10 +230,16 @@ class Preprocessing : public Base {
                token::details::TokenKind::user_defined_string_literal);
 #undef TRY_UD
 
-    CASE(this->lex_header_name);        // 	header_name
-    CASE(try_import);                   // 	`import`
-    CASE(try_module);                   // 	`module`
-    CASE(try_export);                   // 	`export`
+    CASE(this->lex_header_name);  // 	header_name
+    CASE([this](const typename base::ptr_type& first_ptr,
+                typename base::ptr_type& ptr, lps::token::Token& tok) {
+      if (this->lex_identifier(first_ptr, ptr, tok)) {
+        return tok.kind() == token::details::TokenKind::kw_import ||
+               tok.kind() == token::details::TokenKind::kw_module ||
+               tok.kind() == token::details::TokenKind::kw_export;
+      }
+      return false;
+    });
     CASE(try_ident);                    // 	`identifier`
     CASE(lex_pp_number);                // 	pp_number
     CASE(this->lex_character_literal);  // 	character_literal
@@ -230,16 +257,38 @@ class Preprocessing : public Base {
   // 	preprocessing_token
   // 	pp_tokens, preprocessing_token
   inline typename lps::token::Token::tokens_type lex_pp_tokens(
-      char c, typename base::ptr_type& ptr, lps::token::Token& tok) {
+      const typename base::ptr_type& first_ptr, typename base::ptr_type& ptr,
+      lps::token::Token& tok) {
     typename lps::token::Token::tokens_type tokens;
     if (this->template lex_something_recursive<
             token::details::TokenKind::pp_tokens>(
-            c, ptr, tok,
-            [this, &tokens](char c, typename base::ptr_type& ptr,
+            first_ptr, ptr, tok,
+            [this, &tokens](const typename base::ptr_type& first_ptr,
+                            typename base::ptr_type& ptr,
                             lps::token::Token& tok) -> bool {
-              if (this->lex_preprocessing_token(c, ptr, tok)) {
+              if (this->lex_preprocessing_token(first_ptr, ptr, tok)) {
                 tokens.append(tok);
-                return false;
+                return true;
+              }
+              return false;
+            },
+            [this](const typename base::ptr_type& first_ptr_, ptr_type& ptr,
+                   lps::token::Token&) -> bool {
+              auto tmp_ptr = ptr;
+              typename base::ptr_type first_ptr = first_ptr_;
+              if (basic::str::ascii::is::HorzWs(*tmp_ptr)) {
+                tmp_ptr.horzws_skipping();
+                first_ptr = tmp_ptr;
+                ++tmp_ptr;
+              }
+
+              if (basic::str::ascii::is::VertWs(*first_ptr)) {
+                return true;
+              }
+              if (*first_ptr == '\\' &&
+                  basic::str::ascii::is::VertWs(*tmp_ptr)) {
+                ++tmp_ptr;
+                ptr = tmp_ptr;
               }
               return false;
             })) {
@@ -260,43 +309,62 @@ class Preprocessing : public Base {
   // 	`#`, `error`, pp_tokens[opt], new_line
   // 	`#`, `pragma`, pp_tokens[opt], new_line
   // 	`#`, new_line
-  inline bool lex_control_line(typename base::ptr_type& ptr,
+  inline bool lex_control_line(const typename base::ptr_type& first_ptr,
+                               typename base::ptr_type& ptr,
                                lps::token::Token& tok) {
     using namespace basic::str::ascii;
-
     typename base::ptr_type tmp_ptr = ptr;
-    if (this->lex_identifier(tmp_ptr, tok)) {
+    bool lex_ident_ok = this->lex_identifier(first_ptr, tmp_ptr, tok);
+    if (lex_ident_ok) {
+      if (basic::str::ascii::is::HorzWs(*tmp_ptr)) {
+        tmp_ptr.horzws_skipping();
+      }
+    }
+    if (lex_ident_ok) {
       switch (tok.kind()) {
         case token::details::TokenKind::kw_define:
         case token::details::TokenKind::kw_undef: {
           lps::token::Token define_tok;
-          if (!this->lex_identifier(tmp_ptr, define_tok)) {
-            this->diag(tmp_ptr,
+          auto tmp_c = tmp_ptr;
+          tmp_ptr++;
+          if (!this->lex_identifier(tmp_c, tmp_ptr, define_tok)) {
+            this->diag(first_ptr, tmp_ptr,
                        diag::DiagKind::expected_ident_after_define_undef);
             return false;
           }
           if (define_tok.kind() != token::details::TokenKind::identifier) {
-            this->diag(tmp_ptr,
+            this->diag(first_ptr, tmp_ptr,
                        diag::DiagKind::expected_ident_after_define_undef);
             return false;
           }
 
           if (tok.kind() == token::details::TokenKind::kw_define) {
+            if (basic::str::ascii::is::HorzWs(*tmp_ptr)) {
+              tmp_ptr.horzws_skipping();
+            }
             typename base::ptr_type tmp_ptr2 = tmp_ptr;
-            tmp_ptr2++;
+            ++tmp_ptr2;
             lps::token::Token next_tok;
             // replacement-list: pp_tokens[opt]
             auto replacement_tokens =
-                lex_pp_tokens(*tmp_ptr, tmp_ptr2, next_tok);
+                lex_pp_tokens(tmp_ptr, tmp_ptr2, next_tok);
             if (!replacement_tokens.empty()) {
-              tmp_ptr2.horzws_skipping();
+              if (basic::str::ascii::is::HorzWs(*tmp_ptr2)) {
+                tmp_ptr2.horzws_skipping();
+              }
+
               if (basic::str::ascii::is::VertWs(*tmp_ptr2)) {
                 // [`#`, `define`, `identifier`, replacement_list, new_line] matched
-                tmp_ptr = tmp_ptr2;
+                ptr = tmp_ptr2;
                 decltype(replacement_tokens) empty_parameter_tokens;
-                tu::TU::instance().define(tok,
+                tu::TU::instance().define(define_tok,
                                           std::move(empty_parameter_tokens),
                                           std::move(replacement_tokens));
+              } else {
+                this->diag(first_ptr, tmp_ptr,
+                           diag::DiagKind::
+                               expected_new_line_at_the_end_of_define_undef);
+                return false;
               }
             } else {  // try others.
 
@@ -305,16 +373,17 @@ class Preprocessing : public Base {
                 // 1. identifier_list[opt],
                 // 2. `...`
                 // 3. identifier_list, `...`
-                char tmp_c = *tmp_ptr2;
-                tmp_ptr2++;
+                auto tmp_c = tmp_ptr2;
+                ++tmp_ptr2;
                 typename lps::token::Token::tokens_type parameter_tokens;
                 std::vector<typename base::lex_func_type2> funcs = {
-                    [this, &parameter_tokens](char c,
-                                              typename base::ptr_type& ptr,
-                                              lps::token::Token& tok) -> bool {
+                    [this, &parameter_tokens](
+                        const typename base::ptr_type& first_ptr,
+                        typename base::ptr_type& ptr,
+                        lps::token::Token& tok) -> bool {
                       auto tmp_ptr = ptr;
                       auto tmp_tok = tok;
-                      if (this->lex_operator_or_punctuator(c, tmp_ptr,
+                      if (this->lex_operator_or_punctuator(first_ptr, tmp_ptr,
                                                            tmp_tok)) {
                         if (tmp_tok.kind() ==
                             token::details::TokenKind::ellipsis) {
@@ -326,19 +395,22 @@ class Preprocessing : public Base {
                       }
                       return false;
                     },
-                    [this, &parameter_tokens](char c,
-                                              typename base::ptr_type& ptr,
-                                              lps::token::Token& tok) -> bool {
+                    [this, &parameter_tokens](
+                        const typename base::ptr_type& first_ptr,
+                        typename base::ptr_type& ptr,
+                        lps::token::Token& tok) -> bool {
                       {
                         auto tmp_ptr = ptr;
                         auto tmp_tok = tok;
-                        parameter_tokens =
-                            this->lex_identifier_list(c, tmp_ptr, tmp_tok);
+                        parameter_tokens = this->lex_identifier_list(
+                            first_ptr, tmp_ptr, tmp_tok);
                         if (!parameter_tokens.empty()) {
-                          tmp_ptr.horzws_skipping();
-                          char tmp_c = *tmp_ptr;
-                          tmp_ptr++;
-                          if (this->lex_operator_or_punctuator(c, tmp_ptr,
+                          if (basic::str::ascii::is::HorzWs(*tmp_ptr)) {
+                            tmp_ptr.horzws_skipping();
+                          }
+                          auto tmp_c = tmp_ptr;
+                          ++tmp_ptr;
+                          if (this->lex_operator_or_punctuator(tmp_c, tmp_ptr,
                                                                tmp_tok)) {
                             if (tmp_tok.kind() ==
                                 token::details::TokenKind::ellipsis) {
@@ -360,14 +432,18 @@ class Preprocessing : public Base {
                                                  funcs)) {
                   unreachable(kTag);
                   // now check: `)`, replacement_list, new_line
-                  tmp_ptr2.horzws_skipping();
+                  if (basic::str::ascii::is::HorzWs(*tmp_ptr2)) {
+                    tmp_ptr2.horzws_skipping();
+                  }
                   if (*tmp_ptr2 == ')') {
                     // record replacement_list
                     auto tmp_ptr3 = tmp_ptr2;
                     lps::token::Token replacement_token;
-                    tmp_ptr3.horzws_skipping();
-                    char tmp_c = *tmp_ptr3;
-                    tmp_ptr3++;
+                    if (basic::str::ascii::is::HorzWs(*tmp_ptr3)) {
+                      tmp_ptr3.horzws_skipping();
+                    }
+                    auto tmp_c = tmp_ptr3;
+                    ++tmp_ptr3;
                     auto replacement_tokens =
                         lex_pp_tokens(tmp_c, tmp_ptr3, replacement_token);
                     if (!replacement_tokens.empty()) {
@@ -377,10 +453,26 @@ class Preprocessing : public Base {
                     }
                   }
                 }
+              } else {
+                if (!is::VertWs(*tmp_ptr)) {
+                  tmp_ptr.horzws_skipping();
+                }
+                if (!is::VertWs(*tmp_ptr)) {
+                  this->diag(first_ptr, tmp_ptr,
+                             diag::DiagKind::
+                                 expected_new_line_at_the_end_of_define_undef);
+                  return false;
+                }
+                ++tmp_ptr;
+                ptr = tmp_ptr;
+                tu::TU::instance().define(define_tok);
               }
             }
 
-            tu::TU::instance().define(define_tok);
+            // jump over the define_tok, replacement_tokens
+            const auto* start = token::TokenLists::Info::start(tok.file_id());
+            tok.next_visitor_offset(ptr.cur() - start);
+            return true;
           } else {
             tu::TU::instance().undef(define_tok);
           }

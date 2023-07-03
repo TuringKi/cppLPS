@@ -107,11 +107,13 @@ class IdentInfo {
   IdentInfo() {
     kw_map_ = {
 #define KEYWORD(NAME, FLAGS) {IdentStringRef(#NAME), TokenKind::kw_##NAME},
+#define KEYPP(NAME, FLAGS) {IdentStringRef("#" #NAME), TokenKind::kw_##NAME},
 #define ALIAS(NAME, TOK, FLAGS) {IdentStringRef(NAME), TokenKind::kw_##TOK},
 #define CXX_KEYWORD_OPERATOR(X, Y) {IdentStringRef(#X), TokenKind::kw_##X},
 #include "token/kinds.def"
 #undef CXX_KEYWORD_OPERATOR
 #undef KEYWORD
+#undef KEYPP
 #undef ALIAS
     };
   }
@@ -235,9 +237,28 @@ class TokenListsVisitor : public basic::vfile::Visitor<archived_type>,
   using base = basic::vfile::Visitor<archived_type>;
   explicit TokenListsVisitor(
       const archived_type* start, const archived_type* end,
-      base::check_eof_callback_type check_eof_callback = []() {},
+      const base::check_eof_callback_type& check_eof_callback =
+          [](const basic::vfile::Visitor<archived_type>*) {},
       uint32_t file_id = 0)
-      : base(start, end, std::move(check_eof_callback), file_id) {}
+      : base(start, end, check_eof_callback, file_id) {}
+  archived_type operator[](size_t idx) const override {
+    if ((pos_ + idx) > len() || start_ > end_) {
+      TokenListsVisitor tmp(*this);
+      tmp.pos_ = 0;
+      this->check_eof_callback_(&tmp);
+      return this->eof_;
+    }
+    return *(start_ + pos_ + idx);
+  }
+  [[nodiscard]] const archived_type* cur() const override {
+    if (pos_ > len() || start_ > end_) {
+      TokenListsVisitor tmp(*this);
+      tmp.pos_ = 0;
+      this->check_eof_callback_(&tmp);
+      return &eof_;
+    }
+    return start_ + pos_;
+  }
 };
 
 class TokenContainer : public basic::vfile::File<archived_type> {
@@ -252,7 +273,13 @@ class TokenContainer : public basic::vfile::File<archived_type> {
   virtual TokenListsVisitor visitor() {
     lps_assert(kTagName, first_ != nullptr);
     lps_assert(kTagName, size_ > 0);
-    return TokenListsVisitor(first_, first_ + size_ - 1);
+    return TokenListsVisitor(
+        first_, first_ + size_ - 1,
+        [this](const basic::vfile::Visitor<archived_type>* visitor_ptr) {
+          lps_assert(kTagName, visitor_ptr);
+          auto next_info = tokens_.back().next_visitor();
+          throw basic::vfile::Eof(next_info.second, next_info.first);
+        });
   }
 
   static ptr_type create(tokens_type&& tokens, uint32_t file_id) {

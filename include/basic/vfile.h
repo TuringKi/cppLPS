@@ -112,7 +112,14 @@ class Operator {
 
 class Eof : public std::exception {
  public:
-  explicit Eof() = default;
+  explicit Eof(uint32_t next_file_id = 0, size_t offset = 0)
+      : next_file_id_(next_file_id), offset_(offset) {}
+  [[nodiscard]] uint32_t next_file_id() const { return next_file_id_; }
+  [[nodiscard]] size_t offset() const { return offset_; }
+
+ private:
+  uint32_t next_file_id_{0};
+  size_t offset_{0};
 };
 
 template <typename VisitedType>
@@ -121,10 +128,12 @@ class Visitor {
   template <typename T>
   friend class Operator;
   constexpr static mem::TraceTag::tag_type kTagName = "vfile::Visitor";
-  using check_eof_callback_type = std::function<void()>;
+  using check_eof_callback_type =
+      std::function<void(const Visitor<VisitedType>*)>;
   Visitor(
       const VisitedType* start, const VisitedType* end,
-      check_eof_callback_type check_eof_callback = []() {},
+      const check_eof_callback_type& check_eof_callback =
+          [](const Visitor<VisitedType>*) {},
       uint32_t file_id = 0)
       : start_(start),
         end_(end),
@@ -144,22 +153,27 @@ class Visitor {
 
   VisitedType operator*() const { return *cur(); }
 
-  VisitedType operator[](size_t idx) const {
+  virtual VisitedType operator[](size_t idx) const {
     if ((pos_ + idx) > len() || start_ > end_) {
-      check_eof_callback_();
+      Visitor<VisitedType> tmp(*this);
+      tmp.pos_ = 0;
+      this->check_eof_callback_(&tmp);
       return eof_;
     }
     return *(start_ + pos_ + idx);
   }
 
   [[nodiscard]] bool eof() const { return cur() == &eof_; }
-  const VisitedType* cur() const {
+  virtual const VisitedType* cur() const {
     if (pos_ > len() || start_ > end_) {
-      check_eof_callback_();
+      Visitor<VisitedType> tmp(*this);
+      tmp.pos_ = 0;
+      this->check_eof_callback_(&tmp);
       return &eof_;
     }
     return start_ + pos_;
   }
+  [[nodiscard]] size_t pos() const { return pos_; }
 
  protected:
   [[nodiscard]] size_t len() const { return end_ - start_; }

@@ -48,6 +48,17 @@ class Lexer {
       return;
     }
     const char* end = start_ + src::Manager::instance().size(file_id_);
+
+    // try pp first
+    {
+      details::pp::Preprocessing m(file_id_, cur(), end);
+      m.lex(tok);
+      if (tok.kind() != token::details::TokenKind::unknown) {
+        inc(m.pos());
+        return;
+      }
+    }
+
     switch (method) {
       case details::kBasic: {
         details::Basic m(file_id_, cur(), end);

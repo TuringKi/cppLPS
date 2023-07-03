@@ -54,6 +54,7 @@ class Basic : public Base {
     }
     uint32_t sz_tmp;
     uint32_t sz_tmp2;
+    auto first_ptr = ptr;
     auto c_sz = base::advance(ptr);  // read `char` by skipping `'\'`
     char c = std::get<0>(c_sz);
     lps::token::details::TokenKind token_kind =
@@ -111,11 +112,11 @@ class Basic : public Base {
       case '8':
       case '9': {
         typename base::ptr_type tmp_ptr = ptr;
-        if (this->lex_floating_point_literal(c, tmp_ptr, tok)) {
+        if (this->lex_floating_point_literal(first_ptr, tmp_ptr, tok)) {
           return;
         }
         tmp_ptr = ptr;
-        if (this->lex_integer_literal(c, tmp_ptr, tok)) {
+        if (this->lex_integer_literal(first_ptr, tmp_ptr, tok)) {
           return;
         }
         break;
@@ -130,11 +131,11 @@ class Basic : public Base {
       case 'U':
       case 'L': {
         typename base::ptr_type tmp_ptr = ptr;
-        if (this->lex_character_literal(c, tmp_ptr, tok)) {
+        if (this->lex_character_literal(first_ptr, tmp_ptr, tok)) {
           return;
         }
         tmp_ptr = ptr;
-        if (this->lex_string_literal(c, tmp_ptr, tok)) {
+        if (this->lex_string_literal(first_ptr, tmp_ptr, tok)) {
           return;
         }
       }
@@ -188,7 +189,7 @@ class Basic : public Base {
       case 'y':
       case 'z':
       case '_':
-        if (this->lex_identifier(ptr, tok)) {
+        if (this->lex_identifier(first_ptr, ptr, tok)) {
           // a valid identifier, we must check if it was defined by `TU`.
           if (tok.kind() != token::details::TokenKind::identifier) {
             return;
@@ -196,6 +197,7 @@ class Basic : public Base {
           if (tu::TU::instance().defined(tok)) {
             auto new_tok = tu::TU::instance().expand(tok);
             if (new_tok.kind() != token::details::TokenKind::unknown) {
+              tok = new_tok;
               return;
             }
             //if the defined macro is empty, we skip this token and lex next one.
@@ -210,12 +212,12 @@ class Basic : public Base {
         break;
 
       case '\'':
-        if (this->lex_character_literal(c, ptr, tok)) {
+        if (this->lex_character_literal(first_ptr, ptr, tok)) {
           return;
         }
         break;
       case '"':
-        if (this->lex_string_literal(c, ptr, tok)) {
+        if (this->lex_string_literal(first_ptr, ptr, tok)) {
           return;
         }
         break;
@@ -247,7 +249,7 @@ class Basic : public Base {
 
         {
           typename base::ptr_type tmp_ptr = ptr;
-          if (this->lex_floating_point_literal('.', tmp_ptr, tok)) {
+          if (this->lex_floating_point_literal(first_ptr, tmp_ptr, tok)) {
             ptr = tmp_ptr;
             return;
           }
@@ -539,7 +541,7 @@ class Basic : public Base {
       }
     }
 
-    this->token_formulate(tok, ptr, token_kind);
+    this->token_formulate(tok, first_ptr, ptr, token_kind);
 
     return;
 
