@@ -677,7 +677,8 @@ class Base {
       }
     }
     if (flg) {
-      this->token_formulate(tok, first_ptr, ptr + 1,
+      ++ptr;
+      this->token_formulate(tok, first_ptr, ptr,
                             lps::token::details::TokenKind::header_name);
       return true;
     }
@@ -725,7 +726,8 @@ class Base {
         this->diag(first_ptr, ptr, diag::empty_char_literal);
         return false;
       }
-      this->token_formulate(tok, first_ptr, ptr + 1,
+      ++ptr;
+      this->token_formulate(tok, first_ptr, ptr,
                             token::details::TokenKind::char_literal);
     }
 
@@ -1190,7 +1192,8 @@ class Base {
     if (basic::FileVisitor::strncmp(prefix_start, ptr, prefix_len) == 0) {
       ptr = ptr + prefix_len;
       if (*ptr == '"') {
-        this->token_formulate(tok, first_ptr, ptr + 1,
+        ++ptr;
+        this->token_formulate(tok, first_ptr, ptr,
                               lps::token::details::TokenKind::raw_string);
         return true;
       }
@@ -1222,14 +1225,16 @@ class Base {
           this->template lex_char_seq<'"', diag::unfinished_string_literal>(
               ptr, tok);
       if (*ptr == '"') {
-        this->token_formulate(tok, first_ptr, ptr + 1,
+        ++ptr;
+        this->token_formulate(tok, first_ptr, ptr,
                               lps::token::details::TokenKind::string_literal);
         return true;
       }
 
     } else if (*new_first_ptr == 'R') {
       if (lex_raw_string(ptr, tok)) {
-        this->token_formulate(tok, first_ptr, ptr + 1,
+        ++ptr;
+        this->token_formulate(tok, first_ptr, ptr,
                               lps::token::details::TokenKind::string_literal);
         return true;
       }

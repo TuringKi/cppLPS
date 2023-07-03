@@ -49,15 +49,22 @@ class Preprocessing : public Base {
     if (*ptr == '#') {  // control-line
       ++ptr;
       auto tmp_ptr = ptr;
-      if (lex_control_line(first_ptr, tmp_ptr, tok)) {
+      auto tmp_tok = tok;
+      if (lex_control_line(first_ptr, tmp_ptr, tmp_tok)) {
         ptr = tmp_ptr;
+        tok = tmp_tok;
         return;
       }
     } else {
       if (basic::str::ascii::is::NonDigit(*first_ptr)) {
-        ++ptr;
-        if (!this->lex_identifier(first_ptr, ptr, tok)) {
-          unreachable(kTag);
+        auto tmp_ptr = ptr;
+        auto tmp_tok = tok;
+        ++tmp_ptr;
+        if (this->lex_identifier(first_ptr, tmp_ptr, tmp_tok)) {
+          if (tmp_tok.kind() == token::details::TokenKind::kw___has_include) {
+            tok = tmp_tok;
+            unreachable(kTag);
+          }
         }
       }
     }
@@ -134,14 +141,12 @@ class Preprocessing : public Base {
       ptr = tmp_ptr;  \
     }                 \
   }
-          CASE(digit(tmp_ptr));                        // pp_number, digit
-          CASE(*tmp_ptr == '\'' && digit(++tmp_ptr));  // pp_number, `'`, digit
-          CASE(*tmp_ptr == '\'' &&
-               nodigit(++tmp_ptr));  // pp_number, `'`, nondigit
-          CASE((*tmp_ptr == 'e' || *tmp_ptr == 'E' || *tmp_ptr == 'p' ||
-                *tmp_ptr == 'P') &&
-               sign(++tmp_ptr));  // pp_number, x, sign
-          CASE(*tmp_ptr == '.');  // pp_number, `.`
+          CASE(digit(cc));                        // pp_number, digit
+          CASE(*cc == '\'' && digit(tmp_ptr));    // pp_number, `'`, digit
+          CASE(*cc == '\'' && nodigit(tmp_ptr));  // pp_number, `'`, nondigit
+          CASE((*cc == 'e' || *cc == 'E' || *cc == 'p' || *cc == 'P') &&
+               sign(tmp_ptr));  // pp_number, x, sign
+          CASE(*cc == '.');     // pp_number, `.`
 #undef CASE
           this->token_formulate(tok, first_ptr, ptr,
                                 lps::token::details::TokenKind::pp_number);
@@ -355,7 +360,7 @@ class Preprocessing : public Base {
 
               if (basic::str::ascii::is::VertWs(*tmp_ptr2)) {
                 // [`#`, `define`, `identifier`, replacement_list, new_line] matched
-                ptr = tmp_ptr2;
+                ptr = ++tmp_ptr2;
                 decltype(replacement_tokens) empty_parameter_tokens;
                 tu::TU::instance().define(define_tok,
                                           std::move(empty_parameter_tokens),
