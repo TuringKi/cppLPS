@@ -260,16 +260,19 @@ class Base {
                   lps::token::Token& tok, const lex_func_type2& first_lex_func,
                   const lex_func_type2& stop_cond) {
       auto lex = [this, &first_lex_func, &stop_cond](
-                     const ptr_type& first_ptr, ptr_type& ptr,
+                     const ptr_type& first_ptr_, ptr_type& ptr,
                      lps::token::Token& tok, const auto& func) -> bool {
-        if (stop_cond(first_ptr, ptr, tok)) {
+        if (stop_cond(first_ptr_, ptr, tok)) {
           return false;
         }
+        ptr_type first_ptr = ptr - 1;
         if (first_lex_func(first_ptr, ptr, tok)) {
           ptr_type tmp_ptr = ptr;
-          tmp_ptr.horzws_skipping();  // skip space, `\t` etc.
-          auto tmp_c = ptr;
-          tmp_ptr++;
+          if (basic::str::ascii::is::HorzWs(*tmp_ptr)) {
+            tmp_ptr.horzws_skipping();  // skip space, `\t` etc.
+          }
+          auto tmp_c = tmp_ptr;
+          ++tmp_ptr;
           lps::token::Token tmp_tok;
           if (func(tmp_c, tmp_ptr, tmp_tok, func)) {
             ptr = tmp_ptr;
@@ -1233,7 +1236,6 @@ class Base {
 
     } else if (*new_first_ptr == 'R') {
       if (lex_raw_string(ptr, tok)) {
-        ++ptr;
         this->token_formulate(tok, first_ptr, ptr,
                               lps::token::details::TokenKind::string_literal);
         return true;

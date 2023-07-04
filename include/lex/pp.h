@@ -235,7 +235,7 @@ class Preprocessing : public Base {
                token::details::TokenKind::user_defined_string_literal);
 #undef TRY_UD
 
-    CASE(this->lex_header_name);  // 	header_name
+    // CASE(this->lex_header_name);  // 	header_name
     CASE([this](const typename base::ptr_type& first_ptr,
                 typename base::ptr_type& ptr, lps::token::Token& tok) {
       if (this->lex_identifier(first_ptr, ptr, tok)) {
@@ -245,13 +245,18 @@ class Preprocessing : public Base {
       }
       return false;
     });
-    CASE(try_ident);                    // 	`identifier`
+
     CASE(lex_pp_number);                // 	pp_number
     CASE(this->lex_character_literal);  // 	character_literal
     CASE(try_char_literal_ud);          // 	user_defined_character_literal
     CASE(this->lex_string_literal);     // 	string_literal
     CASE(try_string_literal_ud);        // 	user_defined_string_literal
     CASE(this->lex_preprocessing_op_or_punc);  // preprocessing_op_or_punc
+    CASE(try_ident);                           // 	`identifier`
+    CASE([this](const typename base::ptr_type& first_ptr,
+                typename base::ptr_type& ptr, lps::token::Token& tok) {
+      return this->lex_identifier(first_ptr, ptr, tok);
+    });
 #undef TRY
 #undef CASE
 
@@ -281,9 +286,9 @@ class Preprocessing : public Base {
                    lps::token::Token&) -> bool {
               auto tmp_ptr = ptr;
               typename base::ptr_type first_ptr = first_ptr_;
-              if (basic::str::ascii::is::HorzWs(*tmp_ptr)) {
-                tmp_ptr.horzws_skipping();
-                first_ptr = tmp_ptr;
+              if (basic::str::ascii::is::HorzWs(*first_ptr)) {
+                first_ptr.horzws_skipping();
+                tmp_ptr = first_ptr;
                 ++tmp_ptr;
               }
 
@@ -292,6 +297,10 @@ class Preprocessing : public Base {
               }
               if (*first_ptr == '\\' &&
                   basic::str::ascii::is::VertWs(*tmp_ptr)) {
+                ++tmp_ptr;
+                if (basic::str::ascii::is::HorzWs(*tmp_ptr)) {
+                  tmp_ptr.horzws_skipping();
+                }
                 ++tmp_ptr;
                 ptr = tmp_ptr;
               }
