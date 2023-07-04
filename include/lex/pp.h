@@ -83,79 +83,55 @@ class Preprocessing : public Base {
   // 	pp_number, `p`, sign
   // 	pp_number, `P`, sign
   // 	pp_number, `.`
-
   inline bool lex_pp_number(const typename base::ptr_type& first_ptr,
                             typename base::ptr_type& ptr,
                             lps::token::Token& tok) {
-    return [this](const typename base::ptr_type& first_ptr,
-                  typename base::ptr_type& ptr, lps::token::Token& tok) {
-      auto digit = [](typename base::ptr_type& ptr) {
-        return base::template lex_char<basic::str::ascii::is::Digit>(ptr);
-      };
-      auto nodigit = [](typename base::ptr_type& ptr) {
-        return base::template lex_char<basic::str::ascii::is::NonDigit>(ptr);
-      };
-      auto sign = [](typename base::ptr_type& ptr) {
-        return base::template lex_char<[](char c) {
-          return c == '+' || c == '-';
-        }>(ptr);
-      };
-
-      auto lex = [this, &digit, &nodigit, &sign](
-                     const typename base::ptr_type& first_ptr,
-                     typename base::ptr_type& ptr, lps::token::Token& tok,
-                     auto func) -> bool {
-        bool flg = false;
-        if (basic::str::ascii::is::Digit(*first_ptr)) {  // 	digit
-          flg = true;
+    if (!basic::str::ascii::is::Digit(*first_ptr)) {
+      if (*first_ptr == '.') {
+        if (!basic::str::ascii::is::Digit(*(ptr))) {
+          return false;
         }
-        if (!flg) {
-          typename base::ptr_type tmp_ptr = ptr;
-          if (*tmp_ptr == '.') {  // 	`.`, digit
-            if (digit(tmp_ptr)) {
-              ptr = tmp_ptr;
-              flg = true;
-            }
-          }
-        }
-
-        if (flg) {
-          typename base::ptr_type tmp_ptr = ptr;
-          bool sub_flg = true;
-          auto cc = tmp_ptr;
-          ++tmp_ptr;
-          if (func(cc, tmp_ptr, tok, func)) {  // 	pp_number, ...
-            ptr = tmp_ptr;
-            sub_flg = false;
-          }
-
-          if (!sub_flg) {  // pp_number, identifier_nondigit
-            // todo(@mxlol233): take `identifier_nondigit` into account.
-          }
-
-#define CASE(COND)    \
-  if (!sub_flg) {     \
-    tmp_ptr = ptr;    \
-    if (COND) {       \
-      sub_flg = true; \
-      ptr = tmp_ptr;  \
-    }                 \
-  }
-          CASE(digit(cc));                        // pp_number, digit
-          CASE(*cc == '\'' && digit(tmp_ptr));    // pp_number, `'`, digit
-          CASE(*cc == '\'' && nodigit(tmp_ptr));  // pp_number, `'`, nondigit
-          CASE((*cc == 'e' || *cc == 'E' || *cc == 'p' || *cc == 'P') &&
-               sign(tmp_ptr));  // pp_number, x, sign
-          CASE(*cc == '.');     // pp_number, `.`
-#undef CASE
-          this->token_formulate(tok, first_ptr, ptr,
-                                lps::token::details::TokenKind::pp_number);
-          return true;
-        }
+        ++ptr;
+      } else {
         return false;
-      };
-      return lex(first_ptr, ptr, tok, lex);
-    }(first_ptr, ptr, tok);
+      }
+    }
+    while (!basic::str::ascii::is::Ws(*ptr)) {
+      if (*ptr == '.') {
+        ++ptr;
+        continue;
+      }
+      if (basic::str::ascii::is::Digit(*ptr)) {  // pp_number, digit
+        ++ptr;
+        continue;
+      }
+      if (*ptr == '\'') {
+        if (basic::str::ascii::is::Digit(
+                *(ptr + 1))) {  // pp_number, `'`, digit
+          ++ptr;
+          ++ptr;
+          continue;
+        }
+        diag(first_ptr, ptr,
+             diag::DiagKind::unexpected_characters_in_pp_number);
+        return false;
+      }
+      if (*ptr == 'e' || *ptr == 'E' || *ptr == 'p' ||
+          *ptr == 'P') {  // pp_number, `e`, sign etc.
+        if (*(ptr + 1) == '+' || *(ptr + 1) == '-') {
+          ++ptr;
+          ++ptr;
+          continue;
+        }
+        diag(first_ptr, ptr,
+             diag::DiagKind::unexpected_characters_in_pp_number);
+        return false;
+      }
+      break;
+    }
+    this->token_formulate(tok, first_ptr, ptr,
+                          lps::token::details::TokenKind::pp_number);
+    return true;
   }
 
   // preprocessing-token:
@@ -171,9 +147,15 @@ class Preprocessing : public Base {
   // 	user_defined_string_literal
   // 	preprocessing_op_or_punc
   // each non-whitespace character that cannot be one of the above
-  inline bool lex_preprocessing_token(const typename base::ptr_type& first_ptr,
+  inline bool lex_preprocessing_token(const typename base::ptr_type& first_ptr_,
                                       typename base::ptr_type& ptr,
                                       lps::token::Token& tok) {
+    typename base::ptr_type first_ptr = first_ptr_;
+    if (basic::str::ascii::is::HorzWs(*first_ptr)) {
+      first_ptr.horzws_skipping();
+      ptr = first_ptr + 1;
+    }
+
 #define TRY(FUNC)                                                              \
   [&](const typename base::ptr_type& first_ptr, typename base::ptr_type& ptr_, \
       lps::token::Token& tok_) {                                               \
