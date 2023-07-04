@@ -43,7 +43,7 @@ class Lexer {
       // if current file is token_file, we just return the recorded next token.
       token::TokenListsVisitor visitor =
           src::Manager::instance().visitor_of_token_file(file_id_);
-      visitor += ++pos_;
+      visitor += pos_;
       tok = *visitor;
       return;
     }

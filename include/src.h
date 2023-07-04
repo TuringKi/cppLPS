@@ -145,11 +145,12 @@ class Manager {
       LPS_ERROR(kTag, "file_id = ", file_id, "not exists");
       return;
     }
-
-    for (auto& tok : token_files_[file_id]->tokens_) {
+    auto len = token_files_[file_id]->tokens_.size();
+    for (size_t i = 0; i < len; i++) {
+      auto& tok = token_files_[file_id]->tokens_[i];
       auto next_info = tok.next_visitor();
       lps_assert(kTag, next_info.first > 0);
-      if (next_info.second == 0) {
+      if (i < len - 1) {
         tok.next_visitor_file_id(file_id);
       } else {
         lps_assert(kTag, next_info.second > 0);
