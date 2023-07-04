@@ -60,3 +60,7 @@ DIAG(unexpected_empty_macro_expand, "used empty `#define` target.", "",
      Level::kError)
 DIAG(unexpected_characters_in_pp_number,
      "unexpected characters in `pp_number`.", "", Level::kError)
+DIAG(expected_header_name_after_include,
+     "expected `header_name` after `#include` macro.", "", Level::kError)
+DIAG(included_path_no_exists, "can not find the including path.", "",
+     Level::kError)

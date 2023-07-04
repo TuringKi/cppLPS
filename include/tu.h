@@ -23,6 +23,8 @@
 
 #pragma once
 
+#include <filesystem>
+#include <unordered_map>
 #include "basic/exception.h"
 #include "basic/mem.h"
 #include "basic/vfile.h"
@@ -49,7 +51,7 @@ class TU {
   using defined_tokens_type =
       std::unordered_map<IdentStringRef, macro_info_type,
                          token::details::IdentInfo::IdentHash<IdentStringRef>>;
-
+  using included_tokens_type = std::unordered_map<size_t, macro_info_type>;
   static TU& instance() {
     static TU tu;
     return tu;
@@ -86,6 +88,24 @@ class TU {
     lps_assert(kTag, "node can not be nullptr");
 
     define_tokens_[str(tok)] = {std::move(node)};
+  }
+
+  void include(const token::Token& tok) {
+    lps_assert(kTag, tok.kind() == token::details::TokenKind::header_name);
+
+    auto path = std::filesystem::absolute(tok.str().data());
+    std::string path_str = path.string();
+    auto hash_val = std::hash<std::string>()(path_str);
+    if (included_.contains(hash_val)) {
+      return;
+    }
+    if (!std::filesystem::exists(path)) {
+      diag(tok, diag::DiagKind::included_path_no_exists);
+      return;
+    }
+    using namespace lexer::details::pp::ast;
+    auto tmp_tok = tok;
+    included_[hash_val] = {Factory::create<Include>(std::move(tmp_tok))};
   }
 
   bool already_defined(const token::Token& tok) {
@@ -186,6 +206,7 @@ class TU {
   }
 
   defined_tokens_type define_tokens_;
+  included_tokens_type included_;
 };
 
 }  // namespace lps::tu

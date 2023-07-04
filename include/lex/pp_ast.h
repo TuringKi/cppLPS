@@ -109,6 +109,15 @@ class DefineWithParameters : public Define {
   typename base::tokens_type parameters_;
 };
 
+class Include : public Node {
+
+ public:
+  using base = Node;
+  template <class... Args>
+  explicit Include(typename base::token_type&& name, Args... args)
+      : base(std::move(name), std::forward<Args>(args)...) {}
+};
+
 class Factory {
 
  public:

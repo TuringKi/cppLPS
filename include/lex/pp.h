@@ -318,6 +318,19 @@ class Preprocessing : public Base {
     }
     if (lex_ident_ok) {
       switch (tok.kind()) {
+        case token::details::TokenKind::kw_include: {
+          lps::token::Token included_tok;
+          auto tmp_c = tmp_ptr;
+          tmp_ptr++;
+          if (this->lex_header_name(tmp_c, tmp_ptr, included_tok)) {
+            tu::TU::instance().include(included_tok);
+          } else {
+            diag(tmp_c, tmp_ptr,
+                 diag::DiagKind::expected_header_name_after_include);
+          }
+
+          break;
+        }
         case token::details::TokenKind::kw_define:
         case token::details::TokenKind::kw_undef: {
           lps::token::Token define_tok;
