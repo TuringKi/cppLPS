@@ -64,13 +64,16 @@ class Base {
     try {
       lex_impl(tok);
     } catch (basic::vfile::Eof& except_eof) {
-      // todo(@mxlol233): should jump to another virtual file's visitor?
+      // jump to another virtual file's visitor
       tok.kind(token::details::TokenKind::eof);
       if (src::Manager::instance().has<1>(except_eof.next_file_id())) {
+        // token_file
         auto idx = except_eof.offset();
         auto visitor = src::Manager::instance().visitor_of_token_file(
             except_eof.next_file_id());
         tok = visitor[idx];
+      } else if (src::Manager::instance().has<0>(except_eof.next_file_id())) {
+        // char_file
       }
       return;
     }
@@ -80,10 +83,12 @@ class Base {
   explicit Base(uint32_t start_file_id, const char* ptr, const char* end,
                 MethodType m)
       : file_id_(start_file_id),
-        ptr_(ptr, end,
-             [](const basic::vfile::Visitor<char>*) {
-               throw basic::vfile::Eof();
-             }),
+        ptr_(
+            ptr, end,
+            [](const basic::vfile::Visitor<char>*) {
+              throw basic::vfile::Eof();
+            },
+            start_file_id),
         type_(m) {}
   [[nodiscard]] inline size_t pos() const { return pos_; }
 
@@ -196,18 +201,24 @@ class Base {
 
   inline void token_formulate(lps::token::Token& tok, const ptr_type& first,
                               const ptr_type& end,
-                              lps::token::details::TokenKind kind) const {
-    auto offset = end - first;
+                              lps::token::details::TokenKind kind) {
+    uint32_t offset = 0;
+    if (end.file_id() == first.file_id()) {
+      offset = end - first;
+    } else {
+      offset = first.size() - first.pos() + end.pos();
+    }
+
     lps_assert(kTag,
                offset >= 0 && offset < std::numeric_limits<uint32_t>::max());
 
     tok.offset(offset);
-    tok.file_id(file_id_);
+    tok.file_id(end.file_id());
     tok.kind(kind);
     tok.data(first);
-    lps_assert(kTag, src::Manager::instance().has(file_id_));
+    lps_assert(kTag, src::Manager::instance().has(end.file_id()));
     auto tok_info = token::TokenLists::Info::create(tok);
-    tok.next_visitor(tok_info.offset_ + offset, file_id_);
+    tok.next_visitor(tok_info.offset_ + offset, end.file_id());
   }
 
   template <auto Func>

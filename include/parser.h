@@ -267,8 +267,8 @@ class ParseFunction {
   }
 
   [[nodiscard]] inline const char* eof() const {
-    auto content = src::Manager::instance().visitor_of_char_file(
-        params_.cur_token_.file_id());
+    auto content =
+        src::Manager::instance().ref_of_char_file(params_.cur_token_.file_id());
     return content.data() + len();
   }
   [[nodiscard]] inline bool valid() const { return valid(params_.cur_token_); }

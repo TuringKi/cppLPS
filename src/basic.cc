@@ -21,49 +21,28 @@
 * SOFTWARE.
 */
 
-#include <iostream>
-#include "basic/arg.h"
-#include "basic/exception.h"
 #include "basic/file.h"
-#include "basic/vec.h"
-#include "parser.h"
 #include "src.h"
-#include "version.h"
+#include "tu.h"
 
-int main(int argc, char** argv) {
+namespace lps::basic {
 
-  argparse::ArgumentParser program("lps", lps::version::git_hash);
-
-  program.add_argument("-c").required().default_value("-").help(
-      "specify the source file.");
-
-  program.add_description(
-      "A Lexer, Parser and Semantics Engine for the C++ Programming Language.");
-
-  try {
-    program.parse_args(argc, argv);
-  } catch (const std::runtime_error& err) {
-    std::cerr << err.what() << std::endl;
-    std::cerr << program;
-    std::exit(1);
+const char* FileVisitor::cur_() {
+  if (pos_ > len() || start_ > end_) {
+    if (file_id_ == tu::TU::instance().include_stack_top_file_id()) {
+      auto next_file_info = tu::TU::instance().include_stack_top();
+      auto offset = pos_ - len() - 1;
+      *this = src::Manager::instance().visitor_of_char_file(
+          next_file_info.parent_info_.second);
+      file_id_ = next_file_info.parent_info_.second;
+      pos_ = next_file_info.parent_info_.first + offset;
+      return cur_();
+    }
+    FileVisitor tmp(*this);
+    tmp.pos_ = 0;
+    this->check_eof_callback_(&tmp);
+    return &eof_;
   }
-
-  auto filename = program.get<std::string>("-c");
-
-  auto file_id = lps::src::Manager::instance().append(filename.c_str());
-
-  if (file_id == -1) {
-    return 0;
-  }
-
-  auto contents = lps::src::Manager::instance().ref_of_char_file(file_id);
-
-  using lps::basic::str::details::operator<<;
-  std::cout << contents;
-
-  lps::parser::Parser parser;
-
-  parser.parse(file_id);
-
-  return 0;
+  return start_ + pos_;
 }
+}  // namespace lps::basic

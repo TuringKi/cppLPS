@@ -50,7 +50,6 @@ class Basic : public Base {
         this->inc(1);
         ++ptr;
       } while (is::HorzWs(*ptr));
-      tok.set_flag(token::Flag::kLeadingSpace);
     }
     uint32_t sz_tmp;
     uint32_t sz_tmp2;
@@ -67,8 +66,8 @@ class Basic : public Base {
     switch (c) {
 
       case 0: {  // null
-        token_kind = lps::token::details::TokenKind::eof;
-        break;
+        base::advance(ptr);
+        goto next;
       }
       case 26: {  // `^Z`
         break;

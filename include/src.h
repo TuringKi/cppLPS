@@ -30,6 +30,7 @@
 #include "basic/file.h"
 #include "basic/mem.h"
 #include "basic/vec.h"
+#include "basic/vfile.h"
 #include "token.h"
 
 namespace lps::src {
@@ -49,6 +50,10 @@ class Manager {
     auto file = lps::basic::File::create(path, ++file_count_);
     lps_assert(kTag, file_count_ < std::numeric_limits<uint32_t>::max());
     if (file == nullptr) {
+      --file_count_;
+      return 0;
+    }
+    if (file->size() == 0) {
       --file_count_;
       return 0;
     }
@@ -86,7 +91,7 @@ class Manager {
 
   [[nodiscard]] FilePathStringRef path(uint32_t file_id) {
     if (!has(file_id)) {
-      LPS_ERROR(kTag, "file_id = ", file_id, "not exists");
+      LPS_ERROR(kTag, "file_id = ", file_id, " not exists");
       return FilePathStringRef();
     }
     if (!abs_file_paths_.contains(file_id)) {
@@ -97,24 +102,41 @@ class Manager {
       abs_file_paths_[file_id] = FilePathStaticString::from(the_path);
     }
     if (!abs_file_paths_.contains(file_id)) {
-      LPS_ERROR(kTag, "file_id = ", file_id, "not exists");
+      LPS_ERROR(kTag, "file_id = ", file_id, " not exists");
       return FilePathStringRef();
     }
 
     return FilePathStringRef(abs_file_paths_[file_id]);
   }
 
-  basic::StringRef visitor_of_char_file(uint32_t file_id) const {
-    return ref_char_file(file_id);
+  basic::StringRef ref_of_char_file(uint32_t file_id) const {
+    if (!char_files_.contains(file_id)) {
+      LPS_ERROR(kTag, "file_id = ", file_id, " not exists");
+      return basic::StringRef();
+    }
+    return char_files_.at(file_id)->ref();
+  }
+
+  basic::FileVisitor visitor_of_char_file(uint32_t file_id) const {
+    if (!char_files_.contains(file_id)) {
+      LPS_ERROR(kTag, "file_id = ", file_id, " not exists");
+      return basic::FileVisitor(nullptr, nullptr,
+                                [](const basic::vfile::Visitor<char>*) {});
+    }
+    return char_files_.at(file_id)->visitor();
   }
 
   token::TokenListsVisitor visitor_of_token_file(uint32_t file_id) const {
-    return ref_token_file(file_id);
+    if (!token_files_.contains(file_id)) {
+      LPS_ERROR(kTag, "file_id = ", file_id, " not exists");
+      return token::TokenListsVisitor(nullptr, nullptr);
+    }
+    return token_files_.at(file_id)->visitor();
   }
 
   [[nodiscard]] size_t size(uint32_t file_id) const {
     if (!has(file_id)) {
-      LPS_ERROR(kTag, "file_id = ", file_id, "not exists");
+      LPS_ERROR(kTag, "file_id = ", file_id, " not exists");
       return -1;
     }
     if (char_files_.contains(file_id)) {
@@ -124,25 +146,9 @@ class Manager {
   }
 
  private:
-  basic::StringRef ref_char_file(uint32_t file_id) const {
-    if (!char_files_.contains(file_id)) {
-      LPS_ERROR(kTag, "file_id = ", file_id, "not exists");
-      return basic::StringRef();
-    }
-    return char_files_.at(file_id)->ref();
-  }
-
-  token::TokenListsVisitor ref_token_file(uint32_t file_id) const {
-    if (!token_files_.contains(file_id)) {
-      LPS_ERROR(kTag, "file_id = ", file_id, "not exists");
-      return token::TokenListsVisitor(nullptr, nullptr);
-    }
-    return token_files_.at(file_id)->visitor();
-  }
-
   void fill_next_info_for_token_file(uint32_t file_id) {
     if (!token_files_.contains(file_id)) {
-      LPS_ERROR(kTag, "file_id = ", file_id, "not exists");
+      LPS_ERROR(kTag, "file_id = ", file_id, " not exists");
       return;
     }
     auto len = token_files_[file_id]->tokens_.size();
@@ -176,15 +182,14 @@ class TokenLists {
   struct Info {
 
     static Info create(const Token& tok) {
-      auto content =
-          src::Manager::instance().visitor_of_char_file(tok.file_id());
+      auto content = src::Manager::instance().ref_of_char_file(tok.file_id());
       const auto* start = content.data();
       uint64_t offset = tok.ptr() - start;
       lps_assert(kTag, offset >= 0);
       return {tok.file_id(), offset};
     }
     static const char* start(uint32_t file_id) {
-      auto content = src::Manager::instance().visitor_of_char_file(file_id);
+      auto content = src::Manager::instance().ref_of_char_file(file_id);
       return content.data();
     }
     uint32_t file_id_{0};

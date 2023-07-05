@@ -25,6 +25,7 @@
 
 #include "basic/exception.h"
 #include "basic/str.h"
+#include "basic/vfile.h"
 #include "diag.h"
 #include "lex/base.h"
 #include "src.h"
@@ -45,6 +46,14 @@ class Preprocessing : public Base {
   inline void lex_impl(lps::token::Token& tok) override {
 
     typename base::ptr_type ptr = this->cur();
+
+    if (basic::str::ascii::is::Ws(*ptr)) {
+      do {
+        this->inc(1);
+        ++ptr;
+      } while (basic::str::ascii::is::Ws(*ptr));
+    }
+
     auto first_ptr = ptr;
     if (*ptr == '#') {  // control-line
       ++ptr;
@@ -323,7 +332,14 @@ class Preprocessing : public Base {
           auto tmp_c = tmp_ptr;
           tmp_ptr++;
           if (this->lex_header_name(tmp_c, tmp_ptr, included_tok)) {
-            tu::TU::instance().include(included_tok);
+            auto next_info = tu::TU::instance().include(included_tok);
+            if (next_info.second == 0) {
+              ptr = tmp_ptr;
+              tok = included_tok;
+              tok.next_visitor_offset(tok.next_visitor().first);
+            } else {
+              tok.next_visitor(next_info.first, next_info.second);
+            }
           } else {
             diag(tmp_c, tmp_ptr,
                  diag::DiagKind::expected_header_name_after_include);
@@ -479,8 +495,8 @@ class Preprocessing : public Base {
             }
 
             // jump over the define_tok, replacement_tokens
-            const auto* start = token::TokenLists::Info::start(tok.file_id());
-            tok.next_visitor_offset(ptr.cur() - start);
+            tok.next_visitor(ptr.pos(), ptr.file_id());
+            tok.kind(token::details::TokenKind::eod);
             return true;
           } else {
             tu::TU::instance().undef(define_tok);
@@ -497,7 +513,11 @@ class Preprocessing : public Base {
       }
       ptr = tmp_ptr;
     }
-    return is::VertWs(*ptr);
+    if (is::VertWs(*ptr)) {
+      tok.kind(token::details::TokenKind::eod);
+      return true;
+    }
+    return false;
   }
   void command() {}
 };  // namespace lps::lexer::details

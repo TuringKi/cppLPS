@@ -39,7 +39,7 @@ namespace details {
 std::pair<size_t, size_t> TokenInfo::line_col(uint32_t file_id,
                                               const char* ptr) {
   const char* content_begin =
-      src::Manager::instance().visitor_of_char_file(file_id).data();
+      src::Manager::instance().ref_of_char_file(file_id).data();
   const char* p = content_begin;
   size_t line_n = 1;
   const char* cur_line_start_ptr = content_begin;
@@ -157,7 +157,7 @@ std::string underline(uint32_t print_offset,
                       const char* ptr, uint32_t token_len,
                       const VecTokenInfos& context_token_infos) {
   const char* content_begin =
-      src::Manager::instance().visitor_of_char_file(file_id).data();
+      src::Manager::instance().ref_of_char_file(file_id).data();
   int64_t content_size = src::Manager::instance().size(file_id);
 
   const char* content_end = content_begin + content_size;
@@ -223,7 +223,7 @@ std::string underline(uint32_t print_offset,
   std::string context_ul(print_offset, ' ');
   for (const auto& a : context_token_infos) {
     const char* content_begin =
-        src::Manager::instance().visitor_of_char_file(a.file_id).data();
+        src::Manager::instance().ref_of_char_file(a.file_id).data();
     auto offset_before_and_start_of_line =
         find_offset_before(a.ptr, content_begin);
     auto offset_before = offset_before_and_start_of_line.first;

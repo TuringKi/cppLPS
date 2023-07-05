@@ -32,7 +32,7 @@ namespace lps::parser {
 
 // cpp grammar: https://timsong-cpp.github.io/cppwp/n4868/gram
 void Parser::parse(uint32_t file_id) {
-  auto content = src::Manager::instance().visitor_of_char_file(file_id);
+  auto content = src::Manager::instance().ref_of_char_file(file_id);
   if (!content.empty()) {
     details::ParseFunctionInputs params;
     params.opt_ = false;

@@ -24,6 +24,7 @@
 #pragma once
 
 #include <filesystem>
+#include <stack>
 #include <unordered_map>
 #include "basic/exception.h"
 #include "basic/mem.h"
@@ -47,11 +48,23 @@ class TU {
   struct MacroInfo {
     pp_ast_node_type::ptr_type node_;
   };
+  struct IncludeInfo {
+    pp_ast_node_type::ptr_type node_;
+    uint32_t recorded_file_id_;
+  };
+
+  struct WorkingIncludeStack {
+    uint32_t file_id_{0};
+    token::Token::next_info_type parent_info_{0, 0};
+  };
   using macro_info_type = MacroInfo;
+  using include_info_type = IncludeInfo;
   using defined_tokens_type =
       std::unordered_map<IdentStringRef, macro_info_type,
                          token::details::IdentInfo::IdentHash<IdentStringRef>>;
-  using included_tokens_type = std::unordered_map<size_t, macro_info_type>;
+  using included_tokens_type = std::unordered_map<size_t, include_info_type>;
+  using include_dirs_type = std::unordered_map<size_t, std::filesystem::path>;
+  using working_include_stack_type = std::stack<WorkingIncludeStack>;
   static TU& instance() {
     static TU tu;
     return tu;
@@ -90,22 +103,48 @@ class TU {
     define_tokens_[str(tok)] = {std::move(node)};
   }
 
-  void include(const token::Token& tok) {
+  typename token::Token::next_info_type include(const token::Token& tok) {
     lps_assert(kTag, tok.kind() == token::details::TokenKind::header_name);
-
-    auto path = std::filesystem::absolute(tok.str().data());
-    std::string path_str = path.string();
-    auto hash_val = std::hash<std::string>()(path_str);
+    std::string string_path(tok.str().data() + 1, tok.offset() - 2);
+    auto path = std::filesystem::absolute(string_path);
+    auto hash_val = hash_of_path(tok.str().data());
     if (included_.contains(hash_val)) {
-      return;
+      auto visitor =
+          get_visitor_of_char_file(included_[hash_val].node_->name().file_id());
+      working_include_stack_.push(
+          {included_[hash_val].recorded_file_id_, tok.next_visitor()});
+      return {visitor.pos(), included_[hash_val].recorded_file_id_};
+    }
+    for (const auto& p : include_dirs_) {
+      auto search_path = p.second;
+      auto the_input_path = std::filesystem::path(string_path);
+      if (the_input_path.is_absolute()) {
+        search_path = the_input_path;
+      } else {
+        search_path /= the_input_path;
+      }
+      if (std::filesystem::exists(search_path)) {
+        path = search_path;
+        break;
+      }
     }
     if (!std::filesystem::exists(path)) {
       diag(tok, diag::DiagKind::included_path_no_exists);
-      return;
+      throw basic::vfile::Eof(0, 0);
+      return {0, 0};
     }
+
     using namespace lexer::details::pp::ast;
     auto tmp_tok = tok;
-    included_[hash_val] = {Factory::create<Include>(std::move(tmp_tok))};
+    auto recorded_file_id = record_include_as_char_file(path.c_str());
+    if (recorded_file_id == 0) {
+      return {0, 0};
+    }
+    included_[hash_val] = {Factory::create<Include>(std::move(tmp_tok)),
+                           recorded_file_id};
+    working_include_stack_.push(
+        {included_[hash_val].recorded_file_id_, tok.next_visitor()});
+    return {0, included_[hash_val].recorded_file_id_};
   }
 
   bool already_defined(const token::Token& tok) {
@@ -184,11 +223,45 @@ class TU {
     return returned_tok;
   }
 
+  void include_dir(const IdentStringRef& path) {
+    auto hash_val = hash_of_path(path.data());
+    if (!include_dirs_.contains(hash_val)) {
+      auto abs_path = std::filesystem::absolute(path.data());
+      include_dirs_[hash_val] = abs_path;
+    }
+  }
+  uint32_t include_stack_top_file_id() { return include_stack_top().file_id_; }
+  WorkingIncludeStack include_stack_top() {
+    if (working_include_stack_.empty()) {
+      return {0, {0, 0}};
+    }
+    auto top = working_include_stack_.top();
+    return top;
+  }
+
+  WorkingIncludeStack include_stack_pop() {
+    auto top = include_stack_top();
+    if (!working_include_stack_.empty()) {
+      working_include_stack_.pop();
+    }
+    return top;
+  }
+
  private:
+  TU() { builtin(); }
+
+  static size_t hash_of_path(const char* data) {
+    lps_assert(kTag, data != nullptr);
+    auto path = std::filesystem::absolute(data);
+    std::string path_str = path.string();
+    return std::hash<std::string>()(path_str);
+  }
+  static uint32_t record_include_as_char_file(const char* path);
   static uint32_t record_expanded_tokens_as_virtual_file(
       const char* cur_tok_data_ptr, uint32_t cur_tok_file_id,
       token::TokenContainer::tokens_type&& tokens);
   static token::TokenListsVisitor get_visitor_of_token_file(uint32_t file_id);
+  static basic::FileVisitor get_visitor_of_char_file(uint32_t file_id);
 
   static IdentStringRef str(const token::Token& tok) { return tok.str(); }
 
@@ -205,8 +278,21 @@ class TU {
                 diag_input.context_tokens_);
   }
 
+  void builtin_include_dirs() { current_include_dir(); }
+
+  void current_include_dir() {
+    auto current_path = std::filesystem::current_path();
+    auto current_path_string = current_path.string();
+    include_dir(IdentStringRef(current_path_string.c_str(),
+                               current_path_string.size()));
+  }
+
+  void builtin() { builtin_include_dirs(); }
+
   defined_tokens_type define_tokens_;
   included_tokens_type included_;
-};
+  include_dirs_type include_dirs_;
+  working_include_stack_type working_include_stack_;
+};  // namespace lps::tu
 
 }  // namespace lps::tu

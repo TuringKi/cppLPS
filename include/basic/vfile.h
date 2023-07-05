@@ -75,38 +75,59 @@ class Operator {
 
   size_t operator-(const T& other) const {
     const T* a = static_cast<const T*>(this);
-    lps_assert(kTagName, a->end_ == other.end_);
-    return a->cur() - other.cur();
+    lps_assert(kTagName, a->file_id_ != 0 && other.file_id_ != 0);
+    if (a->file_id_ == other.file_id_)
+      return a->cur() - other.cur();
+    unreachable(kTagName);
+    return 0;
   }
   bool operator>=(const T& other) const {
     const T* a = static_cast<const T*>(this);
-    lps_assert(kTagName, a->end_ == other.end_);
-    return a->cur() >= other.cur();
+    lps_assert(kTagName, a->file_id_ != 0 && other.file_id_ != 0);
+    if (a->file_id_ == other.file_id_)
+      return a->cur() >= other.cur();
+    unreachable(kTagName);
+    return false;
   }
   bool operator<=(const T& other) const {
     const T* a = static_cast<const T*>(this);
-    lps_assert(kTagName, a->end_ == other.end_);
-    return a->cur() <= other.cur();
+    lps_assert(kTagName, a->file_id_ != 0 && other.file_id_ != 0);
+    if (a->file_id_ == other.file_id_)
+      return a->cur() <= other.cur();
+    unreachable(kTagName);
+    return false;
   }
   bool operator<(const T& other) const {
     const T* a = static_cast<const T*>(this);
-    lps_assert(kTagName, a->end_ == other.end_);
-    return a->cur() < other.cur();
+    lps_assert(kTagName, a->file_id_ != 0 && other.file_id_ != 0);
+    if (a->file_id_ == other.file_id_)
+      return a->cur() < other.cur();
+    unreachable(kTagName);
+    return false;
   }
   bool operator>(const T& other) const {
     const T* a = static_cast<const T*>(this);
-    lps_assert(kTagName, a->end_ == other.end_);
-    return a->cur() > other->cur();
+    lps_assert(kTagName, a->file_id_ != 0 && other.file_id_ != 0);
+    if (a->file_id_ == other.file_id_)
+      return a->cur() > other->cur();
+    unreachable(kTagName);
+    return false;
   }
   bool operator!=(const T& other) const {
     const T* a = static_cast<const T*>(this);
-    lps_assert(kTagName, a->end_ == other.end_);
-    return a->cur() != other->cur();
+    lps_assert(kTagName, a->file_id_ != 0 && other.file_id_ != 0);
+    if (a->file_id_ == other.file_id_)
+      return a->cur() != other->cur();
+    unreachable(kTagName);
+    return false;
   }
   bool operator==(const T& other) const {
     const T* a = static_cast<const T*>(this);
-    lps_assert(kTagName, a->end_ == other.end_);
-    return a->cur() == other->cur();
+    lps_assert(kTagName, a->file_id_ != 0 && other.file_id_ != 0);
+    if (a->file_id_ == other.file_id_)
+      return a->cur() == other->cur();
+    unreachable(kTagName);
+    return false;
   }
 };
 
@@ -142,44 +163,31 @@ class Visitor {
     lps_assert(kTagName, start <= end);
   }
 
-  bool operator>=(const VisitedType* other) const { return start_ >= other; }
-  bool operator<=(const VisitedType* other) const { return start_ <= other; }
-  bool operator<(const VisitedType* other) const { return start_ < other; }
-  bool operator>(const VisitedType* other) const { return start_ > other; }
-  bool operator!=(const VisitedType* other) const { return start_ != other; }
-  bool operator==(const VisitedType* other) const { return start_ == other; }
+  bool operator>=(const VisitedType* other) const { return cur() >= other; }
+  bool operator<=(const VisitedType* other) const { return cur() <= other; }
+  bool operator<(const VisitedType* other) const { return cur() < other; }
+  bool operator>(const VisitedType* other) const { return cur() > other; }
+  bool operator!=(const VisitedType* other) const { return cur() != other; }
+  bool operator==(const VisitedType* other) const { return cur() == other; }
 
-  explicit operator bool() { return !eof() && start_; }
+  explicit operator bool() const { return !eof() && start_; }
 
   VisitedType operator*() const { return *cur(); }
 
-  virtual VisitedType operator[](size_t idx) const {
-    if ((pos_ + idx) > len() || start_ > end_) {
-      Visitor<VisitedType> tmp(*this);
-      tmp.pos_ = 0;
-      this->check_eof_callback_(&tmp);
-      return eof_;
-    }
-    return *(start_ + pos_ + idx);
-  }
-
   [[nodiscard]] bool eof() const { return cur() == &eof_; }
-  virtual const VisitedType* cur() const {
-    if (pos_ > len() || start_ > end_) {
-      Visitor<VisitedType> tmp(*this);
-      tmp.pos_ = 0;
-      this->check_eof_callback_(&tmp);
-      return &eof_;
-    }
-    return start_ + pos_;
-  }
+  virtual const VisitedType* cur() const = 0;
+  virtual const VisitedType* cur_() = 0;
   [[nodiscard]] size_t pos() const { return pos_; }
+  [[nodiscard]] const VisitedType* end() const { return end_; }
+  [[nodiscard]] const VisitedType* start() const { return start_; }
+  [[nodiscard]] uint32_t file_id() const { return file_id_; }
+  [[nodiscard]] uint32_t size() const { return len(); }
 
  protected:
   [[nodiscard]] size_t len() const { return end_ - start_; }
   const VisitedType* next(size_t idx = 1) {
     pos_ += idx;
-    return cur();
+    return cur_();
   }
   const VisitedType* start_{nullptr};
   const VisitedType* end_{nullptr};

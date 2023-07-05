@@ -50,4 +50,14 @@ token::TokenListsVisitor TU::get_visitor_of_token_file(uint32_t file_id) {
   lps_assert(kTag, src::Manager::instance().template has<1>(file_id));
   return src::Manager::instance().visitor_of_token_file(file_id);
 }
+
+uint32_t TU::record_include_as_char_file(const char* path) {
+  return src::Manager::instance().append(path);
+}
+
+basic::FileVisitor TU::get_visitor_of_char_file(uint32_t file_id) {
+  lps_assert(kTag, src::Manager::instance().template has<0>(file_id));
+  return src::Manager::instance().visitor_of_char_file(file_id);
+}
+
 }  // namespace lps::tu
