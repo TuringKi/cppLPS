@@ -45,14 +45,10 @@ class FileVisitor : public vfile::Visitor<char>,
   }
   explicit FileVisitor(const char* start, const char* end,
                        const base::check_eof_callback_type& check_eof_callback,
-                       uint32_t file_id = 0)
-      : base(start, end, std::move(check_eof_callback), file_id) {}
+                       uint32_t file_id = 0);
 
-  [[nodiscard]] const char* cur_() override;
-  [[nodiscard]] const char* cur() const override {
-    auto a = *this;
-    return a.cur_();
-  }
+  ~FileVisitor() override;
+  [[nodiscard]] const char* cur() const override;
   [[nodiscard]] bool same_file(size_t offset) const {
     return start_ + pos_ + offset <= end_;
   }
@@ -144,10 +140,7 @@ class File : public vfile::File<char> {
   virtual FileVisitor visitor() {
     if (size_ == 0) {
       return FileVisitor(nullptr, nullptr,
-                         [](const basic::vfile::Visitor<char>* visitor_ptr) {
-                           lps_assert(kTagName, visitor_ptr);
-                           throw basic::vfile::Eof();
-                         });
+                         [](const basic::vfile::Visitor<char>* visitor_ptr) {});
     }
     lps_assert(kTagName, first_ != nullptr);
 

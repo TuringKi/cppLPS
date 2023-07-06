@@ -27,20 +27,16 @@
 
 namespace lps::basic {
 
-const char* FileVisitor::cur_() {
+FileVisitor::FileVisitor(
+    const char* start, const char* end,
+    const base::check_eof_callback_type& check_eof_callback, uint32_t file_id)
+    : base(start, end, std::move(check_eof_callback), file_id) {
+  eof_ = 0;
+}
+
+FileVisitor::~FileVisitor() {}
+const char* FileVisitor::cur() const {
   if (pos_ > len() || start_ > end_) {
-    if (file_id_ == tu::TU::instance().include_stack_top_file_id()) {
-      auto next_file_info = tu::TU::instance().include_stack_top();
-      auto offset = pos_ - len() - 1;
-      *this = src::Manager::instance().visitor_of_char_file(
-          next_file_info.parent_info_.second);
-      file_id_ = next_file_info.parent_info_.second;
-      pos_ = next_file_info.parent_info_.first + offset;
-      return cur_();
-    }
-    FileVisitor tmp(*this);
-    tmp.pos_ = 0;
-    this->check_eof_callback_(&tmp);
     return &eof_;
   }
   return start_ + pos_;

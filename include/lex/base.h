@@ -86,7 +86,7 @@ class Base {
         ptr_(
             ptr, end,
             [](const basic::vfile::Visitor<char>*) {
-              throw basic::vfile::Eof();
+
             },
             start_file_id),
         type_(m) {}
@@ -206,7 +206,7 @@ class Base {
     if (end.file_id() == first.file_id()) {
       offset = end - first;
     } else {
-      offset = first.size() - first.pos() + end.pos();
+      unreachable(kTag);
     }
 
     lps_assert(kTag,
@@ -1282,7 +1282,6 @@ class Base {
 
   MethodType type_{MethodType::kNone};
   ptr_type ptr_{nullptr, nullptr, [](const basic::vfile::Visitor<char>*) {
-                  throw basic::vfile::Eof();
                 }};
   uint32_t file_id_{0};
   size_t pos_{0};

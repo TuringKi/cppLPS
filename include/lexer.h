@@ -66,7 +66,7 @@ class Lexer {
         return;
       }
     }
-
+  eod:
     if (tok.kind() == token::details::TokenKind::eod) {
       // jump over `eod`
       auto next_info = tok.next_visitor();
@@ -74,14 +74,12 @@ class Lexer {
         auto visitor =
             src::Manager::instance().visitor_of_char_file(next_info.second);
         visitor += next_info.first;
+        details::Basic::jump_include_stack(visitor);
         start_ = visitor.start();
         pos_ = visitor.pos();
         end = visitor.end();
-        pop_include_stack(visitor.file_id());
         file_id_ = visitor.file_id();
-        lps_assert(kTag, file_id_ != 0 && start_);
-        lps_assert(kTag, end);
-        lps_assert(kTag, cur() <= end);
+        lps_assert(kTag, file_id_ != 0 && start_ && end && cur() <= end);
       } else if (src::Manager::instance().has<1>(next_info.second)) {
         file_id_ = next_info.second;
         pos_ = next_info.first;
@@ -96,12 +94,18 @@ class Lexer {
       case details::kBasic: {
         details::Basic m(file_id_, cur(), end);
         m.lex(tok);
+        if (tok.kind() == token::details::TokenKind::eod) {
+          goto eod;
+        }
         inc(m.pos());
         break;
       }
       case details::kPreprocessing: {
         details::pp::Preprocessing m(file_id_, cur(), end);
         m.lex(tok);
+        if (tok.kind() == token::details::TokenKind::eod) {
+          goto eod;
+        }
         inc(m.pos());
         break;
       }
@@ -111,7 +115,6 @@ class Lexer {
         break;
     }
 
-    pop_include_stack(tok.file_id());
     lps_assert(kTag, tok.kind() != token::details::TokenKind::unknown);
     inc(tok.offset());
   }
@@ -124,7 +127,7 @@ class Lexer {
       auto visitor =
           src::Manager::instance().visitor_of_char_file(start_file_id);
       visitor += offset;
-      pop_include_stack(visitor.file_id());
+      details::Basic::jump_include_stack(visitor);
       start_ = visitor.start();
       pos_ = visitor.pos();
       file_id_ = visitor.file_id();
@@ -140,12 +143,6 @@ class Lexer {
   [[nodiscard]] const char* cur() const { return start_ + pos_; }
 
  private:
-  void pop_include_stack(uint32_t file_id) const {
-    if (file_id_ != file_id &&
-        file_id_ == tu::TU::instance().include_stack_top_file_id()) {
-      tu::TU::instance().include_stack_pop();
-    }
-  }
   void inc(size_t n) { pos_ += n; }
 
   const char* start_{nullptr};

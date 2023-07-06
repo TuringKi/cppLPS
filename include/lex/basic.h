@@ -25,6 +25,7 @@
 
 #include "lex/base.h"
 #include "token.h"
+#include "tu.h"
 
 namespace lps::lexer::details {
 
@@ -32,6 +33,33 @@ class Basic : public Base {
   using base = Base;
 
  public:
+  static bool jump_include_stack(ptr_type& ptr) {
+
+    auto jump_include_stack_impl = [](ptr_type& ptr, auto func) -> bool {
+      if (*ptr != 0) {
+        return false;
+      }
+      if (ptr.file_id() == tu::TU::instance().include_stack_top_file_id()) {
+        auto next_file_info = tu::TU::instance().include_stack_top();
+        tu::TU::instance().include_stack_pop();
+        auto offset = ptr.pos() - ptr.size() - 1;
+        ptr = src::Manager::instance().visitor_of_char_file(
+            next_file_info.parent_info_.second);
+        ptr += next_file_info.parent_info_.first + offset;
+
+        do {
+          if (!func(ptr, func)) {
+            break;
+          }
+        } while (true);
+        return true;
+      }
+      return false;
+    };
+
+    return jump_include_stack_impl(ptr, jump_include_stack_impl);
+  }
+
   explicit Basic(uint32_t start_file_id, const char* ptr, const char* end)
       : base(start_file_id, ptr, end, MethodType::kBasic) {}
 
@@ -66,8 +94,13 @@ class Basic : public Base {
     switch (c) {
 
       case 0: {  // null
-        base::advance(ptr);
-        goto next;
+        if (jump_include_stack(ptr)) {
+          tok.kind(token::details::TokenKind::eod);
+          tok.next_visitor(ptr.pos(), ptr.file_id());
+          return;
+        }
+        tok.kind(token::details::TokenKind::eof);
+        return;
       }
       case 26: {  // `^Z`
         break;

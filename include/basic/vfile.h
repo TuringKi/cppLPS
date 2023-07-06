@@ -25,6 +25,7 @@
 #pragma once
 
 #include <functional>
+#include <stack>
 #include <utility>
 #include "basic/mem.h"
 #include "exception.h"
@@ -131,6 +132,15 @@ class Operator {
   }
 };
 
+using next_info_type = std::pair<size_t, uint32_t>;
+
+struct WorkingIncludeInfo {
+  uint32_t file_id_{0};
+  next_info_type parent_info_{0, 0};
+};
+
+using WorkingIncludeStack = std::stack<WorkingIncludeInfo>;
+
 class Eof : public std::exception {
  public:
   explicit Eof(uint32_t next_file_id = 0, size_t offset = 0)
@@ -162,6 +172,7 @@ class Visitor {
         file_id_(file_id) {
     lps_assert(kTagName, start <= end);
   }
+  virtual ~Visitor() = default;
 
   bool operator>=(const VisitedType* other) const { return cur() >= other; }
   bool operator<=(const VisitedType* other) const { return cur() <= other; }
@@ -176,7 +187,6 @@ class Visitor {
 
   [[nodiscard]] bool eof() const { return cur() == &eof_; }
   virtual const VisitedType* cur() const = 0;
-  virtual const VisitedType* cur_() = 0;
   [[nodiscard]] size_t pos() const { return pos_; }
   [[nodiscard]] const VisitedType* end() const { return end_; }
   [[nodiscard]] const VisitedType* start() const { return start_; }
@@ -187,7 +197,7 @@ class Visitor {
   [[nodiscard]] size_t len() const { return end_ - start_; }
   const VisitedType* next(size_t idx = 1) {
     pos_ += idx;
-    return cur_();
+    return cur();
   }
   const VisitedType* start_{nullptr};
   const VisitedType* end_{nullptr};

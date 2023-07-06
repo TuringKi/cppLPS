@@ -304,13 +304,13 @@ void Summarize::summary() {
     }
     return locations;
   };
-
+  size_t row_idx = 0;
   if (!cnt_errors.empty()) {
     std::string locations = add_loc(cnt_errors);
 
     summary.add_row({"Errors", basic::str::from(cnt_errors.size()), locations});
 
-    summary[1][0]
+    summary[++row_idx][0]
         .format()
         .font_color(tabulate::Color::red)
         .font_align(tabulate::FontAlign::center)
@@ -321,7 +321,7 @@ void Summarize::summary() {
     std::string locations = add_loc(cnt_warnings);
     summary.add_row(
         {"Warnings", basic::str::from(cnt_warnings.size()), locations});
-    summary[2][0]
+    summary[++row_idx][0]
         .format()
         .font_color(tabulate::Color::yellow)
         .font_align(tabulate::FontAlign::center)

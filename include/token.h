@@ -149,11 +149,9 @@ struct Token {
 
  public:
   using tokens_type = basic::Vector<4, Token>;
-  using next_info_type = std::pair<size_t, uint32_t>;
+  using next_info_type = basic::vfile::next_info_type;
   void clear() {
-    this->ptr_ = basic::FileVisitor(
-        nullptr, nullptr,
-        [](const basic::vfile::Visitor<char>*) { throw basic::vfile::Eof(); });
+    this->data_ = nullptr;
     this->char_store_ = nullptr;
     this->loc_.clear();
     this->kind_ = details::TokenKind::unknown;
@@ -171,34 +169,36 @@ struct Token {
   void kind(details::TokenKind kind) { kind_ = kind; }
   void location(const Location& loc) { loc_ = loc; }
   [[nodiscard]] Location location() const { return loc_; }
-  void data(const basic::FileVisitor& ptr) {
-    lps_assert("token::Token", !ptr.eof());
-    ptr_ = ptr;
-    if (!ptr_.same_file(offset())) {
+  void data(const basic::FileVisitor& ptr_) {
+    lps_assert("token::Token", !ptr_.eof());
+    auto ptr = ptr_;
+    if (!ptr.same_file(offset())) {
       char_store_.reset(new basic::String<8>);
-      auto tmp_ptr = ptr_;
+      auto tmp_ptr = ptr;
 
       for (size_t i = 0; i < offset(); i++, ++tmp_ptr) {
         char_store_->append(*tmp_ptr);
       }
+    } else {
+      data_ = ptr.cur();
     }
   }
   [[nodiscard]] const char* ptr() const {
-    if (!ptr_) {
+    if (!data_ && !char_store_) {
       return nullptr;
     }
-    if (ptr_.same_file(offset())) {
-      return ptr_.cur();
+    if (data_) {
+      return data_;
     }
     return char_store_->data();
   }
 
   [[nodiscard]] basic::StringRef str() const {
-    if (!ptr_) {
+    if (!data_ && !char_store_) {
       return basic::StringRef();
     }
-    if (ptr_.same_file(offset())) {
-      return basic::StringRef(ptr_.cur(), offset());
+    if (data_) {
+      return basic::StringRef(data_, offset());
     }
     return basic::StringRef(char_store_->data(), offset());
   }
@@ -228,10 +228,7 @@ struct Token {
  private:
   Location loc_;
   details::TokenKind kind_{details::TokenKind::unknown};
-  basic::FileVisitor ptr_{nullptr, nullptr,
-                          [](const basic::vfile::Visitor<char>*) {
-                            throw basic::vfile::Eof();
-                          }};
+  const char* data_{nullptr};
   std::shared_ptr<basic::String<8>> char_store_{nullptr};
 
   uint16_t flags_{0};
@@ -268,15 +265,6 @@ class TokenListsVisitor : public basic::vfile::Visitor<archived_type>,
 
   archived_type operator[](size_t idx) const { return *(*this + idx); }
   [[nodiscard]] const archived_type* cur() const override {
-    if (pos_ > len() || start_ > end_) {
-      TokenListsVisitor tmp(*this);
-      tmp.pos_ = 0;
-      this->check_eof_callback_(&tmp);
-      return &eof_;
-    }
-    return start_ + pos_;
-  }
-  [[nodiscard]] const archived_type* cur_() override {
     if (pos_ > len() || start_ > end_) {
       TokenListsVisitor tmp(*this);
       tmp.pos_ = 0;
