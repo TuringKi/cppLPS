@@ -27,57 +27,116 @@
 #include <cstring>
 #include <limits>
 #include <memory>
+#include "basic/exception.h"
 #include "lex/base.h"
 #include "lex/basic.h"
 #include "lex/pp.h"
 #include "src.h"
+#include "token.h"
 namespace lps::lexer {
 
 class Lexer {
  public:
-  template <meta::Str TagName>
-  void lex(lps::token::Token<TagName>& tok,
+  constexpr static basic::mem::TraceTag::tag_type kTag = "lps::lexer::Lexer";
+  void lex(lps::token::Token& tok,
            details::MethodType method = details::MethodType::kBasic) {
+    const char* end = nullptr;
+    if (src::Manager::instance().has<0>(file_id_)) {
+      end = start_ + src::Manager::instance().size(file_id_) - 1;
+      lps_assert(kTag, start_ <= end);
+    }
+  start:
     tok.clear();
     if (src::Manager::instance().has<1>(file_id_)) {
       // if current file is token_file, we just return the recorded next token.
-      token::TokenListsVisitor visitor = src::Manager::instance().ref(file_id_);
-      visitor += ++pos_;
+      token::TokenListsVisitor visitor =
+          src::Manager::instance().visitor_of_token_file(file_id_);
+      visitor += pos_;
       tok = *visitor;
       return;
     }
-    const char* end = start_ + src::Manager::instance().size(file_id_);
+
+    // try pp first
+    {
+      details::pp::Preprocessing m(file_id_, cur(), end);
+      m.lex(tok);
+      if (tok.kind() != token::details::TokenKind::unknown &&
+          tok.kind() != token::details::TokenKind::eod) {
+        inc(m.pos());
+        return;
+      }
+    }
+  eod:
+    if (tok.kind() == token::details::TokenKind::eod) {
+      // jump over `eod`
+      auto next_info = tok.next_visitor();
+      if (src::Manager::instance().has<0>(file_id_)) {
+        auto visitor =
+            src::Manager::instance().visitor_of_char_file(next_info.second);
+        visitor += next_info.first;
+        details::Basic::jump_include_stack(visitor);
+        start_ = visitor.start();
+        pos_ = visitor.pos();
+        end = visitor.end();
+        file_id_ = visitor.file_id();
+        lps_assert(kTag, file_id_ != 0 && start_ && end && cur() <= end);
+      } else if (src::Manager::instance().has<1>(next_info.second)) {
+        file_id_ = next_info.second;
+        pos_ = next_info.first;
+        lps_assert(kTag, file_id_ != 0);
+      } else {
+        unreachable(kTag);
+      }
+      goto start;
+    }
+
     switch (method) {
       case details::kBasic: {
-        details::Basic<TagName> m(file_id_, cur(), end);
+        details::Basic m(file_id_, cur(), end);
         m.lex(tok);
+        if (tok.kind() == token::details::TokenKind::eod) {
+          goto eod;
+        }
         inc(m.pos());
         break;
       }
       case details::kPreprocessing: {
-        details::pp::Preprocessing<TagName> m(file_id_, cur(), end);
+        details::pp::Preprocessing m(file_id_, cur(), end);
         m.lex(tok);
+        if (tok.kind() == token::details::TokenKind::eod) {
+          goto eod;
+        }
         inc(m.pos());
         break;
       }
       case details::kNone:
       default:
-        unreachable(TagName);
+        unreachable(kTag);
         break;
     }
+
+    lps_assert(kTag, tok.kind() != token::details::TokenKind::unknown);
     inc(tok.offset());
   }
 
   Lexer() = delete;
   explicit Lexer(uint32_t start_file_id, const char* ptr)
       : file_id_(start_file_id), start_(ptr) {}
-  explicit Lexer(uint32_t start_file_id, size_t offset)
-      : file_id_(start_file_id) {
+  explicit Lexer(uint32_t start_file_id, size_t offset) {
     if (src::Manager::instance().has<0>(start_file_id)) {  // char_files
-      start_ = token::TokenLists::Info::start(start_file_id);
-      pos_ = offset;
+      auto visitor =
+          src::Manager::instance().visitor_of_char_file(start_file_id);
+      visitor += offset;
+      details::Basic::jump_include_stack(visitor);
+      start_ = visitor.start();
+      pos_ = visitor.pos();
+      file_id_ = visitor.file_id();
+      lps_assert(kTag, file_id_ != 0 && start_ && pos_ >= 0);
+      lps_assert(kTag, cur() <= visitor.end());
     } else if (src::Manager::instance().has<1>(start_file_id)) {  // token_files
+      file_id_ = start_file_id;
       pos_ = offset;
+      lps_assert(kTag, file_id_ != 0 && pos_ >= 0);
     }
   }
 

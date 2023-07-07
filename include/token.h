@@ -28,13 +28,13 @@
 #include "basic/exception.h"
 #include "basic/file.h"
 #include "basic/map.h"
+#include "basic/mem.h"
 
 namespace lps::src {
 class Manager;
 }
 namespace lps::token {
 
-template <meta::Str TagName = meta::S("location")>
 class Location {
 
  public:
@@ -47,23 +47,8 @@ class Location {
     offset_id_ = 0;
     file_id_ = 0;
   }
-  template <meta::Str OtherTagName>
-  Location& operator=(const Location<OtherTagName>& other) {
-    this->file_id_ = other.file_id();
-    this->offset_id_ = other.offset();
-    return *this;
-  }
-  Location& operator=(const Location& other) {
-    this->file_id_ = other.file_id();
-    this->offset_id_ = other.offset();
-    return *this;
-  }
-  template <meta::Str OtherTagName>
-  explicit Location(const Location<OtherTagName>& other) {
-    this->file_id_ = other.file_id();
-    this->offset_id_ = other.offset();
-  }
-  Location() {}
+
+  explicit Location() = default;
 
  private:
   id_type offset_id_{0};
@@ -94,7 +79,7 @@ static constexpr std::array<std::pair<TokenKind, const char*>,
 
 class IdentInfo {
  public:
-  using IdentStringRef = lps::basic::StringRef<meta::S("ident_str")>;
+  using IdentStringRef = lps::basic::StringRef;
   template <typename String>
   struct IdentHash {
     std::size_t operator()(const String& k) const {
@@ -109,16 +94,11 @@ class IdentInfo {
     static IdentInfo info;
     return info;
   }
-  template <meta::Str TagName>
-  bool kw_has(const basic::StringRef<TagName>& s) const {
-    IdentStringRef a(s.data(), s.size());
-    return kw_map_.contains(a);
-  }
-  bool kw_has(const IdentStringRef& s) const { return kw_map_.contains(s); }
 
-  template <meta::Str TagName>
-  TokenKind kw_at(const basic::StringRef<TagName>& s) const {
-    LPS_CHECK_ERROR(meta::S("indent_at"), kw_has(s), "s = ", s);
+  bool kw_has(const basic::StringRef& s) const { return kw_map_.contains(s); }
+
+  TokenKind kw_at(const basic::StringRef& s) const {
+    LPS_CHECK_ERROR("indent_at", kw_has(s), "s = ", s);
     IdentStringRef a(s.data(), s.size());
     return kw_map_.at(a);
   }
@@ -127,11 +107,13 @@ class IdentInfo {
   IdentInfo() {
     kw_map_ = {
 #define KEYWORD(NAME, FLAGS) {IdentStringRef(#NAME), TokenKind::kw_##NAME},
+#define KEYPP(NAME, FLAGS) {IdentStringRef("#" #NAME), TokenKind::kw_##NAME},
 #define ALIAS(NAME, TOK, FLAGS) {IdentStringRef(NAME), TokenKind::kw_##TOK},
 #define CXX_KEYWORD_OPERATOR(X, Y) {IdentStringRef(#X), TokenKind::kw_##X},
 #include "token/kinds.def"
 #undef CXX_KEYWORD_OPERATOR
 #undef KEYWORD
+#undef KEYPP
 #undef ALIAS
     };
   }
@@ -143,8 +125,7 @@ class IdentInfo {
 };
 
 static constexpr lps::basic::map::Map<TokenKind, const char*,
-                                      static_cast<uint16_t>(TokenKind::kNum),
-                                      meta::S("token_kind_map")>
+                                      static_cast<uint16_t>(TokenKind::kNum)>
     kMap{kLists};
 
 inline std::ostream& operator<<(std::ostream& s, TokenKind kind) {
@@ -160,123 +141,77 @@ enum Flag : uint16_t {
   kNeedClean = 0x04
 };
 
-template <meta::Str TagName>
 struct Token;
 
-using archived_type = Token<meta::S("TokenLists_token")>;
+using archived_type = Token;
 
-template <meta::Str TagName>
-struct Token : virtual public basic::mem::TraceTag<TagName> {
+struct Token {
 
  public:
-  using tokens_type = basic::Vector<4, lps::token::Token<TagName>, TagName>;
-#define SET(A, B)             \
-  (A)->data_ = (B).data();    \
-  (A)->loc_ = (B).location(); \
-  (A)->kind_ = (B).kind();    \
-  (A)->flags_ = (B).flags();
-
-  template <meta::Str TagNameOther>
-  Token& operator=(const Token<TagNameOther>& other) {
-    SET(this, other);
-    return *this;
-  }
-
-  Token& operator=(const Token& other) {
-    SET(this, other);
-    return *this;
-  }
-
-  Token() {}
-  Token(const Token& other) {
-    SET(this, other);
-  }
-
-  template <meta::Str TagNameOther>
-  explicit Token(const Token<TagNameOther>& other) {
-    SET(this, other);
-  }
-#undef SET
+  using tokens_type = basic::Vector<4, Token>;
+  using next_info_type = basic::vfile::next_info_type;
   void clear() {
     this->data_ = nullptr;
+    this->char_store_ = nullptr;
     this->loc_.clear();
     this->kind_ = details::TokenKind::unknown;
     this->flags_ = 0;
   }
-  void set_flag(Flag flg) {
-    flags_ |= flg;
-  }
-  void clear_flag(Flag flg) {
-    flags_ &= ~flg;
-  }
+  void set_flag(Flag flg) { flags_ |= flg; }
+  void clear_flag(Flag flg) { flags_ &= ~flg; }
 
-  void offset(uint32_t offset) {
-    loc_.offset(offset);
-  }
-  void file_id(uint32_t file_id) {
-    loc_.file_id(file_id);
-  }
-  [[nodiscard]] uint16_t flags() const {
-    return flags_;
-  }
-  [[nodiscard]] uint32_t offset() const {
-    return loc_.offset();
-  }
-  [[nodiscard]] uint32_t file_id() const {
-    return loc_.file_id();
-  }
-  [[nodiscard]] details::TokenKind kind() const {
-    return kind_;
-  }
-  void kind(details::TokenKind kind) {
-    kind_ = kind;
-  }
-  void location(const Location<TagName + "_location">& loc) {
-    loc_ = loc;
-  }
-  Location<TagName + "_location"> location() const {
-    return loc_;
-  }
-  void data(const char* ptr) {
-    data_ = const_cast<char*>(ptr);
-  }
-  void data(const basic::FileVisitor& ptr) {
-    lps_assert(TagName, !ptr.eof());
-    data_ = const_cast<char*>(ptr.cur());
+  void offset(uint32_t offset) { loc_.offset(offset); }
+  void file_id(uint32_t file_id) { loc_.file_id(file_id); }
+  [[nodiscard]] uint16_t flags() const { return flags_; }
+  [[nodiscard]] uint32_t offset() const { return loc_.offset(); }
+  [[nodiscard]] uint32_t file_id() const { return loc_.file_id(); }
+  [[nodiscard]] details::TokenKind kind() const { return kind_; }
+  void kind(details::TokenKind kind) { kind_ = kind; }
+  void location(const Location& loc) { loc_ = loc; }
+  [[nodiscard]] Location location() const { return loc_; }
+  void data(const basic::FileVisitor& ptr_) {
+    lps_assert("token::Token", !ptr_.eof());
+    auto ptr = ptr_;
+    if (!ptr.same_file(offset())) {
+      char_store_.reset(new basic::String<8>);
+      auto tmp_ptr = ptr;
+
+      for (size_t i = 0; i < offset(); i++, ++tmp_ptr) {
+        char_store_->append(*tmp_ptr);
+      }
+    } else {
+      data_ = ptr.cur();
+    }
   }
   [[nodiscard]] const char* ptr() const {
-    return static_cast<char*>(data_);
-  }
-  [[nodiscard]] void* data() const {
-    return data_;
-  }
-  template <meta::Str TagNameOther>
-  basic::StringRef<TagNameOther> str() const {
-    if (data_ == nullptr) {
-      return basic::StringRef<TagNameOther>();
+    if (!data_ && !char_store_) {
+      return nullptr;
     }
-    return basic::StringRef<TagNameOther>(static_cast<char*>(data_), offset());
+    if (data_) {
+      return data_;
+    }
+    return char_store_->data();
   }
 
-  [[nodiscard]] const archived_type* next() const {
-    return next_token_;
+  [[nodiscard]] basic::StringRef str() const {
+    if (!data_ && !char_store_) {
+      return basic::StringRef();
+    }
+    if (data_) {
+      return basic::StringRef(data_, offset());
+    }
+    return basic::StringRef(char_store_->data(), offset());
   }
 
-  [[nodiscard]] const archived_type* last() const {
-    return last_token_;
-  }
+  [[nodiscard]] const archived_type* next() const { return next_token_; }
 
-  void next(const archived_type* other) {
-    next_token_ = other;
-  }
+  [[nodiscard]] const archived_type* last() const { return last_token_; }
 
-  void last(const archived_type* other) {
-    last_token_ = other;
-  }
+  void next(const archived_type* other) { next_token_ = other; }
 
-  void next_visitor_offset(size_t offset) {
-    next_visitor_.offset_ = offset;
-  }
+  void last(const archived_type* other) { last_token_ = other; }
+
+  void next_visitor_offset(size_t offset) { next_visitor_.offset_ = offset; }
 
   void next_visitor_file_id(uint32_t file_id) {
     next_visitor_.file_id_ = file_id;
@@ -286,14 +221,15 @@ struct Token : virtual public basic::mem::TraceTag<TagName> {
     next_visitor_ = {offset, file_id};
   }
 
-  [[nodiscard]] std::pair<size_t, uint32_t> next_visitor() const {
+  [[nodiscard]] next_info_type next_visitor() const {
     return {next_visitor_.offset_, next_visitor_.file_id_};
   }
 
  private:
-  Location<TagName + "_location"> loc_;
+  Location loc_;
   details::TokenKind kind_{details::TokenKind::unknown};
-  void* data_{nullptr};
+  const char* data_{nullptr};
+  std::shared_ptr<basic::String<8>> char_store_{nullptr};
 
   uint16_t flags_{0};
   const archived_type* last_token_{nullptr};
@@ -305,15 +241,14 @@ struct Token : virtual public basic::mem::TraceTag<TagName> {
   } next_visitor_{0, 0};
 };
 
-template <meta::Str TagName>
-std::ostream& operator<<(std::ostream& s, const Token<TagName>& tok) {
+inline std::ostream& operator<<(std::ostream& s, const Token& tok) {
 
   s << "kind:" << tok.kind();
   s << ", file_id:" << tok.file_id();
   s << ", offset:" << tok.offset();
   s << ", data:";
   using basic::str::details::operator<<;
-  s << tok.template str<meta::S("operator<<_str")>();
+  s << tok.str();
   return s;
 }
 
@@ -323,17 +258,28 @@ class TokenListsVisitor : public basic::vfile::Visitor<archived_type>,
   using base = basic::vfile::Visitor<archived_type>;
   explicit TokenListsVisitor(
       const archived_type* start, const archived_type* end,
-      base::check_eof_callback_type check_eof_callback = []() {},
+      const base::check_eof_callback_type& check_eof_callback =
+          [](const basic::vfile::Visitor<archived_type>*) {},
       uint32_t file_id = 0)
-      : base(start, end, std::move(check_eof_callback), file_id) {}
+      : base(start, end, check_eof_callback, file_id) {}
+
+  archived_type operator[](size_t idx) const { return *(*this + idx); }
+  [[nodiscard]] const archived_type* cur() const override {
+    if (pos_ > len() || start_ > end_) {
+      TokenListsVisitor tmp(*this);
+      tmp.pos_ = 0;
+      this->check_eof_callback_(&tmp);
+      return &eof_;
+    }
+    return start_ + pos_;
+  }
 };
 
 class TokenContainer : public basic::vfile::File<archived_type> {
 
  public:
   friend class src::Manager;
-  using tokens_type =
-      basic::Vector<4, archived_type, meta::S("token::TokenContainer::tokens")>;
+  using tokens_type = basic::Vector<4, archived_type>;
   using base = basic::vfile::File<archived_type>;
   using type = TokenContainer;
   using ptr_type = std::unique_ptr<type>;
@@ -341,7 +287,13 @@ class TokenContainer : public basic::vfile::File<archived_type> {
   virtual TokenListsVisitor visitor() {
     lps_assert(kTagName, first_ != nullptr);
     lps_assert(kTagName, size_ > 0);
-    return TokenListsVisitor(first_, first_ + size_ - 1);
+    return TokenListsVisitor(
+        first_, first_ + size_ - 1,
+        [this](const basic::vfile::Visitor<archived_type>* visitor_ptr) {
+          lps_assert(kTagName, visitor_ptr);
+          auto next_info = tokens_.back().next_visitor();
+          throw basic::vfile::Eof(next_info.second, next_info.first);
+        });
   }
 
   static ptr_type create(tokens_type&& tokens, uint32_t file_id) {

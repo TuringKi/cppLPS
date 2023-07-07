@@ -4,6 +4,7 @@ add_subdirectory(basic)
 add_executable(test_lexer test_lexer.cc
         ${CMAKE_SOURCE_DIR}/src/diag.cc
         ${CMAKE_SOURCE_DIR}/src/tu.cc
+        ${CMAKE_SOURCE_DIR}/src/basic.cc
     )
 
 add_executable(test_parser test_parser.cc)

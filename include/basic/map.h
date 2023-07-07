@@ -29,7 +29,7 @@
 
 namespace lps::basic::map {
 
-template <typename Key, typename Value, std::size_t Size, meta::Str TagName>
+template <typename Key, typename Value, std::size_t Size>
 struct Map {
   std::array<std::pair<Key, Value>, Size> data_;
 
@@ -40,7 +40,7 @@ struct Map {
     if (itr != end(data_)) {
       return itr->second;
     }
-    LPS_ERROR(TagName, "Not Found: ", key);
+    LPS_ERROR("lps::basic::map", "Not Found: ", key);
     return Value();
   }
 };

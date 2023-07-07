@@ -25,6 +25,7 @@
 
 #include <functional>
 #include <limits>
+#include <utility>
 #include "basic/bitset.h"
 #include "basic/exception.h"
 #include "basic/mem.h"
@@ -54,9 +55,9 @@ static constexpr std::array<std::pair<ParseFunctionKind, const char*>,
 #include "parse_function/kinds.def"
     }};
 
-static constexpr lps::basic::map::Map<
-    ParseFunctionKind, const char*,
-    static_cast<uint16_t>(ParseFunctionKind::kNum), meta::S("token_kind_map")>
+static constexpr lps::basic::map::Map<ParseFunctionKind, const char*,
+                                      static_cast<uint16_t>(
+                                          ParseFunctionKind::kNum)>
     kMap{kLists};
 
 }  // namespace kind
@@ -74,12 +75,8 @@ class Tree {
   }
 
   struct Node {
-    using sub_nodes_type =
-        basic::Vector<4, Node*,
-                      meta::S("parser::details::Tree::Node::sub_nodes_")>;
-    using token_pts_type =
-        basic::Vector<8, token::archived_type*,
-                      meta::S("parser::details::Tree::Node::token_pts_")>;
+    using sub_nodes_type = basic::Vector<4, Node*>;
+    using token_pts_type = basic::Vector<8, token::archived_type*>;
     ParseFunctionKind kind_{ParseFunctionKind::kUnknown};
     sub_nodes_type sub_nodes_;
     token_pts_type token_pts_;
@@ -91,19 +88,16 @@ class Tree {
     nodes_.append(node);
     return &nodes_.back();
   }
-  size_t size() const { return nodes_.size(); }
+  [[nodiscard]] size_t size() const { return nodes_.size(); }
 
  private:
-  basic::Vector<4, Node, meta::S("parser::details::Tree::nodes_")> nodes_;
+  basic::Vector<4, Node> nodes_;
 };
 
-template <meta::Str TagName>
 struct ParseFunctionOutputs {
-  using diag_input_type =
-      basic::Vector<4, diag::DiagInputs<TagName>, TagName + "_DiagInputs">;
+  using diag_input_type = basic::Vector<4, diag::DiagInputs>;
   using token_list_infos_type =
-      basic::Vector<16, const token::TokenLists::ele_type*,
-                    TagName + "_TokenLists::Info">;
+      basic::Vector<16, const token::TokenLists::ele_type*>;
   explicit ParseFunctionOutputs() = default;
 
 #define SET_MOVE(A, B)                             \
@@ -122,41 +116,21 @@ struct ParseFunctionOutputs {
   (A)->node_ = (B).node_;               \
   (A)->token_list_infos_ = (B).token_list_infos_;
 
-  template <meta::Str OtherTagName>
-  explicit ParseFunctionOutputs(
-      const ParseFunctionOutputs<OtherTagName>& other) {
-    SET(this, other);
-  }
-
   ParseFunctionOutputs(const ParseFunctionOutputs& other) {
     SET(this, other);
   }
 
-  template <meta::Str TagNameOther>
-  explicit ParseFunctionOutputs(ParseFunctionOutputs<TagNameOther>&& other) {
+  ParseFunctionOutputs(const ParseFunctionOutputs&& other) {
     SET_MOVE(this, other);
   }
 
-  template <meta::Str TagNameOther>
-  explicit ParseFunctionOutputs(
-      const ParseFunctionOutputs<TagNameOther>&& other) {
-    SET_MOVE(this, other);
-  }
-
-  template <meta::Str TagNameOther>
-  ParseFunctionOutputs& operator=(
-      const ParseFunctionOutputs<TagNameOther>& other) {
+  ParseFunctionOutputs& operator=(const ParseFunctionOutputs& other) {
     SET(this, other);
     return *this;
   }
 
   ParseFunctionOutputs& operator=(ParseFunctionOutputs&& other) {
     SET_MOVE(this, other);
-    return *this;
-  }
-
-  ParseFunctionOutputs& operator=(const ParseFunctionOutputs& other) {
-    SET(this, other);
     return *this;
   }
 
@@ -167,11 +141,11 @@ struct ParseFunctionOutputs {
     return token_list_infos_.size();
   }
 
-  void diag_record(diag::DiagInputs<TagName>&& a) {
+  void diag_record(diag::DiagInputs&& a) {
     diag_inputs_.append(std::move(a));
   }
-  template <meta::Str TagNameOther>
-  void concat(ParseFunctionOutputs<TagNameOther>&& other, bool opt = true) {
+
+  void concat(ParseFunctionOutputs&& other, bool opt = true) {
     if (!opt) {
       for (auto& a : other.diag_inputs_) {
         typename decltype(diag_inputs_)::ele_type b(std::move(a));
@@ -190,29 +164,26 @@ struct ParseFunctionOutputs {
   }
 
   bool work_{false};
-  token::Token<TagName> last_token_;
-  token::Token<TagName> cur_token_;
+  token::Token last_token_;
+  token::Token cur_token_;
   diag_input_type diag_inputs_;
   token_list_infos_type token_list_infos_;
   Tree::Node node_;
 };
 
-template <meta::Str TagName>
-struct ParseFunctionInputs : virtual public basic::mem::TraceTag<TagName> {
+struct ParseFunctionInputs {
 
   explicit ParseFunctionInputs() = default;
-  explicit ParseFunctionInputs(
-      bool opt, size_t calling_depth,
-      const token::Token<TagName>& last_tok = token::Token<TagName>(),
-      const token::Token<TagName>& cur_tok = token::Token<TagName>())
+  explicit ParseFunctionInputs(bool opt, size_t calling_depth,
+                               const token::Token& last_tok = token::Token(),
+                               const token::Token& cur_tok = token::Token())
       : opt_(opt),
         last_token_(last_tok),
         cur_token_(cur_tok),
         calling_depth_(calling_depth) {}
 
   explicit ParseFunctionInputs(bool opt, size_t calling_depth,
-                               token::Token<TagName>&& last_tok,
-                               token::Token<TagName>&& cur_tok)
+                               token::Token&& last_tok, token::Token&& cur_tok)
       : opt_(opt),
         last_token_(std::move(last_tok)),
         cur_token_(std::move(cur_tok)),
@@ -224,19 +195,15 @@ struct ParseFunctionInputs : virtual public basic::mem::TraceTag<TagName> {
   (A)->calling_depth_ = (B).calling_depth_; \
   (A)->cur_token_ = (B).cur_token_;
 
-  template <meta::Str OtherTagName>
-  explicit ParseFunctionInputs(const ParseFunctionInputs<OtherTagName>& other) {
+  ParseFunctionInputs(const ParseFunctionInputs& other) {
     SET(this, other);
   }
 
-  template <meta::Str OtherTagName>
-  explicit ParseFunctionInputs(ParseFunctionInputs<OtherTagName>&& other) {
+  ParseFunctionInputs(ParseFunctionInputs&& other) {
     SET(this, other);
   }
 
-  template <meta::Str OtherTagName>
-  ParseFunctionInputs& operator=(
-      const ParseFunctionInputs<OtherTagName>& other) {
+  ParseFunctionInputs& operator=(const ParseFunctionInputs& other) {
     SET(this, other);
     return *this;
   }
@@ -245,18 +212,18 @@ struct ParseFunctionInputs : virtual public basic::mem::TraceTag<TagName> {
 
   bool opt_{false};
 
-  token::Token<TagName> last_token_;
-  token::Token<TagName> cur_token_;
+  token::Token last_token_;
+  token::Token cur_token_;
   size_t calling_depth_{0};
 };
 
-template <meta::Str TagName, size_t NumElements = 1>
-class ParseFunction : virtual public basic::mem::TraceTag<TagName> {
+template <size_t NumElements = 1>
+class ParseFunction {
  public:
-  using type = ParseFunction<TagName, NumElements>;
-  using output_type = ParseFunctionOutputs<TagName>;
+  using type = ParseFunction<NumElements>;
+  using output_type = ParseFunctionOutputs;
   using custom_func_type = std::function<output_type(type*)>;
-  using bitset_type = basic::Bitset<TagName, NumElements>;
+  using bitset_type = basic::Bitset<NumElements>;
   static constexpr size_t kNumberOfElements = NumElements;
   const ParseFunctionKind kKind = ParseFunctionKind::kExpectedToken;
 
@@ -269,29 +236,21 @@ class ParseFunction : virtual public basic::mem::TraceTag<TagName> {
       : custom_func_(func),
         params_(params...),
         expected_token_kind_(expected_token_kind) {}
-  explicit ParseFunction(const ParseFunctionInputs<TagName>& param,
+  explicit ParseFunction(ParseFunctionInputs param,
                          token::details::TokenKind expected_token_kind,
                          custom_func_type func)
-      : params_(param),
+      : params_(std::move(param)),
         custom_func_(func),
         expected_token_kind_(expected_token_kind) {}
-  explicit ParseFunction(const ParseFunctionInputs<TagName>& param)
-      : params_(param) {}
-  explicit ParseFunction(ParseFunctionInputs<TagName>&& param)
-      : params_(std::move(param)) {}
-
-  template <meta::Str TagNameOther>
-  explicit ParseFunction(const ParseFunctionInputs<TagNameOther>& param)
-      : params_(param) {}
-  template <meta::Str TagNameOther>
-  explicit ParseFunction(ParseFunctionInputs<TagNameOther>&& param)
+  explicit ParseFunction(const ParseFunctionInputs& param) : params_(param) {}
+  explicit ParseFunction(ParseFunctionInputs&& param)
       : params_(std::move(param)) {}
 
   virtual output_type operator()() {
     if (custom_func_) {
       return custom_func_(this);
     }
-    ParseFunctionOutputs<TagName> output;
+    ParseFunctionOutputs output;
     output.last_token_ = this->last_token();
     output.cur_token_ = this->cur_token();
     return output;
@@ -300,44 +259,32 @@ class ParseFunction : virtual public basic::mem::TraceTag<TagName> {
     return expected_token_kind_;
   }
   [[nodiscard]] bool opt() const { return params_.opt_; }
-  [[nodiscard]] token::Token<TagName> last_token() const {
-    return params_.last_token_;
-  }
-  [[nodiscard]] token::Token<TagName> cur_token() const {
-    return params_.cur_token_;
-  }
+  [[nodiscard]] token::Token last_token() const { return params_.last_token_; }
+  [[nodiscard]] token::Token cur_token() const { return params_.cur_token_; }
 
   [[nodiscard]] inline size_t len() const {
     return src::Manager::instance().size(params_.cur_token_.file_id());
   }
 
   [[nodiscard]] inline const char* eof() const {
-    auto content = src::Manager::instance().ref<TagName + "_file_contents">(
-        params_.cur_token_.file_id());
+    auto content =
+        src::Manager::instance().ref_of_char_file(params_.cur_token_.file_id());
     return content.data() + len();
   }
   [[nodiscard]] inline bool valid() const { return valid(params_.cur_token_); }
-  template <meta::Str TagNameOther>
-  [[nodiscard]] inline bool valid(const token::Token<TagNameOther>& tok) const {
+
+  [[nodiscard]] inline bool valid(const token::Token& tok) const {
     return token::TokenLists::instance().next(tok).kind() !=
            token::details::TokenKind::eof;
   }
 
   void opt(bool opt) { params_.opt_ = opt; }
-  void last_token(const token::Token<TagName>& tok) {
-    params_.last_token_ = tok;
-  }
-  template <meta::Str TagNameOther>
-  void last_token(const token::Token<TagNameOther>& tok) {
-    params_.last_token_ = tok;
-  }
-  void cur_token(const token::Token<TagName>& tok) { params_.cur_token_ = tok; }
-  template <meta::Str TagNameOther>
-  void cur_token(const token::Token<TagNameOther>& tok) {
-    params_.cur_token_ = tok;
-  }
+  void last_token(const token::Token& tok) { params_.last_token_ = tok; }
+
+  void cur_token(const token::Token& tok) { params_.cur_token_ = tok; }
+
   [[nodiscard]] size_t calling_depth() const { return params_.calling_depth_; }
-  void calling_depth(size_t depth) const { params_.calling_depth_ = depth; }
+  void calling_depth(size_t depth) { params_.calling_depth_ = depth; }
   [[nodiscard]] bitset_type executed_mask() const { return executed_mask_; }
   void executed_mask(const bitset_type& mask) { executed_mask_ = mask; }
   void reset() { executed_mask_.reset(); }
@@ -348,13 +295,13 @@ class ParseFunction : virtual public basic::mem::TraceTag<TagName> {
                                         diag::DiagKind diag_kind) {
     typename type::custom_func_type z([token_kind, diag_kind](type* func) {
       func->executed_mask_.set();
-      ParseFunctionOutputs<TagName> output;
+      ParseFunctionOutputs output;
       output.last_token_ = func->last_token();
       output.cur_token_ = func->cur_token();
       if (!func->valid()) {
         return output;
       }
-      token::Token<TagName + "_second_token"> next_tok;
+      token::Token next_tok;
       bool flg_use_lexer = true;
       if (token::TokenLists::instance().has(output.cur_token_)) {
         const auto* tok_ptr =
@@ -369,19 +316,20 @@ class ParseFunction : virtual public basic::mem::TraceTag<TagName> {
                            output.cur_token_.next_visitor().first);
         lexer.lex(next_tok);
 
-        lps_assert(TagName,
+        lps_assert("create_single_token_check",
                    next_tok.kind() != token::details::TokenKind::unknown);
 
         token::TokenLists::instance().append(
             next_tok, token::TokenLists::Info::create(output.cur_token_));
       }
 
-      lps_assert(TagName, output.cur_token_.ptr() != next_tok.ptr());
+      lps_assert("create_single_token_check",
+                 output.cur_token_.ptr() != next_tok.ptr());
 
       if (output.cur_token_.kind() != token_kind) {
         if (!func->opt()) {
-          output.diag_record(diag::record<TagName>(output.cur_token_, diag_kind,
-                                                   output.last_token_));
+          output.diag_record(
+              diag::record(output.cur_token_, diag_kind, {output.last_token_}));
         }
         output.work_ = false;
         return output;
@@ -403,7 +351,7 @@ class ParseFunction : virtual public basic::mem::TraceTag<TagName> {
   }
 
  protected:
-  ParseFunctionInputs<TagName> params_;
+  ParseFunctionInputs params_;
   custom_func_type custom_func_{nullptr};
   bitset_type executed_mask_;
 

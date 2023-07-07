@@ -30,10 +30,9 @@
 
 namespace lps::parser::details {
 
-template <meta::Str TagName, typename... ParseFuncs>
-ParseFunctionOutputs<TagName>
-SerialParseFunctions<TagName, ParseFuncs...>::operator()() {
-  lps_assert(TagName, this->ok_to_try());
+template <typename... ParseFuncs>
+ParseFunctionOutputs SerialParseFunctions<ParseFuncs...>::operator()() {
+  lps_assert("SerialParseFunctions", this->ok_to_try());
   this->executed_mask_.set();
   auto output = base::operator()();
   if (!this->valid()) {
@@ -74,8 +73,7 @@ SerialParseFunctions<TagName, ParseFuncs...>::operator()() {
                   return;
                 }
                 auto make_try_again =
-                    [&](basic::Vector<4, diag::DiagInputs<TagName>,
-                                      TagName + "_DiagInputs">&& diag_inputs) {
+                    [&](basic::Vector<4, diag::DiagInputs>&& diag_inputs) {
                       if ((running_sub_func_idx - 1) == 0) {
                         flg_continue = false;
                         return;
@@ -86,7 +84,7 @@ SerialParseFunctions<TagName, ParseFuncs...>::operator()() {
                       func.reset();
                       auto tmp_output(path_stack.top());
                       tmp_output.work_ = false;
-                      lps_assert(TagName, path_stack.size() > 0);
+                      lps_assert("make_try_again", path_stack.size() > 0);
 
                       path_stack.pop();
 
@@ -104,18 +102,13 @@ SerialParseFunctions<TagName, ParseFuncs...>::operator()() {
                   func.cur_token(path_stack.top().cur_token_);
 
                   if (!func.ok_to_try() || (!func.valid() && !func.opt())) {
-                    make_try_again(basic::Vector<4, diag::DiagInputs<TagName>,
-                                                 TagName + "_DiagInputs">());
+                    make_try_again(basic::Vector<4, diag::DiagInputs>());
                     return;
                   }
 
                   auto local_output = func();
                   if (!local_output.work_ && !func.opt()) {
-                    basic::Vector<4, diag::DiagInputs<TagName>,
-                                  TagName + "_DiagInputs">
-                        a;
-                    a = std::move(local_output.diag_inputs_);
-                    make_try_again(std::move(a));
+                    make_try_again(std::move(local_output.diag_inputs_));
                     return;
                   }
 
@@ -142,16 +135,16 @@ SerialParseFunctions<TagName, ParseFuncs...>::operator()() {
         },
         parse_functions_);
   }
-  lps_assert(TagName, path_stack.size() > 0);
+  lps_assert("serial_function_impl", path_stack.size() > 0);
   if (path_stack.top().work_) {
     path_stack.top().node_ = std::move(node);
     diag::infos() << basic::str::from(
-        std::string(this->calling_depth(), '>'), " ", TagName, "_SerialFunc ",
+        std::string(this->calling_depth(), '>'), " ", "_SerialFunc ",
         basic::tui::color::Shell::colorize(basic::str::from(" ok.\n"),
                                            basic::tui::color::Shell::fgreen()));
   } else {
     diag::infos() << basic::str::from(
-        std::string(this->calling_depth(), '>'), " ", TagName, "_SerialFunc ",
+        std::string(this->calling_depth(), '>'), " ", "_SerialFunc ",
         basic::tui::color::Shell::colorize(basic::str::from(" failed\n"),
                                            basic::tui::color::Shell::fred()));
   }

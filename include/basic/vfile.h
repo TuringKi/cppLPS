@@ -25,7 +25,9 @@
 #pragma once
 
 #include <functional>
+#include <stack>
 #include <utility>
+#include "basic/mem.h"
 #include "exception.h"
 
 namespace lps::basic::vfile {
@@ -33,7 +35,7 @@ namespace lps::basic::vfile {
 template <typename T>
 class Operator {
  public:
-  constexpr static meta::Str kTagName = meta::S("vfile::Operator");
+  constexpr static mem::TraceTag::tag_type kTagName = "vfile::Operator";
   T operator++(int) {
     T a(*static_cast<T*>(this));
     operator++();
@@ -74,44 +76,81 @@ class Operator {
 
   size_t operator-(const T& other) const {
     const T* a = static_cast<const T*>(this);
-    lps_assert(kTagName, a->end_ == other.end_);
-    return a->cur() - other.cur();
+    lps_assert(kTagName, a->file_id_ != 0 && other.file_id_ != 0);
+    if (a->file_id_ == other.file_id_)
+      return a->cur() - other.cur();
+    unreachable(kTagName);
+    return 0;
   }
   bool operator>=(const T& other) const {
     const T* a = static_cast<const T*>(this);
-    lps_assert(kTagName, a->end_ == other.end_);
-    return a->cur() >= other.cur();
+    lps_assert(kTagName, a->file_id_ != 0 && other.file_id_ != 0);
+    if (a->file_id_ == other.file_id_)
+      return a->cur() >= other.cur();
+    unreachable(kTagName);
+    return false;
   }
   bool operator<=(const T& other) const {
     const T* a = static_cast<const T*>(this);
-    lps_assert(kTagName, a->end_ == other.end_);
-    return a->cur() <= other.cur();
+    lps_assert(kTagName, a->file_id_ != 0 && other.file_id_ != 0);
+    if (a->file_id_ == other.file_id_)
+      return a->cur() <= other.cur();
+    unreachable(kTagName);
+    return false;
   }
   bool operator<(const T& other) const {
     const T* a = static_cast<const T*>(this);
-    lps_assert(kTagName, a->end_ == other.end_);
-    return a->cur() < other.cur();
+    lps_assert(kTagName, a->file_id_ != 0 && other.file_id_ != 0);
+    if (a->file_id_ == other.file_id_)
+      return a->cur() < other.cur();
+    unreachable(kTagName);
+    return false;
   }
   bool operator>(const T& other) const {
     const T* a = static_cast<const T*>(this);
-    lps_assert(kTagName, a->end_ == other.end_);
-    return a->cur() > other->cur();
+    lps_assert(kTagName, a->file_id_ != 0 && other.file_id_ != 0);
+    if (a->file_id_ == other.file_id_)
+      return a->cur() > other->cur();
+    unreachable(kTagName);
+    return false;
   }
   bool operator!=(const T& other) const {
     const T* a = static_cast<const T*>(this);
-    lps_assert(kTagName, a->end_ == other.end_);
-    return a->cur() != other->cur();
+    lps_assert(kTagName, a->file_id_ != 0 && other.file_id_ != 0);
+    if (a->file_id_ == other.file_id_)
+      return a->cur() != other->cur();
+    unreachable(kTagName);
+    return false;
   }
   bool operator==(const T& other) const {
     const T* a = static_cast<const T*>(this);
-    lps_assert(kTagName, a->end_ == other.end_);
-    return a->cur() == other->cur();
+    lps_assert(kTagName, a->file_id_ != 0 && other.file_id_ != 0);
+    if (a->file_id_ == other.file_id_)
+      return a->cur() == other->cur();
+    unreachable(kTagName);
+    return false;
   }
 };
 
+using next_info_type = std::pair<size_t, uint32_t>;
+
+struct WorkingIncludeInfo {
+  uint32_t file_id_{0};
+  next_info_type parent_info_{0, 0};
+};
+
+using WorkingIncludeStack = std::stack<WorkingIncludeInfo>;
+
 class Eof : public std::exception {
  public:
-  explicit Eof() = default;
+  explicit Eof(uint32_t next_file_id = 0, size_t offset = 0)
+      : next_file_id_(next_file_id), offset_(offset) {}
+  [[nodiscard]] uint32_t next_file_id() const { return next_file_id_; }
+  [[nodiscard]] size_t offset() const { return offset_; }
+
+ private:
+  uint32_t next_file_id_{0};
+  size_t offset_{0};
 };
 
 template <typename VisitedType>
@@ -119,11 +158,13 @@ class Visitor {
  public:
   template <typename T>
   friend class Operator;
-  constexpr static meta::Str kTagName = meta::S("vfile::Visitor");
-  using check_eof_callback_type = std::function<void()>;
+  constexpr static mem::TraceTag::tag_type kTagName = "vfile::Visitor";
+  using check_eof_callback_type =
+      std::function<void(const Visitor<VisitedType>*)>;
   Visitor(
       const VisitedType* start, const VisitedType* end,
-      check_eof_callback_type check_eof_callback = []() {},
+      const check_eof_callback_type& check_eof_callback =
+          [](const Visitor<VisitedType>*) {},
       uint32_t file_id = 0)
       : start_(start),
         end_(end),
@@ -131,34 +172,26 @@ class Visitor {
         file_id_(file_id) {
     lps_assert(kTagName, start <= end);
   }
+  virtual ~Visitor() = default;
 
-  bool operator>=(const VisitedType* other) const { return start_ >= other; }
-  bool operator<=(const VisitedType* other) const { return start_ <= other; }
-  bool operator<(const VisitedType* other) const { return start_ < other; }
-  bool operator>(const VisitedType* other) const { return start_ > other; }
-  bool operator!=(const VisitedType* other) const { return start_ != other; }
-  bool operator==(const VisitedType* other) const { return start_ == other; }
+  bool operator>=(const VisitedType* other) const { return cur() >= other; }
+  bool operator<=(const VisitedType* other) const { return cur() <= other; }
+  bool operator<(const VisitedType* other) const { return cur() < other; }
+  bool operator>(const VisitedType* other) const { return cur() > other; }
+  bool operator!=(const VisitedType* other) const { return cur() != other; }
+  bool operator==(const VisitedType* other) const { return cur() == other; }
 
-  explicit operator bool() { return !eof() && start_; }
+  explicit operator bool() const { return !eof() && start_; }
 
   VisitedType operator*() const { return *cur(); }
 
-  VisitedType operator[](size_t idx) const {
-    if ((pos_ + idx) > len() || start_ > end_) {
-      check_eof_callback_();
-      return eof_;
-    }
-    return *(start_ + pos_ + idx);
-  }
-
   [[nodiscard]] bool eof() const { return cur() == &eof_; }
-  const VisitedType* cur() const {
-    if (pos_ > len() || start_ > end_) {
-      check_eof_callback_();
-      return &eof_;
-    }
-    return start_ + pos_;
-  }
+  virtual const VisitedType* cur() const = 0;
+  [[nodiscard]] size_t pos() const { return pos_; }
+  [[nodiscard]] const VisitedType* end() const { return end_; }
+  [[nodiscard]] const VisitedType* start() const { return start_; }
+  [[nodiscard]] uint32_t file_id() const { return file_id_; }
+  [[nodiscard]] uint32_t size() const { return len(); }
 
  protected:
   [[nodiscard]] size_t len() const { return end_ - start_; }
@@ -177,7 +210,7 @@ class Visitor {
 template <typename StoredType>
 class File {
  public:
-  constexpr static meta::Str kTagName = meta::S("vfile::File");
+  constexpr static mem::TraceTag::tag_type kTagName = "vfile::File";
 
   bool empty() { return size_ == 0; }
   [[nodiscard]] size_t size() const { return size_; }

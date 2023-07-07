@@ -42,9 +42,9 @@ def create_serial_parse_function(serial_idx, key, v, tag_name="TagName"):
     tag_name = f""" {name}::kTag """
 
     content_init = ""
-    content_type = f"using parse_func_type = SerialParseFunctions<{tag_name},"
+    content_type = f"using parse_func_type = SerialParseFunctions<"
     content_func_def = f"""SerialParseFunctions serial_funcs(
-        ParseFunctionInputs<{tag_name}>(false ,calling_depth(), output.last_token_, output.cur_token_),"""
+        ParseFunctionInputs(false ,calling_depth(), output.last_token_, output.cur_token_),"""
     for idx, s_ in enumerate(v):
         assert isinstance(s_, str)
         s, is_opt = remove_opt(s_)
@@ -61,8 +61,8 @@ def create_serial_parse_function(serial_idx, key, v, tag_name="TagName"):
             if s not in sp_tokens:
                 flg = False
                 break
-            content_type += f"""ParseFunction<{tag_name}>,"""
-            content_func_def += f"""ParseFunction<{tag_name}>::
+            content_type += f"""ParseFunction,"""
+            content_func_def += f"""ParseFunction::
 create_single_token_check({opt_str},calling_depth() + 1,
     token::details::TokenKind::{sp_tokens[s]},
     diag::DiagKind::{k.replace("-","_")}_expect_{sp_tokens[s]}),"""
@@ -101,8 +101,8 @@ def create_serial_in_parallel_function(s_v, k, flg, tidx):
     name = camel_case(k)
     tag_name = f""" {name}::kTag """
     assert isinstance(s_v, list)
-    contents_type = f"SerialParseFunctions<{tag_name},"
-    contents = f"""SerialParseFunctions(ParseFunctionInputs<{tag_name}>(
+    contents_type = f"SerialParseFunctions<"
+    contents = f"""SerialParseFunctions(ParseFunctionInputs(
         false,calling_depth() + 1),"""
     for s_ in s_v:
         assert isinstance(s_, str)
@@ -115,8 +115,8 @@ def create_serial_in_parallel_function(s_v, k, flg, tidx):
             if s not in sp_tokens:
                 flg = False
                 break
-            contents_type += f""" ParseFunction<{tag_name}>,"""
-            contents += f"""ParseFunction<{tag_name}>::
+            contents_type += f""" ParseFunction,"""
+            contents += f"""ParseFunction::
 create_single_token_check({opt_str},calling_depth() + 2,
     token::details::TokenKind::{sp_tokens[s]},
     diag::DiagKind::{k.replace("-","_")}_expect_{sp_tokens[s]}),"""
@@ -139,9 +139,9 @@ create_single_token_check({opt_str},calling_depth() + 2,
 def create_parallel_function_normal(v, k, idx, offset, out_name="output"):
     name = camel_case(k)
     tag_name = f""" {name}::kTag """
-    contents_type = f"""ParallelParseFunctions<{tag_name},{len(v)}, """
+    contents_type = f"""ParallelParseFunctions<{len(v)}, """
     content_func_def = f"""
-     parallel_funcs_{idx}(ParseFunctionInputs<{tag_name}>(false,calling_depth(), output.last_token_,output.cur_token_),
+     parallel_funcs_{idx}(ParseFunctionInputs(false,calling_depth(), output.last_token_,output.cur_token_),
      """
     flg = True
     for ii, s_v in enumerate(v):
@@ -284,6 +284,8 @@ if __name__ == "__main__":
     all_content_out_path = args[0]
     all_header_content_out_path = args[1]
     all_header_kind_content_out_path = args[2]
+    if len(args) > 3:
+        all_single_src_out_path = args[3]
 
     kind_def_title = """/*
 * MIT License
@@ -347,21 +349,19 @@ namespace lps::parser::details {
 
 #define ParseFunctionDef(NAME,TYPE, N)                                  \\
                                                                         \\
-  class NAME : public ParseFunction<meta::S(#NAME), N> {                \\
-   public:                                                              \\
-    using base = ParseFunction<meta::S(#NAME), N>;                      \\
+  class NAME : public ParseFunction<N> {                \\
+   public:   \\
+    constexpr static basic::mem::TraceTag::tag_type kTag = #NAME;  \\
+    using base = ParseFunction< N>;                      \\
     constexpr static ParseFunctionKind kind = ParseFunctionKind::TYPE;                     \\
     ~NAME() = default;                                                  \\
     template <typename... Params>                                       \\
     explicit NAME(bool opt, Params... params) : base(opt, params...) {} \\
     template <typename... Params>                                       \\
     explicit NAME(Params... params) : base(params...) {}                \\
-    explicit NAME(const ParseFunctionInputs<base::kTag>& param)         \\
-        : base(param) {}                                                \\
-    template <meta::Str TagNameOther>                                   \\
-    explicit NAME(const ParseFunctionInputs<TagNameOther>& param)       \\
-        : base(param) {}                                                \\
-    ParseFunctionOutputs<base::kTag> operator()() override;             \\
+    explicit NAME(const ParseFunctionInputs& param)         \\
+        : base(param) {}                                               \\
+    ParseFunctionOutputs operator()() override;             \\
   };
 
 ___CONTENT_DEF___
@@ -410,7 +410,7 @@ namespace lps::parser::details {
 
         define_tmplate = """
 ___CONTENT_COM___
-    inline ParseFunctionOutputs<___NAME___::kTag> ___NAME___::operator()()
+    inline ParseFunctionOutputs ___NAME___::operator()()
     {
          auto output = base::operator()();
         if (!this->valid()) {
@@ -477,8 +477,9 @@ ___CONTENT_COM___
         header_content_defs += f"""ParseFunctionDef({camel_case(k)},k{camel_case(k)}, {num_ele});"""
         header_content_types += f"""    PARSE_FUNC(k{camel_case(k)})
         """
-        # src_file_name = f"""../.build/parser/{k.replace("-","_")}.cc"""
-        # write_to_file(src_file_name, the_contents)
+        if len(args) > 3:
+            src_file_name = f"""{all_single_src_out_path}/{k.replace("-","_")}.cc"""
+            write_to_file(src_file_name, the_contents, title)
     header_contents = header_contents_template.replace(
         "___CONTENT_DEF___",  f"{header_content_defs}")
     write_to_file(f"{all_content_out_path}", all_contents, title)

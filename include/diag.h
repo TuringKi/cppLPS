@@ -28,6 +28,7 @@
 #include <unordered_map>
 #include "basic/exception.h"
 #include "basic/map.h"
+#include "basic/mem.h"
 #include "basic/tui.h"
 #include "basic/vec.h"
 #include "token.h"
@@ -45,8 +46,7 @@ static constexpr std::array<std::pair<Level, const char*>,
     }};
 
 static constexpr lps::basic::map::Map<Level, const char*,
-                                      static_cast<uint16_t>(Level::kNum),
-                                      meta::S("diag_level_map")>
+                                      static_cast<uint16_t>(Level::kNum)>
     kLevelMap{kLevelLists};
 
 inline std::ostream& operator<<(std::ostream& s, Level kind) {
@@ -76,15 +76,15 @@ inline lps::basic::tui::color::Shell level2color(Level level) {
     case Level::kError:
       return lps::basic::tui::color::Shell::fred();
     default:
-      unreachable(meta::Str("level2color"));
+      unreachable("level2color");
       break;
   }
 
-  unreachable(meta::Str("level2color"));
+  unreachable("level2color");
   return lps::basic::tui::color::Shell::fdefault();
 }
 
-using DescStringRef = basic::StringRef<meta::S("diag_info_desc")>;
+using DescStringRef = basic::StringRef;
 struct Info {
 
   DescStringRef desc;
@@ -98,8 +98,7 @@ struct TokenInfo {
   static std::pair<size_t, size_t> line_col(uint32_t file_id, const char* ptr);
 };
 
-using VecTokenInfos =
-    basic::Vector<2, details::TokenInfo, meta::Str("context_token_infos")>;
+using VecTokenInfos = basic::Vector<2, details::TokenInfo>;
 
 void table(DiagKind kind, uint32_t file_id, const char* ptr, uint32_t token_len,
            const VecTokenInfos& context_token_infos);
@@ -112,7 +111,7 @@ std::string underline(uint32_t print_offset,
 class Summarize {
  public:
   struct Info {
-    using FilePath = basic::StringRef<meta::Str("Counter_abs_file_path")>;
+    using FilePath = basic::StringRef;
     FilePath file_path;
     DiagKind kind;
     Level level;
@@ -132,63 +131,18 @@ class Summarize {
  private:
   void summary();
   Summarize() = default;
-  basic::Vector<8, Info, meta::Str("Counter_infos")> infos_;
+  basic::Vector<8, Info> infos_;
 };
 
 }  // namespace details
 
-template <meta::Str TagName>
 struct DiagInputs {
 
-#define SET_R(A, B)                                      \
-  (A)->main_token_ = std::move((B).main_token_);         \
-  (A)->context_tokens_ = std::move((B).context_tokens_); \
-  (A)->kind_ = (B).kind_;
+  explicit DiagInputs() = default;
 
-#define SET_L(A, B)                           \
-  (A)->main_token_ = (B).main_token_;         \
-  (A)->context_tokens_ = (B).context_tokens_; \
-  (A)->kind_ = (B).kind_;
-
-  DiagInputs& operator=(DiagInputs&& other) {
-    SET_R(this, other);
-    return *this;
-  }
-
-  DiagInputs(const DiagInputs& other) {
-    SET_L(this, other);
-  }
-
-  template <meta::Str TagNameOther>
-  explicit DiagInputs(const DiagInputs<TagNameOther>& other) {
-    SET_L(this, other);
-  }
-
-  template <meta::Str TagNameOther>
-  explicit DiagInputs(DiagInputs<TagNameOther> const&& other) {
-    SET_R(this, other);
-  }
-
-  template <meta::Str TagNameOther>
-  DiagInputs& operator=(DiagInputs<TagNameOther> const&& other) {
-    SET_R(this, other);
-    return *this;
-  }
-
-  DiagInputs& operator=(const DiagInputs& other) {
-    SET_L(this, other);
-    return *this;
-  }
-
-  DiagInputs() = default;
-
-#undef SET
-  using main_token_type =
-      token::Token<TagName + "DiagContextTokens_main_token">;
-  using context_token_type =
-      token::Token<TagName + "DiagContextTokens_context_token">;
-  using tokens_type = basic::Vector<3, context_token_type,
-                                    TagName + "DiagContextTokens_tokens">;
+  using main_token_type = token::Token;
+  using context_token_type = token::Token;
+  using tokens_type = basic::Vector<3, context_token_type>;
   main_token_type main_token_;
   tokens_type context_tokens_;
   DiagKind kind_{DiagKind::kNone};
@@ -205,7 +159,7 @@ class Information {
   bool has(DiagKind kind) const { return map_.contains(kind); }
 
   const details::Info& at(DiagKind kind) const {
-    LPS_CHECK_ERROR(meta::S("Information.at"), has(kind), "");
+    LPS_CHECK_ERROR("Information.at", has(kind), "");
     return map_.at(kind);
   }
 
@@ -225,35 +179,27 @@ std::ostream& infos();
 std::ostream& warnings();
 std::ostream& errs();
 
-template <meta::Str TagName, meta::Str TagNameMain, meta::Str... TagNames>
-DiagInputs<TagName> record(
-    const lps::token::Token<TagNameMain>& tok, DiagKind kind,
-    const lps::token::Token<TagNames>&... context_tokens) {
-  LPS_CHECK_ERROR(meta::S("diag_record"), Information::instance().has(kind),
+inline DiagInputs record(const lps::token::Token& tok, DiagKind kind,
+                         const std::vector<lps::token::Token>& context_tokens) {
+  LPS_CHECK_ERROR("diag_record", Information::instance().has(kind),
                   "kind:", kind, " not valid");
-  DiagInputs<TagName> diag_inputs;
+  DiagInputs diag_inputs;
   diag_inputs.kind_ = kind;
-  typename DiagInputs<TagName>::main_token_type the_main_tok;
+  typename DiagInputs::main_token_type the_main_tok;
   the_main_tok = tok;
   diag_inputs.main_token_ = the_main_tok;
-  [&diag_inputs](const lps::token::Token<TagNames>&... tokens) {
-    (
-        [&diag_inputs](const auto& tok) {
-          typename decltype(diag_inputs.context_tokens_)::ele_type tok_a;
-          tok_a = tok;
-          diag_inputs.context_tokens_.append(tok_a);
-        }(tokens),
-        ...);
-  }(context_tokens...);
+  for (const auto& t : context_tokens) {
+    diag_inputs.context_tokens_.append(t);
+  }
+
   return diag_inputs;
 }
 
-template <meta::Str TagName>
-void doing(const typename DiagInputs<TagName>::main_token_type& tok,
-           DiagKind kind,
-           const typename DiagInputs<TagName>::tokens_type& context_tokens) {
+inline void doing(const typename DiagInputs::main_token_type& tok,
+                  DiagKind kind,
+                  const typename DiagInputs::tokens_type& context_tokens) {
 
-  LPS_CHECK_ERROR(meta::S("diag_doing"), Information::instance().has(kind),
+  LPS_CHECK_ERROR("diag_doing", Information::instance().has(kind),
                   "kind not valid");
   details::VecTokenInfos token_infos;
 

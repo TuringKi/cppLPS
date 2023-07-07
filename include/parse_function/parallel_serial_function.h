@@ -30,31 +30,31 @@
 
 namespace lps::parser::details {
 
-template <meta::Str TagName, size_t NumElements, typename... ParseFuncs>
-class ParallelParseFunctions : public ParseFunction<TagName, NumElements> {
+template <size_t NumElements, typename... ParseFuncs>
+class ParallelParseFunctions : public ParseFunction<NumElements> {
 
  public:
-  using base = ParseFunction<TagName, NumElements>;
+  using base = ParseFunction<NumElements>;
   ParallelParseFunctions(const ParallelParseFunctions& other) = default;
-  explicit ParallelParseFunctions(const ParseFunctionInputs<TagName>& param,
+  explicit ParallelParseFunctions(const ParseFunctionInputs& param,
                                   ParseFuncs&&... funcs)
       : base(param), parse_functions_(funcs...) {}
-  ParseFunctionOutputs<TagName> operator()() override;
+  ParseFunctionOutputs operator()() override;
 
  protected:
   std::tuple<ParseFuncs...> parse_functions_;
 };
 
-template <meta::Str TagName, typename... ParseFuncs>
-class SerialParseFunctions : public ParseFunction<TagName, 1> {
+template <typename... ParseFuncs>
+class SerialParseFunctions : public ParseFunction<1> {
 
  public:
-  using base = ParseFunction<TagName, 1>;
+  using base = ParseFunction<1>;
   SerialParseFunctions(const SerialParseFunctions& other) = default;
-  explicit SerialParseFunctions(const ParseFunctionInputs<TagName>& param,
+  explicit SerialParseFunctions(const ParseFunctionInputs& param,
                                 ParseFuncs&&... funcs)
       : base(param), parse_functions_(funcs...) {}
-  ParseFunctionOutputs<TagName> operator()() override;
+  ParseFunctionOutputs operator()() override;
 
  protected:
   std::tuple<ParseFuncs...> parse_functions_;

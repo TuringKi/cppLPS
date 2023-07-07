@@ -29,10 +29,10 @@
 
 namespace lps::parser::details {
 
-template <meta::Str TagName, size_t NumElements, typename... ParseFuncs>
-ParseFunctionOutputs<TagName>
-ParallelParseFunctions<TagName, NumElements, ParseFuncs...>::operator()() {
-  lps_assert(TagName, this->ok_to_try());
+template <size_t NumElements, typename... ParseFuncs>
+ParseFunctionOutputs
+ParallelParseFunctions<NumElements, ParseFuncs...>::operator()() {
+  lps_assert("ParallelParseFunctions", this->ok_to_try());
   auto output = base::operator()();
   if (!this->valid()) {
     this->executed_mask_.set();
@@ -41,7 +41,7 @@ ParallelParseFunctions<TagName, NumElements, ParseFuncs...>::operator()() {
 
   bool flg_continue = true;
   uint32_t running_sub_func_idx = 0;
-  ParseFunctionOutputs<TagName> max_len_match_output;
+  ParseFunctionOutputs max_len_match_output;
   max_len_match_output.last_token_ = this->last_token();
   max_len_match_output.cur_token_ = this->cur_token();
   uint32_t max_len_match_idx = -1;
@@ -82,14 +82,14 @@ ParallelParseFunctions<TagName, NumElements, ParseFuncs...>::operator()() {
     this->executed_mask_.set(max_len_match_idx);
     output.node_ = std::move(max_len_match_output.node_);
     diag::infos() << basic::str::from(
-        std::string(this->calling_depth(), '>'), " ", TagName, "_ParallelFunc ",
+        std::string(this->calling_depth(), '>'), " ", "ParallelFunc ",
         basic::tui::color::Shell::colorize(
             basic::str::from(" ok, matched idx = ", max_len_match_idx, ".\n"),
             basic::tui::color::Shell::fgreen()));
   } else {
     this->executed_mask_.set();
     diag::infos() << basic::str::from(
-        std::string(this->calling_depth(), '>'), " ", TagName, "_ParallelFunc ",
+        std::string(this->calling_depth(), '>'), " ", "ParallelFunc ",
         basic::tui::color::Shell::colorize(basic::str::from(" failed\n"),
                                            basic::tui::color::Shell::fred()));
   }

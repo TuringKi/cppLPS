@@ -22,6 +22,9 @@
 #ifndef KEYWORD
 #define KEYWORD(X, Y) TOK(kw_##X)
 #endif
+#ifndef KEYPP
+#define KEYPP(X, Y) KEYWORD(X, Y)
+#endif
 #ifndef CXX11_KEYWORD
 #define CXX11_KEYWORD(X, Y) KEYWORD(X, KEYCXX11 | (Y))
 #endif
@@ -387,17 +390,17 @@ KEYWORD(virtual, KEYCXX)
 KEYWORD(wchar_t, WCHARSUPPORT)
 KEYWORD(final, KEYCXX)
 KEYWORD(override, KEYCXX)
-KEYWORD(line, KEYPP)
-KEYWORD(include, KEYPP)
-KEYWORD(define, KEYPP)
-KEYWORD(error, KEYPP)
-KEYWORD(ifdef, KEYPP)
-KEYWORD(undef, KEYPP)
-KEYWORD(ifndef, KEYPP)
-KEYWORD(endif, KEYPP)
-KEYWORD(defined, KEYPP)
-KEYWORD(pragma, KEYPP)
-KEYWORD(elif, KEYPP)
+KEYPP(line, KEYPP)
+KEYPP(include, KEYPP)
+KEYPP(define, KEYPP)
+KEYPP(error, KEYPP)
+KEYPP(ifdef, KEYPP)
+KEYPP(undef, KEYPP)
+KEYPP(ifndef, KEYPP)
+KEYPP(endif, KEYPP)
+KEYPP(defined, KEYPP)
+KEYPP(pragma, KEYPP)
+KEYPP(elif, KEYPP)
 KEYWORD(__has_include, KEYPP)
 KEYWORD(__has_cpp_attribute, KEYPP)
 KEYWORD(__va_opt__, KEYPP)
@@ -993,6 +996,7 @@ ANNOTATION(header_unit)
 #undef TYPE_TRAIT
 #undef CXX20_KEYWORD
 #undef CXX11_KEYWORD
+#undef KEYPP
 #undef KEYWORD
 #undef PUNCTUATOR
 #undef TOK

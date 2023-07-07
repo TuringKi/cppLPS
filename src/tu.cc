@@ -23,6 +23,7 @@
 
 #include "tu.h"
 #include "basic/exception.h"
+#include "basic/mem.h"
 #include "src.h"
 #include "token.h"
 
@@ -31,12 +32,13 @@ namespace lps::tu {
 uint32_t TU::record_expanded_tokens_as_virtual_file(
     const char* cur_tok_data_ptr, uint32_t cur_tok_file_id,
     token::TokenContainer::tokens_type&& tokens) {
-  constexpr meta::Str kTag = meta::S("record_expanded_tokens_as_virtual_file");
+  constexpr basic::mem::TraceTag::tag_type kTag =
+      "record_expanded_tokens_as_virtual_file";
 
   const char* cur_tok_file_data_ptr =
       token::TokenLists::Info::start(cur_tok_file_id);
   lps_assert(kTag, cur_tok_data_ptr != nullptr);
-  size_t absolute_offset = cur_tok_file_data_ptr - cur_tok_data_ptr +
+  size_t absolute_offset = cur_tok_data_ptr - cur_tok_file_data_ptr +
                            tokens.back().next_visitor().first;
 
   tokens.back().next_visitor(absolute_offset, cur_tok_file_id);
@@ -46,6 +48,16 @@ uint32_t TU::record_expanded_tokens_as_virtual_file(
 
 token::TokenListsVisitor TU::get_visitor_of_token_file(uint32_t file_id) {
   lps_assert(kTag, src::Manager::instance().template has<1>(file_id));
-  return src::Manager::instance().ref(file_id);
+  return src::Manager::instance().visitor_of_token_file(file_id);
 }
+
+uint32_t TU::record_include_as_char_file(const char* path) {
+  return src::Manager::instance().append(path);
+}
+
+basic::FileVisitor TU::get_visitor_of_char_file(uint32_t file_id) {
+  lps_assert(kTag, src::Manager::instance().template has<0>(file_id));
+  return src::Manager::instance().visitor_of_char_file(file_id);
+}
+
 }  // namespace lps::tu

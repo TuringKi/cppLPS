@@ -23,7 +23,11 @@
 
 #pragma once
 
+#include <filesystem>
+#include <stack>
+#include <unordered_map>
 #include "basic/exception.h"
+#include "basic/mem.h"
 #include "basic/vfile.h"
 #include "diag.h"
 #include "lex/pp_ast.h"
@@ -32,40 +36,50 @@
 namespace lps::tu {
 
 // The `compiler`'s target: `TranslationUnit`
-class TU : virtual public basic::mem::TraceTag<meta::S("TU")> {
+class TU {
  public:
-  using trace_tag_type = basic::mem::TraceTag<meta::S("TU")>;
-  constexpr static meta::Str kIdentStringTagName = meta::S("TU::ident_str");
-  using IdentStringRef = lps::basic::StringRef<kIdentStringTagName>;
-  using defined_token_type = token::Token<meta::S("TU::defined_token")>;
-  constexpr static meta::Str kMacroInfoTagName = meta::S("TU::MacroInfo");
-  using pp_ast_node_type = lexer::details::pp::ast::Node<kMacroInfoTagName>;
-  template <meta::Str TagName>
+  constexpr static basic::mem::TraceTag::tag_type kTag = "TU";
+  using IdentStringRef = lps::basic::StringRef;
+  using defined_token_type = token::Token;
+  constexpr static basic::mem::TraceTag::tag_type kMacroInfoTagName =
+      "TU::MacroInfo";
+  using pp_ast_node_type = lexer::details::pp::ast::Node;
+
   struct MacroInfo {
     pp_ast_node_type::ptr_type node_;
   };
-  using macro_info_type = MacroInfo<kMacroInfoTagName>;
+  struct IncludeInfo {
+    pp_ast_node_type::ptr_type node_;
+    uint32_t recorded_file_id_;
+  };
+
+  struct WorkingIncludeStack {
+    uint32_t file_id_{0};
+    token::Token::next_info_type parent_info_{0, 0};
+  };
+  using macro_info_type = MacroInfo;
+  using include_info_type = IncludeInfo;
   using defined_tokens_type =
       std::unordered_map<IdentStringRef, macro_info_type,
                          token::details::IdentInfo::IdentHash<IdentStringRef>>;
-
+  using included_tokens_type = std::unordered_map<size_t, include_info_type>;
+  using include_dirs_type = std::unordered_map<size_t, std::filesystem::path>;
+  using working_include_stack_type = std::stack<WorkingIncludeStack>;
   static TU& instance() {
     static TU tu;
     return tu;
   }
-  template <meta::Str TagName>
-  bool defined(const token::Token<TagName>& tok) {
+
+  bool defined(const token::Token& tok) {
     check_define(tok);
     return already_defined(tok);
   }
 
-  template <meta::Str TagName>
-  void define(
-      const token::Token<TagName>& tok,
-      typename lps::token::Token<TagName>::tokens_type&& parameter_tokens =
-          typename lps::token::Token<TagName>::tokens_type{},
-      typename lps::token::Token<TagName>::tokens_type&& expand_tokens =
-          typename lps::token::Token<TagName>::tokens_type{}) {
+  void define(const token::Token& tok,
+              typename lps::token::Token::tokens_type&& parameter_tokens =
+                  typename lps::token::Token::tokens_type{},
+              typename lps::token::Token::tokens_type&& expand_tokens =
+                  typename lps::token::Token::tokens_type{}) {
     check_define(tok);
     if (already_defined(tok)) {
       diag(tok, diag::DiagKind::redefine_ident_in_preprocessing);
@@ -75,28 +89,70 @@ class TU : virtual public basic::mem::TraceTag<meta::S("TU")> {
     pp_ast_node_type::ptr_type node = nullptr;
     if (!parameter_tokens.empty() && !expand_tokens.empty()) {
       auto tmp_tok = tok;
-      node = Factory::create<DefineWithParameters<kMacroInfoTagName>>(
-          std::move(tmp_tok), std::move(parameter_tokens),
-          std::move(expand_tokens));
+      node = Factory::create<DefineWithParameters>(std::move(tmp_tok),
+                                                   std::move(parameter_tokens),
+                                                   std::move(expand_tokens));
     } else {
       auto tmp_tok = tok;
-      node = Factory::create<Define<kMacroInfoTagName>>(
-          std::move(tmp_tok), std::move(expand_tokens));
+      node =
+          Factory::create<Define>(std::move(tmp_tok), std::move(expand_tokens));
     }
 
-    lps_assert(TagName, "node can not be nullptr");
+    lps_assert(kTag, "node can not be nullptr");
 
     define_tokens_[str(tok)] = {std::move(node)};
   }
 
-  template <meta::Str TagName>
-  bool already_defined(const token::Token<TagName>& tok) {
+  typename token::Token::next_info_type include(const token::Token& tok) {
+    lps_assert(kTag, tok.kind() == token::details::TokenKind::header_name);
+    std::string string_path(tok.str().data() + 1, tok.offset() - 2);
+    auto path = std::filesystem::absolute(string_path);
+    auto hash_val = hash_of_path(tok.str().data());
+    if (included_.contains(hash_val)) {
+      auto visitor =
+          get_visitor_of_char_file(included_[hash_val].node_->name().file_id());
+      working_include_stack_.push(
+          {included_[hash_val].recorded_file_id_, tok.next_visitor()});
+      return {visitor.pos(), included_[hash_val].recorded_file_id_};
+    }
+    for (const auto& p : include_dirs_) {
+      auto search_path = p.second;
+      auto the_input_path = std::filesystem::path(string_path);
+      if (the_input_path.is_absolute()) {
+        search_path = the_input_path;
+      } else {
+        search_path /= the_input_path;
+      }
+      if (std::filesystem::exists(search_path)) {
+        path = search_path;
+        break;
+      }
+    }
+    if (!std::filesystem::exists(path)) {
+      diag(tok, diag::DiagKind::included_path_no_exists);
+      throw basic::vfile::Eof(0, 0);
+      return {0, 0};
+    }
+
+    using namespace lexer::details::pp::ast;
+    auto tmp_tok = tok;
+    auto recorded_file_id = record_include_as_char_file(path.c_str());
+    if (recorded_file_id == 0) {
+      return {0, 0};
+    }
+    included_[hash_val] = {Factory::create<Include>(std::move(tmp_tok)),
+                           recorded_file_id};
+    working_include_stack_.push(
+        {included_[hash_val].recorded_file_id_, tok.next_visitor()});
+    return {0, included_[hash_val].recorded_file_id_};
+  }
+
+  bool already_defined(const token::Token& tok) {
     check_define(tok);
     return define_tokens_.contains(str(tok));
   }
 
-  template <meta::Str TagName>
-  void undef(const token::Token<TagName>& tok) {
+  void undef(const token::Token& tok) {
     check_define(tok);
     if (!already_defined(tok)) {
       diag(tok, diag::DiagKind::undef_on_no_defined_ident);
@@ -104,13 +160,13 @@ class TU : virtual public basic::mem::TraceTag<meta::S("TU")> {
       define_tokens_.erase(str(tok));
     }
   }
-  template <meta::Str TagName>
-  token::Token<TagName> expand(
-      const token::Token<TagName>& tok,
-      const typename lps::token::Token<TagName>::tokens_type& parameter_tokens =
-          typename lps::token::Token<TagName>::tokens_type{}) {
+
+  token::Token expand(
+      const token::Token& tok,
+      const typename lps::token::Token::tokens_type& parameter_tokens =
+          typename lps::token::Token::tokens_type{}) {
     check_define(tok);
-    lps_assert(TagName, already_defined(tok));
+    lps_assert(kTag, already_defined(tok));
     const auto& node = define_tokens_[str(tok)].node_;
     const auto& expanded_tokens = node->expand();
     using expanded_tokens_type = decltype(expanded_tokens);
@@ -144,7 +200,7 @@ class TU : virtual public basic::mem::TraceTag<meta::S("TU")> {
       };
       expand_impl(tokens, out_tokens, expand_impl);
     }(expanded_tokens, full_expanded_tokens);
-    token::Token<TagName> returned_tok;
+    token::Token returned_tok;
     if (!full_expanded_tokens.empty()) {
 
       full_expanded_tokens.back().next_visitor(tok.offset(), tok.file_id());
@@ -167,32 +223,76 @@ class TU : virtual public basic::mem::TraceTag<meta::S("TU")> {
     return returned_tok;
   }
 
+  void include_dir(const IdentStringRef& path) {
+    auto hash_val = hash_of_path(path.data());
+    if (!include_dirs_.contains(hash_val)) {
+      auto abs_path = std::filesystem::absolute(path.data());
+      include_dirs_[hash_val] = abs_path;
+    }
+  }
+  uint32_t include_stack_top_file_id() { return include_stack_top().file_id_; }
+  WorkingIncludeStack include_stack_top() {
+    if (working_include_stack_.empty()) {
+      return {0, {0, 0}};
+    }
+    auto top = working_include_stack_.top();
+    return top;
+  }
+
+  WorkingIncludeStack include_stack_pop() {
+    auto top = include_stack_top();
+    if (!working_include_stack_.empty()) {
+      working_include_stack_.pop();
+    }
+    return top;
+  }
+
  private:
+  TU() { builtin(); }
+
+  static size_t hash_of_path(const char* data) {
+    lps_assert(kTag, data != nullptr);
+    auto path = std::filesystem::absolute(data);
+    std::string path_str = path.string();
+    return std::hash<std::string>()(path_str);
+  }
+  static uint32_t record_include_as_char_file(const char* path);
   static uint32_t record_expanded_tokens_as_virtual_file(
       const char* cur_tok_data_ptr, uint32_t cur_tok_file_id,
       token::TokenContainer::tokens_type&& tokens);
   static token::TokenListsVisitor get_visitor_of_token_file(uint32_t file_id);
+  static basic::FileVisitor get_visitor_of_char_file(uint32_t file_id);
 
-  template <meta::Str TagName>
-  IdentStringRef str(const token::Token<TagName>& tok) {
-    return tok.template str<meta::S("TU::ident_str")>();
+  static IdentStringRef str(const token::Token& tok) { return tok.str(); }
+
+  static void check_define(const token::Token& tok) {
+    lps_assert(kTag, tok.kind() == token::details::TokenKind::identifier);
+    lps_assert(kTag, tok.ptr() != nullptr && tok.offset() > 0);
   }
-  template <meta::Str TagName>
-  void check_define(const token::Token<TagName>& tok) {
-    constexpr auto kAssertTag = trace_tag_type::kTag + "_" + TagName;
-    lps_assert(kAssertTag, tok.kind() == token::details::TokenKind::identifier);
-    lps_assert(kAssertTag, tok.ptr() != nullptr && tok.offset() > 0);
-  }
-  template <meta::Str TagName>
-  inline void diag(const token::Token<TagName>& tok, diag::DiagKind kind) {
-    diag::DiagInputs<TagName> diag_input;
+
+  static inline void diag(const token::Token& tok, diag::DiagKind kind) {
+    diag::DiagInputs diag_input;
     diag_input.kind_ = kind;
     diag_input.main_token_ = tok;
-    diag::doing<TagName>(diag_input.main_token_, diag_input.kind_,
-                         diag_input.context_tokens_);
+    diag::doing(diag_input.main_token_, diag_input.kind_,
+                diag_input.context_tokens_);
   }
 
+  void builtin_include_dirs() { current_include_dir(); }
+
+  void current_include_dir() {
+    auto current_path = std::filesystem::current_path();
+    auto current_path_string = current_path.string();
+    include_dir(IdentStringRef(current_path_string.c_str(),
+                               current_path_string.size()));
+  }
+
+  void builtin() { builtin_include_dirs(); }
+
   defined_tokens_type define_tokens_;
-};
+  included_tokens_type included_;
+  include_dirs_type include_dirs_;
+  working_include_stack_type working_include_stack_;
+};  // namespace lps::tu
 
 }  // namespace lps::tu

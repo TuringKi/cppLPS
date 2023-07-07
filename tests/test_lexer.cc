@@ -21,25 +21,34 @@
 * SOFTWARE.
 */
 
+#include <cstring>
 #include <iostream>
 #include "basic/exception.h"
 #include "lexer.h"
 #include "src.h"
 #include "token.h"
+#include "tu.h"
 int main(int argc, char** argv) {
 
-  lps_assert(meta::S("test_lexer"), argc == 2);
+  lps_assert("test_lexer", argc >= 2);
 
   const char* file_path = argv[1];
+  if (argc >= 3) {
+    for (int i = 2; i < argc; i++) {
+      const char* include_path = argv[i];
+      auto len = std::strlen(include_path);
+      lps::tu::TU::instance().include_dir(
+          lps::tu::TU::IdentStringRef(include_path, len));
+    }
+  }
 
   auto file_id = lps::src::Manager::instance().append(file_path);
-  lps_assert(meta::S("test_lexer"), file_id > 0);
+  lps_assert("test_lexer", file_id > 0);
 
-  auto contents =
-      lps::src::Manager::instance().ref<meta::S("file_contents")>(file_id);
-  lps_assert(meta::S("test_lexer"), contents.capacity() > 0);
+  auto contents = lps::src::Manager::instance().ref_of_char_file(file_id);
+  lps_assert("test_lexer", contents.capacity() > 0);
 
-  lps::token::Token<meta::S("parse_start_token")> tok;
+  lps::token::Token tok;
   while (tok.kind() != lps::token::details::TokenKind::eof) {
     if (tok.kind() == lps::token::details::TokenKind::unknown) {
       lps::lexer::Lexer lexer(file_id, contents.data());

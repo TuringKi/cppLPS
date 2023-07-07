@@ -20,35 +20,25 @@
 * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 * SOFTWARE.
 */
-#pragma once
 
-#include "basic/mem.h"
-#include "parser.h"
-#include "token.h"
+#include "basic/file.h"
+#include "src.h"
+#include "tu.h"
 
-namespace lps::sema {
+namespace lps::basic {
 
-namespace details {
+FileVisitor::FileVisitor(
+    const char* start, const char* end,
+    const base::check_eof_callback_type& check_eof_callback, uint32_t file_id)
+    : base(start, end, std::move(check_eof_callback), file_id) {
+  eof_ = 0;
+}
 
-class Unit {
- public:
-  virtual void build() = 0;
-
- protected:
-  const parser::details::Tree::Node* gram_node_{nullptr};
-};
-
-// A program consists of one or more translation units linked together.
-// A `translation unit` consists of a sequence of declarations.
-// A name is said to have linkage when it can denote the same object,
-// reference, function, type, template, namespace or value as a name
-// introduced by a declaration in another scope:
-
-class TranslationUnit : public Unit {
-
- public:
-  void build() override;
-};
-
-}  // namespace details
-}  // namespace lps::sema
+FileVisitor::~FileVisitor() {}
+const char* FileVisitor::cur() const {
+  if (pos_ > len() || start_ > end_) {
+    return &eof_;
+  }
+  return start_ + pos_;
+}
+}  // namespace lps::basic

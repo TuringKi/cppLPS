@@ -25,14 +25,41 @@
 
 #include "lex/base.h"
 #include "token.h"
+#include "tu.h"
 
 namespace lps::lexer::details {
 
-template <meta::Str TagName>
-class Basic : public Base<TagName> {
-  using base = Base<TagName>;
+class Basic : public Base {
+  using base = Base;
 
  public:
+  static bool jump_include_stack(ptr_type& ptr) {
+
+    auto jump_include_stack_impl = [](ptr_type& ptr, auto func) -> bool {
+      if (*ptr != 0) {
+        return false;
+      }
+      if (ptr.file_id() == tu::TU::instance().include_stack_top_file_id()) {
+        auto next_file_info = tu::TU::instance().include_stack_top();
+        tu::TU::instance().include_stack_pop();
+        auto offset = ptr.pos() - ptr.size() - 1;
+        ptr = src::Manager::instance().visitor_of_char_file(
+            next_file_info.parent_info_.second);
+        ptr += next_file_info.parent_info_.first + offset;
+
+        do {
+          if (!func(ptr, func)) {
+            break;
+          }
+        } while (true);
+        return true;
+      }
+      return false;
+    };
+
+    return jump_include_stack_impl(ptr, jump_include_stack_impl);
+  }
+
   explicit Basic(uint32_t start_file_id, const char* ptr, const char* end)
       : base(start_file_id, ptr, end, MethodType::kBasic) {}
 
@@ -42,7 +69,7 @@ class Basic : public Base<TagName> {
   // *next*: temp state.
   // *skip_comments*: skip comments, these characters are useless for parser.
   // *skip_horz_ws*: skip line-changing characters, like `'\n'`.
-  inline void lex_impl(lps::token::Token<TagName>& tok) override {
+  inline void lex_impl(lps::token::Token& tok) override {
     using namespace basic::str::ascii;
     typename base::ptr_type ptr = this->cur();
   start:  // state: start
@@ -51,10 +78,10 @@ class Basic : public Base<TagName> {
         this->inc(1);
         ++ptr;
       } while (is::HorzWs(*ptr));
-      tok.set_flag(token::Flag::kLeadingSpace);
     }
     uint32_t sz_tmp;
     uint32_t sz_tmp2;
+    auto first_ptr = ptr;
     auto c_sz = base::advance(ptr);  // read `char` by skipping `'\'`
     char c = std::get<0>(c_sz);
     lps::token::details::TokenKind token_kind =
@@ -67,8 +94,13 @@ class Basic : public Base<TagName> {
     switch (c) {
 
       case 0: {  // null
-        token_kind = lps::token::details::TokenKind::eof;
-        break;
+        if (jump_include_stack(ptr)) {
+          tok.kind(token::details::TokenKind::eod);
+          tok.next_visitor(ptr.pos(), ptr.file_id());
+          return;
+        }
+        tok.kind(token::details::TokenKind::eof);
+        return;
       }
       case 26: {  // `^Z`
         break;
@@ -112,11 +144,11 @@ class Basic : public Base<TagName> {
       case '8':
       case '9': {
         typename base::ptr_type tmp_ptr = ptr;
-        if (this->lex_floating_point_literal(c, tmp_ptr, tok)) {
+        if (this->lex_floating_point_literal(first_ptr, tmp_ptr, tok)) {
           return;
         }
         tmp_ptr = ptr;
-        if (this->lex_integer_literal(c, tmp_ptr, tok)) {
+        if (this->lex_integer_literal(first_ptr, tmp_ptr, tok)) {
           return;
         }
         break;
@@ -131,11 +163,11 @@ class Basic : public Base<TagName> {
       case 'U':
       case 'L': {
         typename base::ptr_type tmp_ptr = ptr;
-        if (this->lex_character_literal(c, tmp_ptr, tok)) {
+        if (this->lex_character_literal(first_ptr, tmp_ptr, tok)) {
           return;
         }
         tmp_ptr = ptr;
-        if (this->lex_string_literal(c, tmp_ptr, tok)) {
+        if (this->lex_string_literal(first_ptr, tmp_ptr, tok)) {
           return;
         }
       }
@@ -189,7 +221,7 @@ class Basic : public Base<TagName> {
       case 'y':
       case 'z':
       case '_':
-        if (this->lex_identifier(ptr, tok)) {
+        if (this->lex_identifier(first_ptr, ptr, tok)) {
           // a valid identifier, we must check if it was defined by `TU`.
           if (tok.kind() != token::details::TokenKind::identifier) {
             return;
@@ -197,6 +229,7 @@ class Basic : public Base<TagName> {
           if (tu::TU::instance().defined(tok)) {
             auto new_tok = tu::TU::instance().expand(tok);
             if (new_tok.kind() != token::details::TokenKind::unknown) {
+              tok = new_tok;
               return;
             }
             //if the defined macro is empty, we skip this token and lex next one.
@@ -211,12 +244,12 @@ class Basic : public Base<TagName> {
         break;
 
       case '\'':
-        if (this->lex_character_literal(c, ptr, tok)) {
+        if (this->lex_character_literal(first_ptr, ptr, tok)) {
           return;
         }
         break;
       case '"':
-        if (this->lex_string_literal(c, ptr, tok)) {
+        if (this->lex_string_literal(first_ptr, ptr, tok)) {
           return;
         }
         break;
@@ -242,13 +275,13 @@ class Basic : public Base<TagName> {
         token_kind = token::details::TokenKind::r_brace;
         break;
       case '.':
-        c_sz = this->char_size(ptr);
+        c_sz = lps::lexer::details::Basic::char_size(ptr);
         c = std::get<0>(c_sz);
         sz_tmp = std::get<1>(c_sz);
 
         {
           typename base::ptr_type tmp_ptr = ptr;
-          if (this->lex_floating_point_literal('.', tmp_ptr, tok)) {
+          if (this->lex_floating_point_literal(first_ptr, tmp_ptr, tok)) {
             ptr = tmp_ptr;
             return;
           }
@@ -258,7 +291,7 @@ class Basic : public Base<TagName> {
           token_kind = token::details::TokenKind::periodstar;
           ptr += sz_tmp;
         } else if (c == '.') {
-          c_sz = this->char_size(ptr + sz_tmp);
+          c_sz = lps::lexer::details::Basic::char_size(ptr + sz_tmp);
           if (c_sz == '.') {
             sz_tmp2 = std::get<1>(c_sz);
             token_kind = token::details::TokenKind::ellipsis;
@@ -270,7 +303,7 @@ class Basic : public Base<TagName> {
         }
         break;
       case '&':
-        c_sz = this->char_size(ptr);
+        c_sz = lps::lexer::details::Basic::char_size(ptr);
         c = std::get<0>(c_sz);
         sz_tmp = std::get<1>(c_sz);
         if (c == '&') {
@@ -284,7 +317,7 @@ class Basic : public Base<TagName> {
         }
         break;
       case '*':
-        c_sz = this->char_size(ptr);
+        c_sz = lps::lexer::details::Basic::char_size(ptr);
         c = std::get<0>(c_sz);
         sz_tmp = std::get<1>(c_sz);
         if (c == '=') {
@@ -295,7 +328,7 @@ class Basic : public Base<TagName> {
         }
         break;
       case '+':
-        c_sz = this->char_size(ptr);
+        c_sz = lps::lexer::details::Basic::char_size(ptr);
         c = std::get<0>(c_sz);
         sz_tmp = std::get<1>(c_sz);
         if (c == '+') {
@@ -309,14 +342,14 @@ class Basic : public Base<TagName> {
         }
         break;
       case '-':
-        c_sz = this->char_size(ptr);
+        c_sz = lps::lexer::details::Basic::char_size(ptr);
         c = std::get<0>(c_sz);
         sz_tmp = std::get<1>(c_sz);
         if (c == '-') {  // --
           token_kind = token::details::TokenKind::minusminus;
           ptr = base::consume_char(ptr, sz_tmp);
         } else if (c == '>') {
-          c_sz = this->char_size(ptr + sz_tmp);
+          c_sz = lps::lexer::details::Basic::char_size(ptr + sz_tmp);
           c = std::get<0>(c_sz);
           if (c == '*') {  // ->*
             sz_tmp2 = std::get<1>(c_sz);
@@ -338,7 +371,7 @@ class Basic : public Base<TagName> {
         token_kind = token::details::TokenKind::tilde;
         break;
       case '!':
-        c_sz = this->char_size(ptr);
+        c_sz = lps::lexer::details::Basic::char_size(ptr);
         c = std::get<0>(c_sz);
         sz_tmp = std::get<1>(c_sz);
         if (c == '=') {
@@ -350,7 +383,7 @@ class Basic : public Base<TagName> {
         break;
       case '/':
         // todo(@mxlol233): handle comments
-        c_sz = this->char_size(ptr);
+        c_sz = lps::lexer::details::Basic::char_size(ptr);
         c = std::get<0>(c_sz);
         sz_tmp = std::get<1>(c_sz);
         if (c == '/') {
@@ -375,7 +408,7 @@ class Basic : public Base<TagName> {
         }
         break;
       case '%':
-        c_sz = this->char_size(ptr);
+        c_sz = lps::lexer::details::Basic::char_size(ptr);
         c = std::get<0>(c_sz);
         sz_tmp = std::get<1>(c_sz);
         if (c == '=') {
@@ -386,12 +419,12 @@ class Basic : public Base<TagName> {
         }
         break;
       case '<':
-        c_sz = this->char_size(ptr);
+        c_sz = lps::lexer::details::Basic::char_size(ptr);
         c = std::get<0>(c_sz);
         sz_tmp = std::get<1>(c_sz);
         // todo(@mxlol233): handle #include<...>
         if (c == '<') {
-          auto c_sz_2 = this->char_size(ptr + sz_tmp);
+          auto c_sz_2 = lps::lexer::details::Basic::char_size(ptr + sz_tmp);
           auto c2 = std::get<0>(c_sz_2);
           sz_tmp2 = std::get<1>(c_sz_2);
           if (c2 == '=') {  // <<=
@@ -409,7 +442,7 @@ class Basic : public Base<TagName> {
             ptr = base::consume_char(ptr, sz_tmp);
           }
         } else if (c == '=') {  // <=
-          auto c_sz_2 = this->char_size(ptr + sz_tmp);
+          auto c_sz_2 = lps::lexer::details::Basic::char_size(ptr + sz_tmp);
           auto c2 = std::get<0>(c_sz_2);
           sz_tmp2 = std::get<1>(c_sz_2);
           if (c2 == '>') {  // <=>
@@ -426,14 +459,14 @@ class Basic : public Base<TagName> {
         }
         break;
       case '>':
-        c_sz = this->char_size(ptr);
+        c_sz = lps::lexer::details::Basic::char_size(ptr);
         c = std::get<0>(c_sz);
         sz_tmp = std::get<1>(c_sz);
         if (c == '=') {  // >=
           token_kind = token::details::TokenKind::greaterequal;
           ptr = base::consume_char(ptr, sz_tmp);
         } else if (c == '>') {
-          auto c_sz_2 = this->char_size(ptr + sz_tmp);
+          auto c_sz_2 = lps::lexer::details::Basic::char_size(ptr + sz_tmp);
           auto c2 = std::get<0>(c_sz_2);
           sz_tmp2 = std::get<1>(c_sz_2);
           if (c2 == '=') {  // >>=
@@ -454,7 +487,7 @@ class Basic : public Base<TagName> {
         }
         break;
       case '^':
-        c_sz = this->char_size(ptr);
+        c_sz = lps::lexer::details::Basic::char_size(ptr);
         c = std::get<0>(c_sz);
         sz_tmp = std::get<1>(c_sz);
         if (c == '=') {
@@ -468,7 +501,7 @@ class Basic : public Base<TagName> {
         }
         break;
       case '|':
-        c_sz = this->char_size(ptr);
+        c_sz = lps::lexer::details::Basic::char_size(ptr);
         c = std::get<0>(c_sz);
         sz_tmp = std::get<1>(c_sz);
         if (c == '=') {
@@ -482,7 +515,7 @@ class Basic : public Base<TagName> {
         }
         break;
       case ':':
-        c_sz = this->char_size(ptr);
+        c_sz = lps::lexer::details::Basic::char_size(ptr);
         c = std::get<0>(c_sz);
         sz_tmp = std::get<1>(c_sz);
         if (c == ':') {
@@ -496,7 +529,7 @@ class Basic : public Base<TagName> {
         token_kind = token::details::TokenKind::semi;
         break;
       case '=':
-        c_sz = this->char_size(ptr);
+        c_sz = lps::lexer::details::Basic::char_size(ptr);
         c = std::get<0>(c_sz);
         sz_tmp = std::get<1>(c_sz);
         if (c == '=') {
@@ -510,7 +543,7 @@ class Basic : public Base<TagName> {
         token_kind = token::details::TokenKind::comma;
         break;
       case '#':
-        c_sz = this->char_size(ptr);
+        c_sz = lps::lexer::details::Basic::char_size(ptr);
         c = std::get<0>(c_sz);
         sz_tmp = std::get<1>(c_sz);
         if (c == '#') {
@@ -540,7 +573,7 @@ class Basic : public Base<TagName> {
       }
     }
 
-    this->token_formulate(tok, ptr, token_kind);
+    this->token_formulate(tok, first_ptr, ptr, token_kind);
 
     return;
 
