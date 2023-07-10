@@ -80,19 +80,10 @@ class Base {
   }
   inline virtual void lex_impl(lps::token::Token& tok) = 0;
   [[nodiscard]] MethodType method() const { return type_; }
-  explicit Base(uint32_t start_file_id, const char* ptr, const char* end,
-                MethodType m)
-      : file_id_(start_file_id),
-        ptr_(
-            ptr, end,
-            [](const basic::vfile::Visitor<char>*) {
-
-            },
-            start_file_id),
-        type_(m) {}
+  explicit Base(const ptr_type& ptr, MethodType m)
+      : file_id_(ptr.file_id()), ptr_(ptr), type_(m) {}
   [[nodiscard]] inline size_t pos() const { return pos_; }
 
- protected:
   static inline uint32_t escaped_newline_scanning(const ptr_type& ptr) {
     using namespace basic::str::ascii;
     uint32_t sz = 0;
@@ -114,7 +105,7 @@ class Base {
 
   static inline char char_scanning(ptr_type ptr, uint32_t& size) {
     using namespace basic::str::ascii;
-
+    auto first_ptr = ptr;
     if (*ptr == '\\') {
       ++ptr;
       size++;
@@ -126,7 +117,7 @@ class Base {
       if (uint32_t newline_size = escaped_newline_scanning(ptr)) {
 
         if (*ptr != '\n' && *ptr != '\r') {
-          // diag::doing(tok, diag::DiagKind::back_slash_new_space);
+          diag(first_ptr, ptr, diag::DiagKind::back_slash_new_space);
         }
         size += newline_size;
         ptr += newline_size;
@@ -160,6 +151,11 @@ class Base {
     return {c, sz};
   }
 
+  static inline void horzws_skipping(ptr_type& ptr) {
+    if (basic::str::ascii::is::HorzWs(*ptr)) {
+      ptr.horzws_skipping();
+    }
+  }
   static inline CharSize advance(ptr_type& ptr) {
     uint32_t sz = 0;
     if (basic::str::ascii::is::NormalChar(ptr[0])) {
@@ -180,28 +176,29 @@ class Base {
     return {*ptr, sz};
   }
 
+ protected:
   [[nodiscard]] inline ptr_type cur() const { return ptr_ + pos_; }
   [[nodiscard]] inline const char* cur_char_ptr() const {
     return (ptr_ + pos_).cur();
   }
   inline void inc(size_t n) { pos_ += n; }
 
-  inline void diag(const ptr_type& first_ptr, const ptr_type& ptr,
-                   diag::DiagKind kind) {
+  static inline void diag(const ptr_type& first_ptr, const ptr_type& ptr,
+                          diag::DiagKind kind) {
     diag::DiagInputs diag_input;
     diag_input.kind_ = kind;
     lps::token::Token tok_error;
-    this->token_formulate(tok_error, first_ptr, ptr,
-                          token::details::TokenKind::unknown);
-    tok_error.data(this->cur());
+    token_formulate(tok_error, first_ptr, ptr,
+                    token::details::TokenKind::unknown);
+    tok_error.data(first_ptr);
     diag_input.main_token_ = tok_error;
     diag::doing(diag_input.main_token_, diag_input.kind_,
                 diag_input.context_tokens_);
   }
 
-  inline void token_formulate(lps::token::Token& tok, const ptr_type& first,
-                              const ptr_type& end,
-                              lps::token::details::TokenKind kind) {
+  static inline void token_formulate(lps::token::Token& tok,
+                                     const ptr_type& first, const ptr_type& end,
+                                     lps::token::details::TokenKind kind) {
     uint32_t offset = 0;
     if (end.file_id() == first.file_id()) {
       offset = end - first;
@@ -238,7 +235,7 @@ class Base {
     auto kind = func(first_ptr, tmp_ptr);
     if (kind != token::details::TokenKind::unknown) {
       ptr = tmp_ptr;
-      this->token_formulate(tok, first_ptr, ptr, kind);
+      token_formulate(tok, first_ptr, ptr, kind);
       return true;
     }
     return false;
@@ -510,6 +507,10 @@ class Base {
               }
               break;
             }
+            case ',': {
+              kind = token::details::TokenKind::comma;
+              break;
+            }
             case '<': {
               kind = token::details::TokenKind::less;
               if (next_c == '%') {
@@ -620,7 +621,7 @@ class Base {
         advance(ptr);
       }
       if (*ptr == '\n' || *ptr == '\r' || ptr.eof()) {
-        this->diag(first_ptr, ptr, DiagKind);
+        diag(first_ptr, ptr, DiagKind);
         return cnt_char;
       }
       advance(ptr);
@@ -657,8 +658,8 @@ class Base {
       break;
     }
 
-    this->token_formulate(tok, first_ptr, ptr,
-                          lps::token::details::TokenKind::raw_identifier);
+    token_formulate(tok, first_ptr, ptr,
+                    lps::token::details::TokenKind::raw_identifier);
     auto ident_str = tok.str();
     if (lps::token::details::IdentInfo::instance().kw_has(ident_str)) {
       tok.kind(lps::token::details::IdentInfo::instance().kw_at(ident_str));
@@ -692,8 +693,8 @@ class Base {
     }
     if (flg) {
       ++ptr;
-      this->token_formulate(tok, first_ptr, ptr,
-                            lps::token::details::TokenKind::header_name);
+      token_formulate(tok, first_ptr, ptr,
+                      lps::token::details::TokenKind::header_name);
       return true;
     }
     return false;
@@ -737,12 +738,12 @@ class Base {
                                                                            tok);
 
       if (cnt_char == 0) {
-        this->diag(first_ptr, ptr, diag::empty_char_literal);
+        diag(first_ptr, ptr, diag::empty_char_literal);
         return false;
       }
       ++ptr;
-      this->token_formulate(tok, first_ptr, ptr,
-                            token::details::TokenKind::char_literal);
+      token_formulate(tok, first_ptr, ptr,
+                      token::details::TokenKind::char_literal);
     }
 
     return flg;
@@ -836,7 +837,7 @@ class Base {
     if (lex_number_literal<FuncDigit, TokenKind>(first_ptr, ptr, tok)) {
       matched_ptr = ptr;
     }
-    this->token_formulate(tok, first_ptr, matched_ptr, TokenKind);
+    token_formulate(tok, first_ptr, matched_ptr, TokenKind);
     ptr = matched_ptr;
 
     return true;
@@ -928,7 +929,7 @@ class Base {
     }
 
     ptr = end;
-    this->token_formulate(tok, first_ptr, ptr, TokenKind1);
+    token_formulate(tok, first_ptr, ptr, TokenKind1);
     return true;
   }
 
@@ -1031,9 +1032,8 @@ class Base {
     if (!has_floating_point_suffix && !has_exponent_part) {
       return is_type0;
     }
-    this->token_formulate(
-        tok, first_ptr, ptr,
-        token::details::TokenKind::decimal_floating_point_literal);
+    token_formulate(tok, first_ptr, ptr,
+                    token::details::TokenKind::decimal_floating_point_literal);
     return true;
   }
 
@@ -1073,7 +1073,7 @@ class Base {
         if (lex_floating_point_suffix(tmp_ptr)) {
           ptr = tmp_ptr;
         }
-        this->token_formulate(
+        token_formulate(
             tok, first_ptr, ptr,
             token::details::TokenKind::hexadecimal_floating_point_literal);
         return true;
@@ -1101,8 +1101,8 @@ class Base {
     }
 
     if (flg) {
-      this->token_formulate(tok, first_ptr, ptr,
-                            token::details::TokenKind::floating_point_literal);
+      token_formulate(tok, first_ptr, ptr,
+                      token::details::TokenKind::floating_point_literal);
       return true;
     }
     return false;
@@ -1148,16 +1148,16 @@ class Base {
       }
       if (lex_decimal_literal(first_ptr, ptr, tok)) {
         matched_ptr = ptr;
-        kind = tok.kind();
-        flg = true;
       }
+      kind = token::details::TokenKind::decimal_literal;
+      flg = true;
     }
 
     if (flg) {
       if (lex_integer_suffix(ptr)) {
         matched_ptr = ptr;
       }
-      this->token_formulate(tok, first_ptr, matched_ptr, kind);
+      token_formulate(tok, first_ptr, matched_ptr, kind);
     }
     return flg;
   }
@@ -1184,11 +1184,11 @@ class Base {
     if (ptr[prefix_len] != '(') {  // not a delimiter
       ptr_type prefix_end = ptr + prefix_len;
       if (prefix_len == 16) {
-        this->diag(first_ptr, prefix_end,
-                   diag::DiagKind::raw_string_delimiter_too_long);
+        diag(first_ptr, prefix_end,
+             diag::DiagKind::raw_string_delimiter_too_long);
       } else {
-        this->diag(first_ptr, prefix_end,
-                   diag::DiagKind::raw_string_invalid_delimiter);
+        diag(first_ptr, prefix_end,
+             diag::DiagKind::raw_string_invalid_delimiter);
       }
       return false;
     }
@@ -1200,22 +1200,22 @@ class Base {
     }
     ++ptr;
     if ((ptr + prefix_len + 1).eof()) {
-      this->diag(first_ptr, ptr, diag::DiagKind::unfinished_raw_string);
+      diag(first_ptr, ptr, diag::DiagKind::unfinished_raw_string);
       return false;
     }
     if (basic::FileVisitor::strncmp(prefix_start, ptr, prefix_len) == 0) {
       ptr = ptr + prefix_len;
       if (*ptr == '"') {
         ++ptr;
-        this->token_formulate(tok, first_ptr, ptr,
-                              lps::token::details::TokenKind::raw_string);
+        token_formulate(tok, first_ptr, ptr,
+                        lps::token::details::TokenKind::raw_string);
         return true;
       }
-      this->diag(first_ptr, ptr,
-                 diag::DiagKind::unfinished_raw_string_expect_quotation);
+      diag(first_ptr, ptr,
+           diag::DiagKind::unfinished_raw_string_expect_quotation);
     } else {
-      this->diag(first_ptr, ptr + prefix_len,
-                 diag::DiagKind::unfinished_raw_string_because_of_delimiter);
+      diag(first_ptr, ptr + prefix_len,
+           diag::DiagKind::unfinished_raw_string_because_of_delimiter);
     }
 
     return false;
@@ -1240,44 +1240,20 @@ class Base {
               ptr, tok);
       if (*ptr == '"') {
         ++ptr;
-        this->token_formulate(tok, first_ptr, ptr,
-                              lps::token::details::TokenKind::string_literal);
+        token_formulate(tok, first_ptr, ptr,
+                        lps::token::details::TokenKind::string_literal);
         return true;
       }
 
     } else if (*new_first_ptr == 'R') {
       if (lex_raw_string(ptr, tok)) {
-        this->token_formulate(tok, first_ptr, ptr,
-                              lps::token::details::TokenKind::string_literal);
+        token_formulate(tok, first_ptr, ptr,
+                        lps::token::details::TokenKind::string_literal);
         return true;
       }
     }
 
     return false;
-  }
-
-  inline typename lps::token::Token::tokens_type lex_identifier_list(
-      const ptr_type& first_ptr, ptr_type& ptr, lps::token::Token& tok) {
-    typename lps::token::Token::tokens_type tokens;
-    if (lex_something_recursive<token::details::TokenKind::identifiers>(
-            first_ptr, ptr, tok,
-            [this, &tokens](const ptr_type& first_ptr, ptr_type& ptr,
-                            lps::token::Token& tok) -> bool {
-              auto tmp_ptr = ptr;
-              lps::token::Token tmp_tok;
-              if (lex_identifier(first_ptr, tmp_ptr, tmp_tok)) {
-                if (tmp_tok.kind() == token::details::TokenKind::identifier) {
-                  ptr = tmp_ptr;
-                  tok = tmp_tok;
-                  tokens.append(tok);
-                  return true;
-                }
-              }
-              return false;
-            })) {
-      return tokens;
-    }
-    return typename lps::token::Token::tokens_type();
   }
 
   MethodType type_{MethodType::kNone};

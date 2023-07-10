@@ -51,7 +51,7 @@ int main(int argc, char** argv) {
   lps::token::Token tok;
   while (tok.kind() != lps::token::details::TokenKind::eof) {
     if (tok.kind() == lps::token::details::TokenKind::unknown) {
-      lps::lexer::Lexer lexer(file_id, contents.data());
+      lps::lexer::Lexer lexer(file_id, 0);
       lexer.lex(tok);
     } else {
       lps::lexer::Lexer lexer(tok.next_visitor().second,

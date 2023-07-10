@@ -34,15 +34,6 @@ uint32_t TU::record_expanded_tokens_as_virtual_file(
     token::TokenContainer::tokens_type&& tokens) {
   constexpr basic::mem::TraceTag::tag_type kTag =
       "record_expanded_tokens_as_virtual_file";
-
-  const char* cur_tok_file_data_ptr =
-      token::TokenLists::Info::start(cur_tok_file_id);
-  lps_assert(kTag, cur_tok_data_ptr != nullptr);
-  size_t absolute_offset = cur_tok_data_ptr - cur_tok_file_data_ptr +
-                           tokens.back().next_visitor().first;
-
-  tokens.back().next_visitor(absolute_offset, cur_tok_file_id);
-
   return src::Manager::instance().append(std::move(tokens));
 }
 
