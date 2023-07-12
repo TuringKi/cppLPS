@@ -151,10 +151,22 @@ class Base {
     return {c, sz};
   }
 
-  static inline void horzws_skipping(ptr_type& ptr) {
+  static inline bool horzws_skipping(ptr_type& ptr) {
     if (basic::str::ascii::is::HorzWs(*ptr)) {
       ptr.horzws_skipping();
     }
+    if (*ptr == '\\') {
+      if (!basic::str::ascii::is::VertWs(*(ptr + 1))) {
+        diag(ptr, ptr + 1,
+             diag::DiagKind::expected_vertws_after_slash_in_preprocessing);
+        throw basic::vfile::Eof();
+        return false;
+      }
+      ++ptr;
+      ++ptr;
+      horzws_skipping(ptr);
+    }
+    return true;
   }
   static inline CharSize advance(ptr_type& ptr) {
     uint32_t sz = 0;

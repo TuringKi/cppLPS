@@ -22,23 +22,57 @@
 */
 #pragma once
 
-#include "basic/tui.h"
+#include <stack>
 #include "diag.h"
 #include "parse_function/parallel_serial_recursive_function.h"
+#include "parser.h"
 #include "token.h"
 
 namespace lps::parser::details {
 
-template <size_t NumElements, typename... ParseFuncs>
-ParseFunctionOutputs
-ParallelParseFunctions<NumElements, ParseFuncs...>::operator()() {
-  lps_assert("ParallelParseFunctions", this->ok_to_try());
+template <typename... ParseFuncs>
+ParseFunctionOutputs RecursiveParseFunctions<ParseFuncs...>::operator()() {
+  lps_assert("RecursiveParseFunctions", this->ok_to_try());
   auto output = base::operator()();
+  this->executed_mask_.set();
   if (!this->valid()) {
-    this->executed_mask_.set();
     return output;
   }
+  uint32_t recursive_depth = 0;
+  working_list_type executed_mask;
+  do {
 
+    execute(output, executed_mask);
+
+    if (!output.work_) {
+      if (recursive_depth > 0) {
+        lps_assert("RecursiveParseFunctions", !working_list_stack_.empty());
+        executed_mask = working_list_stack_.top();
+        if (!regret(executed_mask)) {
+          break;
+        }
+        working_list_stack_.pop();
+        --recursive_depth;
+        continue;
+      }
+      break;
+    }
+    working_list_stack_.push(executed_mask);
+    executed_mask.reset();
+    ++recursive_depth;
+  } while (true);
+
+  return output;
+}
+template <typename... ParseFuncs>
+bool RecursiveParseFunctions<ParseFuncs...>::regret(
+    const working_list_type& executed_mask) {
+  return !executed_mask.all();
+}
+
+template <typename... ParseFuncs>
+void RecursiveParseFunctions<ParseFuncs...>::execute(
+    ParseFunctionOutputs& output, working_list_type& executed_mask) {
   bool flg_continue = true;
   uint32_t running_sub_func_idx = 0;
   ParseFunctionOutputs max_len_match_output;
@@ -47,11 +81,13 @@ ParallelParseFunctions<NumElements, ParseFuncs...>::operator()() {
   uint32_t max_len_match_idx = -1;
   std::apply(
       [this, &flg_continue, &output, &max_len_match_output,
-       &running_sub_func_idx, &max_len_match_idx](ParseFuncs&... funcs) {
+       &running_sub_func_idx, &max_len_match_idx,
+       &executed_mask](ParseFuncs&... funcs) {
         (
             [this, &flg_continue, &output, &max_len_match_output,
-             &running_sub_func_idx, &max_len_match_idx](auto& func) {
-              if (!this->executed_mask_.at(running_sub_func_idx)) {
+             &running_sub_func_idx, &max_len_match_idx,
+             &executed_mask](auto& func) {
+              if (!executed_mask.at(running_sub_func_idx)) {
                 func.last_token(this->last_token());
                 func.cur_token(this->cur_token());
                 auto local_output = func();
@@ -64,13 +100,13 @@ ParallelParseFunctions<NumElements, ParseFuncs...>::operator()() {
                     max_len_match_idx = running_sub_func_idx;
                     if (!this->valid(
                             local_output.cur_token_)) {  // no more chance
-                      this->executed_mask_.set();
+                      executed_mask.set();
                       return;
                     }
                   }
                 } else {
                   output.concat(std::move(local_output), false);
-                  this->executed_mask_.set(running_sub_func_idx);
+                  executed_mask.set(running_sub_func_idx);
                 }
                 running_sub_func_idx++;
               }
@@ -79,7 +115,6 @@ ParallelParseFunctions<NumElements, ParseFuncs...>::operator()() {
       },
       parse_functions_);
   if (max_len_match_output.work_) {
-    this->executed_mask_.set(max_len_match_idx);
     output.node_ = std::move(max_len_match_output.node_);
     diag::infos() << basic::str::from(
         std::string(this->calling_depth(), '>'), " ", this->kName_,
@@ -87,14 +122,8 @@ ParallelParseFunctions<NumElements, ParseFuncs...>::operator()() {
             basic::str::from(" ok, matched idx = ", max_len_match_idx, ".\n"),
             basic::tui::color::Shell::fgreen()));
   } else {
-    this->executed_mask_.set();
-    diag::infos() << basic::str::from(
-        std::string(this->calling_depth(), '>'), " ", this->kName_,
-        basic::tui::color::Shell::colorize(basic::str::from(" failed\n"),
-                                           basic::tui::color::Shell::fred()));
   }
   output.concat(std::move(max_len_match_output), false);
-  return output;
 }
 
 }  // namespace lps::parser::details

@@ -71,7 +71,9 @@ class Bitset {
     size_t m = std::min(N, N1);
     if (start_idx > 0) {
       lps_assert(kTag, N1 < N);
-      value_ = value_.to_ullong() || (other.to_ullong() << start_idx);
+      for (int i = 0; i < N1; i++) {
+        value_[start_idx + i] = other[i];
+      }
     } else {
 
       for (int i = 0; i < m; i++) {
@@ -108,7 +110,7 @@ class Bitset {
     return a;
   }
 
-  bool all() {
+  [[nodiscard]] bool all() const {
     size_t cnt = 0;
     for (int i = start_idx_; i < start_idx_ + len_; i++) {
       if (value_[i]) {
