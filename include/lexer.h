@@ -28,6 +28,7 @@
 #include <limits>
 #include <memory>
 #include "basic/exception.h"
+#include "basic/file.h"
 #include "lex/base.h"
 #include "lex/basic.h"
 #include "lex/pp.h"
@@ -40,11 +41,6 @@ class Lexer {
   constexpr static basic::mem::TraceTag::tag_type kTag = "lps::lexer::Lexer";
   void lex(lps::token::Token& tok,
            details::MethodType method = details::MethodType::kBasic) {
-    const char* end = nullptr;
-    if (src::Manager::instance().has<0>(file_id_)) {
-      end = start_ + src::Manager::instance().size(file_id_) - 1;
-      lps_assert(kTag, start_ <= end);
-    }
   start:
     tok.clear();
     if (src::Manager::instance().has<1>(file_id_)) {
@@ -58,11 +54,10 @@ class Lexer {
 
     // try pp first
     {
-      details::pp::Preprocessing m(file_id_, cur(), end);
+      details::pp::Preprocessing m(visitor_);
       m.lex(tok);
       if (tok.kind() != token::details::TokenKind::unknown &&
           tok.kind() != token::details::TokenKind::eod) {
-        inc(m.pos());
         return;
       }
     }
@@ -75,11 +70,10 @@ class Lexer {
             src::Manager::instance().visitor_of_char_file(next_info.second);
         visitor += next_info.first;
         details::Basic::jump_include_stack(visitor);
-        start_ = visitor.start();
-        pos_ = visitor.pos();
-        end = visitor.end();
         file_id_ = visitor.file_id();
-        lps_assert(kTag, file_id_ != 0 && start_ && end && cur() <= end);
+        visitor_ = visitor;
+        lps_assert(
+            kTag, file_id_ != 0 && visitor.start() && visitor.end() && visitor);
       } else if (src::Manager::instance().has<1>(next_info.second)) {
         file_id_ = next_info.second;
         pos_ = next_info.first;
@@ -92,21 +86,19 @@ class Lexer {
 
     switch (method) {
       case details::kBasic: {
-        details::Basic m(file_id_, cur(), end);
+        details::Basic m(visitor_);
         m.lex(tok);
         if (tok.kind() == token::details::TokenKind::eod) {
           goto eod;
         }
-        inc(m.pos());
         break;
       }
       case details::kPreprocessing: {
-        details::pp::Preprocessing m(file_id_, cur(), end);
+        details::pp::Preprocessing m(visitor_);
         m.lex(tok);
         if (tok.kind() == token::details::TokenKind::eod) {
           goto eod;
         }
-        inc(m.pos());
         break;
       }
       case details::kNone:
@@ -114,25 +106,21 @@ class Lexer {
         unreachable(kTag);
         break;
     }
-
     lps_assert(kTag, tok.kind() != token::details::TokenKind::unknown);
-    inc(tok.offset());
   }
 
   Lexer() = delete;
-  explicit Lexer(uint32_t start_file_id, const char* ptr)
-      : file_id_(start_file_id), start_(ptr) {}
   explicit Lexer(uint32_t start_file_id, size_t offset) {
     if (src::Manager::instance().has<0>(start_file_id)) {  // char_files
       auto visitor =
           src::Manager::instance().visitor_of_char_file(start_file_id);
       visitor += offset;
       details::Basic::jump_include_stack(visitor);
-      start_ = visitor.start();
-      pos_ = visitor.pos();
       file_id_ = visitor.file_id();
-      lps_assert(kTag, file_id_ != 0 && start_ && pos_ >= 0);
-      lps_assert(kTag, cur() <= visitor.end());
+      visitor_ = visitor;
+      lps_assert(kTag,
+                 file_id_ != 0 && visitor_.start() && visitor_.pos() >= 0);
+      lps_assert(kTag, visitor_.cur() <= visitor.end());
     } else if (src::Manager::instance().has<1>(start_file_id)) {  // token_files
       file_id_ = start_file_id;
       pos_ = offset;
@@ -140,12 +128,10 @@ class Lexer {
     }
   }
 
-  [[nodiscard]] const char* cur() const { return start_ + pos_; }
-
  private:
-  void inc(size_t n) { pos_ += n; }
-
-  const char* start_{nullptr};
+  basic::FileVisitor visitor_{nullptr, nullptr,
+                              [](const basic::vfile::Visitor<char>*) {
+                              }};
   uint32_t file_id_{0};
   size_t pos_{0};
 };

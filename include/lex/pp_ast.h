@@ -35,20 +35,23 @@ class Node {
 
  public:
   using tokens_type = typename token::Token::tokens_type;
+  using macro_parameters_type = basic::Vector<3, tokens_type>;
   using token_type = token::Token;
   using ptr_type = std::unique_ptr<Node>;
   template <class... Args>
   explicit Node(token_type&& name, Args&&... /*args*/)
       : name_(std::move(name)){};
 
-  virtual const tokens_type& expand() { return expanded_tokens_; };
+  virtual tokens_type expand(
+      const macro_parameters_type& /*parameter_tokens*/) {
+    return tokens_type{};
+  };
   [[nodiscard]] const token_type& name() const { return name_; }
 
   [[nodiscard]] basic::StringRef name_str() const { return name_.str(); }
 
  protected:
   token_type name_;
-  tokens_type expanded_tokens_;
 };
 
 class Define : public Node {
@@ -61,7 +64,12 @@ class Define : public Node {
       : base(std::move(name), std::forward<Args>(args)...),
         body_(std::move(body)) {}
 
-  const typename base::tokens_type& expand() override { return body_; }
+  typename base::tokens_type expand(
+      const typename base::macro_parameters_type& /*parameter_tokens*/)
+      override {
+    typename base::tokens_type out(body_);
+    return out;
+  }
 
  protected:
   typename base::tokens_type body_;
@@ -78,19 +86,21 @@ class DefineWithParameters : public Define {
       : base(std::move(name), std::move(body), std::forward<Args>(args)...),
         parameters_(std::move(parameters)) {}
 
-  const typename base::tokens_type& expand() override {
-    unreachable("DefineWithParameters");
-    if (!this->expanded_tokens_.empty()) {
-      return this->expanded_tokens_;
-    }
+  typename base::tokens_type expand(
+      const typename base::macro_parameters_type& parameter_tokens) override {
+    lps_assert("DefineWithParameters",
+               parameter_tokens.size() == parameters_.size());
+    typename base::tokens_type expanded_tokens;
     for (const auto& t : this->body_) {
-
       if (t.kind() == token::details::TokenKind::identifier) {
         bool matched = false;
-        for (const auto& p : parameters_) {
+        for (size_t i = 0; i < parameters_.size(); i++) {
+          const auto& p = parameters_[i];
           if (std::strncmp(t.ptr(), p.ptr(), p.offset()) == 0) {
             // replace the `identifier` tokens with `parameters`
-            this->expanded_tokens_.append(p);
+            for (const auto& t1 : parameter_tokens[i]) {
+              expanded_tokens.append(t1);
+            }
             matched = true;
             break;  // we only match once.
           }
@@ -99,10 +109,10 @@ class DefineWithParameters : public Define {
           continue;
         }
       }
-      this->expanded_tokens_.append(t);
+      expanded_tokens.append(t);
     }
 
-    return this->expanded_tokens_;
+    return expanded_tokens;
   }
 
  protected:

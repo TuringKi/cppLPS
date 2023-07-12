@@ -40,9 +40,8 @@ class Preprocessing : public Base {
   using base = Base;
   constexpr static basic::mem::TraceTag::tag_type kTag =
       "lps::lexer::details::pp::Preprocessing";
-  explicit Preprocessing(uint32_t start_file_id, const char* ptr,
-                         const char* end)
-      : base(start_file_id, ptr, end, MethodType::kPreprocessing) {}
+  explicit Preprocessing(const typename base::ptr_type& ptr)
+      : base(ptr, MethodType::kPreprocessing) {}
   inline void lex_impl(lps::token::Token& tok) override {
 
     typename base::ptr_type ptr = this->cur();
@@ -138,8 +137,8 @@ class Preprocessing : public Base {
       }
       break;
     }
-    this->token_formulate(tok, first_ptr, ptr,
-                          lps::token::details::TokenKind::pp_number);
+    token_formulate(tok, first_ptr, ptr,
+                    lps::token::details::TokenKind::pp_number);
     return true;
   }
 
@@ -211,7 +210,7 @@ class Preprocessing : public Base {
       auto cc = ptr;                                                         \
       ++ptr;                                                                 \
       if (try_ident(cc, ptr, tok)) {                                         \
-        this->token_formulate(tok, first_ptr, ptr, KIND);                    \
+        token_formulate(tok, first_ptr, ptr, KIND);                          \
         return true;                                                         \
       }                                                                      \
     }                                                                        \
@@ -289,9 +288,7 @@ class Preprocessing : public Base {
               if (*first_ptr == '\\' &&
                   basic::str::ascii::is::VertWs(*tmp_ptr)) {
                 ++tmp_ptr;
-                if (basic::str::ascii::is::HorzWs(*tmp_ptr)) {
-                  tmp_ptr.horzws_skipping();
-                }
+                horzws_skipping(tmp_ptr);
                 ++tmp_ptr;
                 ptr = tmp_ptr;
               }
@@ -321,9 +318,7 @@ class Preprocessing : public Base {
     typename base::ptr_type tmp_ptr = ptr;
     bool lex_ident_ok = this->lex_identifier(first_ptr, tmp_ptr, tok);
     if (lex_ident_ok) {
-      if (basic::str::ascii::is::HorzWs(*tmp_ptr)) {
-        tmp_ptr.horzws_skipping();
-      }
+      horzws_skipping(tmp_ptr);
     }
     if (lex_ident_ok) {
       switch (tok.kind()) {
@@ -353,147 +348,129 @@ class Preprocessing : public Base {
           auto tmp_c = tmp_ptr;
           tmp_ptr++;
           if (!this->lex_identifier(tmp_c, tmp_ptr, define_tok)) {
-            this->diag(first_ptr, tmp_ptr,
-                       diag::DiagKind::expected_ident_after_define_undef);
+            diag(first_ptr, tmp_ptr,
+                 diag::DiagKind::expected_ident_after_define_undef);
             return false;
           }
           if (define_tok.kind() != token::details::TokenKind::identifier) {
-            this->diag(first_ptr, tmp_ptr,
-                       diag::DiagKind::expected_ident_after_define_undef);
+            diag(first_ptr, tmp_ptr,
+                 diag::DiagKind::expected_ident_after_define_undef);
             return false;
           }
 
           if (tok.kind() == token::details::TokenKind::kw_define) {
-            if (basic::str::ascii::is::HorzWs(*tmp_ptr)) {
-              tmp_ptr.horzws_skipping();
-            }
+            horzws_skipping(tmp_ptr);
             typename base::ptr_type tmp_ptr2 = tmp_ptr;
             ++tmp_ptr2;
             lps::token::Token next_tok;
-            // replacement-list: pp_tokens[opt]
-            auto replacement_tokens =
-                lex_pp_tokens(tmp_ptr, tmp_ptr2, next_tok);
-            if (!replacement_tokens.empty()) {
-              if (basic::str::ascii::is::HorzWs(*tmp_ptr2)) {
-                tmp_ptr2.horzws_skipping();
+            token::Token::tokens_type replacement_tokens;
+            token::Token::tokens_type parameter_tokens;
+
+            if (*tmp_ptr == '(' && !basic::str::ascii::is::Ws(*tmp_ptr2)) {
+              // [lparen] matched, now consider:
+              // 1. identifier_list[opt],
+              // 2. `...`
+              // 3. identifier_list, `...`
+
+            start_check_params:
+              horzws_skipping(tmp_ptr2);
+              auto tmp_first_ptr = tmp_ptr2;
+              ++tmp_ptr2;
+              token::Token ident_of_ellipsis_token;
+              if (this->lex_identifier(tmp_first_ptr, tmp_ptr2,
+                                       ident_of_ellipsis_token)) {
+                parameter_tokens.append(ident_of_ellipsis_token);
+                horzws_skipping(tmp_ptr2);
+                auto tmp_ptr3 = tmp_ptr2;
+                --tmp_ptr3;
+                advance(tmp_ptr3);
+                if (*tmp_ptr3 == ',') {
+                  ++tmp_ptr2;
+                  goto start_check_params;
+                }
+              } else {
+                auto tmp_ptr3 = tmp_ptr2;
+                if (this->lex_operator_or_punctuator(tmp_first_ptr, tmp_ptr3,
+                                                     ident_of_ellipsis_token)) {
+                  if (ident_of_ellipsis_token.kind() ==
+                      token::details::TokenKind::ellipsis) {
+                    if (parameter_tokens.empty()) {
+                      diag(
+                          tmp_ptr, tmp_ptr2,
+                          diag::DiagKind::
+                              expected_at_least_one_identifier_before_ellipsis);
+                      // early stop
+                      tok.kind(token::details::TokenKind::eof);
+                      return true;
+                    }
+                    tmp_ptr2 = tmp_ptr3;
+                  }
+                }
               }
 
+              horzws_skipping(tmp_ptr2);
+              if (*tmp_ptr2 != ')') {
+                diag(tmp_ptr2, tmp_ptr2,
+                     diag::DiagKind::
+                         expected_r_paren_in_the_define_with_parameters);
+                tok.kind(token::details::TokenKind::eof);
+                return true;
+              }
+
+              horzws_skipping(tmp_ptr2);
+              advance(tmp_ptr2);
+              horzws_skipping(tmp_ptr2);
+              if (*tmp_ptr2 == '\\') {
+                if (!basic::str::ascii::is::VertWs(*(tmp_ptr2 + 1))) {
+                  diag(tmp_ptr2, tmp_ptr2 + 1,
+                       diag::DiagKind::
+                           expected_vertws_after_slash_in_preprocessing);
+                  tok.kind(token::details::TokenKind::eof);
+                  return true;
+                }
+                ++tmp_ptr2;
+                ++tmp_ptr2;
+                horzws_skipping(tmp_ptr2);
+              }
+              tmp_first_ptr = tmp_ptr2;
+              ++tmp_ptr2;
+              replacement_tokens =
+                  lex_pp_tokens(tmp_first_ptr, tmp_ptr2, next_tok);
+
+            } else {
+              // replacement-list: pp_tokens[opt]
+              replacement_tokens = lex_pp_tokens(tmp_ptr, tmp_ptr2, next_tok);
+            }
+            if (!replacement_tokens.empty()) {
+              horzws_skipping(tmp_ptr2);
+
               if (basic::str::ascii::is::VertWs(*tmp_ptr2)) {
-                // [`#`, `define`, `identifier`, replacement_list, new_line] matched
+                // [`#`, `define`, `identifier`[(P0, P1, ...)]_opt, replacement_list, new_line] matched
                 ptr = ++tmp_ptr2;
-                decltype(replacement_tokens) empty_parameter_tokens;
+
                 tu::TU::instance().define(define_tok,
-                                          std::move(empty_parameter_tokens),
+                                          std::move(parameter_tokens),
                                           std::move(replacement_tokens));
               } else {
-                this->diag(first_ptr, tmp_ptr,
-                           diag::DiagKind::
-                               expected_new_line_at_the_end_of_define_undef);
+                diag(first_ptr, tmp_ptr,
+                     diag::DiagKind::
+                         expected_new_line_at_the_end_of_define_undef);
                 return false;
               }
             } else {  // try others.
-
-              if (*tmp_ptr == '(' && !basic::str::ascii::is::Ws(*tmp_ptr2)) {
-                // [lparen] matched, now consider:
-                // 1. identifier_list[opt],
-                // 2. `...`
-                // 3. identifier_list, `...`
-                auto tmp_c = tmp_ptr2;
-                ++tmp_ptr2;
-                typename lps::token::Token::tokens_type parameter_tokens;
-                std::vector<typename base::lex_func_type2> funcs = {
-                    [this, &parameter_tokens](
-                        const typename base::ptr_type& first_ptr,
-                        typename base::ptr_type& ptr,
-                        lps::token::Token& tok) -> bool {
-                      auto tmp_ptr = ptr;
-                      auto tmp_tok = tok;
-                      if (this->lex_operator_or_punctuator(first_ptr, tmp_ptr,
-                                                           tmp_tok)) {
-                        if (tmp_tok.kind() ==
-                            token::details::TokenKind::ellipsis) {
-                          tok = tmp_tok;
-                          ptr = tmp_ptr;
-                          parameter_tokens.append(tok);
-                          return true;
-                        }
-                      }
-                      return false;
-                    },
-                    [this, &parameter_tokens](
-                        const typename base::ptr_type& first_ptr,
-                        typename base::ptr_type& ptr,
-                        lps::token::Token& tok) -> bool {
-                      {
-                        auto tmp_ptr = ptr;
-                        auto tmp_tok = tok;
-                        parameter_tokens = this->lex_identifier_list(
-                            first_ptr, tmp_ptr, tmp_tok);
-                        if (!parameter_tokens.empty()) {
-                          if (basic::str::ascii::is::HorzWs(*tmp_ptr)) {
-                            tmp_ptr.horzws_skipping();
-                          }
-                          auto tmp_c = tmp_ptr;
-                          ++tmp_ptr;
-                          if (this->lex_operator_or_punctuator(tmp_c, tmp_ptr,
-                                                               tmp_tok)) {
-                            if (tmp_tok.kind() ==
-                                token::details::TokenKind::ellipsis) {
-                              tok = tmp_tok;
-                              ptr = tmp_ptr;
-                              parameter_tokens.append(tok);
-                              return true;
-                            }
-                          }
-                        }
-                        return true;
-                      }
-
-                      return false;
-                    },
-
-                };
-                if (this->lex_something_parallel(tmp_c, tmp_ptr2, next_tok,
-                                                 funcs)) {
-                  unreachable(kTag);
-                  // now check: `)`, replacement_list, new_line
-                  if (basic::str::ascii::is::HorzWs(*tmp_ptr2)) {
-                    tmp_ptr2.horzws_skipping();
-                  }
-                  if (*tmp_ptr2 == ')') {
-                    // record replacement_list
-                    auto tmp_ptr3 = tmp_ptr2;
-                    lps::token::Token replacement_token;
-                    if (basic::str::ascii::is::HorzWs(*tmp_ptr3)) {
-                      tmp_ptr3.horzws_skipping();
-                    }
-                    auto tmp_c = tmp_ptr3;
-                    ++tmp_ptr3;
-                    auto replacement_tokens =
-                        lex_pp_tokens(tmp_c, tmp_ptr3, replacement_token);
-                    if (!replacement_tokens.empty()) {
-                      tu::TU::instance().define(tok,
-                                                std::move(parameter_tokens),
-                                                std::move(replacement_tokens));
-                    }
-                  }
-                }
-              } else {
-                if (!is::VertWs(*tmp_ptr)) {
-                  tmp_ptr.horzws_skipping();
-                }
-                if (!is::VertWs(*tmp_ptr)) {
-                  this->diag(first_ptr, tmp_ptr,
-                             diag::DiagKind::
-                                 expected_new_line_at_the_end_of_define_undef);
-                  return false;
-                }
-                ++tmp_ptr;
-                ptr = tmp_ptr;
-                tu::TU::instance().define(define_tok);
+              if (!is::VertWs(*tmp_ptr)) {
+                tmp_ptr.horzws_skipping();
               }
+              if (!is::VertWs(*tmp_ptr)) {
+                diag(first_ptr, tmp_ptr,
+                     diag::DiagKind::
+                         expected_new_line_at_the_end_of_define_undef);
+                return false;
+              }
+              ++tmp_ptr;
+              ptr = tmp_ptr;
+              tu::TU::instance().define(define_tok);
             }
-
             // jump over the define_tok, replacement_tokens
             tok.next_visitor(ptr.pos(), ptr.file_id());
             tok.kind(token::details::TokenKind::eod);

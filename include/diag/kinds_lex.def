@@ -64,3 +64,10 @@ DIAG(expected_header_name_after_include,
      "expected `header_name` after `#include` macro.", "", Level::kError)
 DIAG(included_path_no_exists, "can not find the including path.", "",
      Level::kError)
+DIAG(back_slash_new_space, "expected new space after slash.", "", Level::kError)
+DIAG(expected_at_least_one_identifier_before_ellipsis,
+     "expected at least 1 identifier before `...`.", "", Level::kError)
+DIAG(expected_r_paren_in_the_define_with_parameters, "expected `)`.", "",
+     Level::kError)
+DIAG(expected_vertws_after_slash_in_preprocessing, "expected `\\n` after `\\`.",
+     "", Level::kError)

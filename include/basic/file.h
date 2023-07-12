@@ -60,24 +60,8 @@ class FileVisitor : public vfile::Visitor<char>,
     horzws_skip(flg);
   }
 
-  void vertws_skipping() {
-    if (flg_skip_vertws_) {
-      next();
-      return;
-    }
-    vertws_skip(true);
-    next();
-    vertws_skip(false);
-  }
-  void horzws_skipping() {
-    if (flg_skip_horzws_) {
-      next();
-      return;
-    }
-    horzws_skip(true);
-    next();
-    horzws_skip(false);
-  }
+  void vertws_skipping();
+  void horzws_skipping();
 
   void ws_skipping() {
     horzws_skipping();
@@ -87,15 +71,15 @@ class FileVisitor : public vfile::Visitor<char>,
  private:
   void skipping() {
     if (flg_skip_vertws_ && flg_skip_horzws_) {
-      while (str::ascii::is::Ws(*start_)) {
+      while (str::ascii::is::Ws(*cur())) {
         next();
       }
     } else if (flg_skip_vertws_) {
-      while (str::ascii::is::VertWs(*start_)) {
+      while (str::ascii::is::VertWs(*cur())) {
         next();
       }
     } else if (flg_skip_horzws_) {
-      while (str::ascii::is::HorzWs(*start_)) {
+      while (str::ascii::is::HorzWs(*cur())) {
         next();
       }
     }

@@ -163,50 +163,26 @@ class TU {
 
   token::Token expand(
       const token::Token& tok,
-      const typename lps::token::Token::tokens_type& parameter_tokens =
-          typename lps::token::Token::tokens_type{}) {
+      const typename lexer::details::pp::ast::Node::macro_parameters_type&
+          parameter_tokens =
+              typename lexer::details::pp::ast::Node::macro_parameters_type{}) {
     check_define(tok);
     lps_assert(kTag, already_defined(tok));
     const auto& node = define_tokens_[str(tok)].node_;
-    const auto& expanded_tokens = node->expand();
-    using expanded_tokens_type = decltype(expanded_tokens);
-    token::TokenContainer::tokens_type full_expanded_tokens;
-    [this](expanded_tokens_type tokens,
-           token::TokenContainer::tokens_type& out_tokens) -> void {
-      auto expand_impl = [this](expanded_tokens_type tokens,
-                                token::TokenContainer::tokens_type& out_tokens,
-                                auto func) -> void {
-        for (const auto& t : tokens) {
-          if (t.kind() == token::details::TokenKind::identifier) {
-            if (defined(t)) {
-              const auto& tokens_1 = define_tokens_[str(t)].node_->expand();
-              if (tokens.empty()) {
-                diag(t, diag::DiagKind::unexpected_empty_macro_expand);
-              } else {
-                func(tokens_1, out_tokens, func);
-                continue;
-              }
-            }
-          }
-          token::TokenContainer::tokens_type::ele_type t0;
-          t0 = t;
-          out_tokens.append(t0);
-          if (out_tokens.size() > 1) {
-            // set `next` information
-            out_tokens[out_tokens.size() - 2].next_visitor_offset(
-                out_tokens.size() - 1);
-          }
-        }
-      };
-      expand_impl(tokens, out_tokens, expand_impl);
-    }(expanded_tokens, full_expanded_tokens);
-    token::Token returned_tok;
-    if (!full_expanded_tokens.empty()) {
+    auto expanded_tokens = node->expand(parameter_tokens);
 
-      full_expanded_tokens.back().next_visitor(tok.offset(), tok.file_id());
+    token::Token returned_tok;
+    if (!expanded_tokens.empty()) {
+
+      for (size_t i = 1; i < expanded_tokens.size(); ++i) {
+        expanded_tokens[i - 1].next_visitor_offset(i);
+      }
+
+      expanded_tokens.back().next_visitor(tok.next_visitor().first,
+                                          tok.next_visitor().second);
 
       auto file_id = record_expanded_tokens_as_virtual_file(
-          tok.ptr(), tok.file_id(), std::move(full_expanded_tokens));
+          tok.ptr(), tok.file_id(), std::move(expanded_tokens));
       lps_assert(kTag, file_id > 0);
       // the expanded list is valid, and recorded by `src::Manager`,
       // now we can return the first element of the expanded list.

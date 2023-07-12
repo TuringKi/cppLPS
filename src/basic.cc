@@ -22,6 +22,7 @@
 */
 
 #include "basic/file.h"
+#include "lex/base.h"
 #include "src.h"
 #include "tu.h"
 
@@ -40,5 +41,24 @@ const char* FileVisitor::cur() const {
     return &eof_;
   }
   return start_ + pos_;
+}
+
+void FileVisitor::vertws_skipping() {
+  if (flg_skip_vertws_) {
+    skipping();
+    return;
+  }
+  vertws_skip(true);
+  skipping();
+  vertws_skip(false);
+}
+void FileVisitor::horzws_skipping() {
+  if (flg_skip_horzws_) {
+    skipping();
+    return;
+  }
+  horzws_skip(true);
+  skipping();
+  horzws_skip(false);
 }
 }  // namespace lps::basic

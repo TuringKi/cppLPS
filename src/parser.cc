@@ -37,7 +37,7 @@ void Parser::parse(uint32_t file_id) {
     details::ParseFunctionInputs params;
     params.opt_ = false;
     token::Token next_tok;
-    lexer::Lexer lexer(file_id, content.data());
+    lexer::Lexer lexer(file_id, 0);
     lexer.lex(next_tok);
     params.cur_token_ = next_tok;
     if (next_tok.kind() != token::details::TokenKind::unknown) {
