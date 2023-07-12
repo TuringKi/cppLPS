@@ -43,7 +43,7 @@ def create_serial_parse_function(serial_idx, key, v, tag_name="TagName"):
 
     content_init = ""
     content_type = f"using parse_func_type = SerialParseFunctions<"
-    content_func_def = f"""SerialParseFunctions serial_funcs(
+    content_func_def = f"""SerialParseFunctions serial_funcs("{name}_serial",
         ParseFunctionInputs(false ,calling_depth(), output.last_token_, output.cur_token_),"""
     for idx, s_ in enumerate(v):
         assert isinstance(s_, str)
@@ -87,7 +87,7 @@ create_single_token_check({opt_str},calling_depth() + 1,
         static_assert(base::kNumberOfElements == 1);
      serial_funcs.executed_mask( decltype(serial_funcs)::base::bitset_type(this->executed_mask_.value() ) );
     output = serial_funcs();
-    this->executed_mask(base::bitset_type(serial_funcs.executed_mask().value()));
+    this->executed_mask_.set(serial_funcs.executed_mask().value());
     return output;
     """
     if not flg:
@@ -97,12 +97,12 @@ create_single_token_check({opt_str},calling_depth() + 1,
     return content_op, content_init, content_type + ">;", "", comments
 
 
-def create_serial_in_parallel_function(s_v, k, flg, tidx):
+def create_serial_in_parallel_function(s_v, k, flg, idx_str, tidx):
     name = camel_case(k)
     tag_name = f""" {name}::kTag """
     assert isinstance(s_v, list)
     contents_type = f"SerialParseFunctions<"
-    contents = f"""SerialParseFunctions(ParseFunctionInputs(
+    contents = f"""SerialParseFunctions("{name}_{idx_str}_serial_{tidx}", ParseFunctionInputs(
         false,calling_depth() + 1),"""
     for s_ in s_v:
         assert isinstance(s_, str)
@@ -136,30 +136,41 @@ create_single_token_check({opt_str},calling_depth() + 2,
     return contents, contents_type, flg
 
 
-def create_parallel_function_normal(v, k, idx, offset, out_name="output"):
+def create_parallel_function_normal(v, k, idx, offset, out_name="output", type_recursive=False):
     name = camel_case(k)
     tag_name = f""" {name}::kTag """
     contents_type = f"""ParallelParseFunctions<{len(v)}, """
+    sub_str = f"""parallel_{idx}"""
+    if type_recursive:
+        sub_str = f"""recursive_{idx}"""
+        contents_type = f"""RecursiveParseFunctions<"""
     content_func_def = f"""
-     parallel_funcs_{idx}(ParseFunctionInputs(false,calling_depth(), output.last_token_,output.cur_token_),
+     parallel_funcs_{idx}("{name}_parallel_{idx}",ParseFunctionInputs(false,calling_depth(), output.last_token_,output.cur_token_),
+     """
+    if type_recursive:
+        content_func_def = f"""
+     recursive_funcs_{idx}("{name}_recursive", ParseFunctionInputs(false,calling_depth(), output.last_token_,output.cur_token_),
      """
     flg = True
     for ii, s_v in enumerate(v):
         contents_, contents_type_, flg = create_serial_in_parallel_function(
-            s_v, k, flg, ii)
+            s_v, k, flg, sub_str, ii)
         if not flg:
             break
         content_func_def += contents_
         contents_type += contents_type_
     content_func_def = content_func_def[:-1] + ");"
     contents_type = contents_type[:-1] + "> "
+
     content_op = f"""
     static_assert(base::kNumberOfElements >= {len(v)});
     using parallel_funcs_bitset_map = decltype(parallel_funcs_{idx})::base::bitset_type;
-     parallel_funcs_{idx}.executed_mask( parallel_funcs_bitset_map(base::bitset_type::range<{offset}, {offset + len(v)}>(this->executed_mask_.value({offset})) ));
+     parallel_funcs_{idx}.executed_mask( parallel_funcs_bitset_map(this->executed_mask_.value({offset})) );
     {out_name} = parallel_funcs_{idx}();
-    this->executed_mask(base::bitset_type(parallel_funcs_{idx}.executed_mask().value() ,{offset}));
+    this->executed_mask_.set(parallel_funcs_{idx}.executed_mask().value() ,{offset});
     """
+    if type_recursive:
+        content_op = f"""{out_name} = recursive_funcs_{idx}();"""
     content_init = ""
     return content_op, content_init, contents_type,  content_func_def, flg
 
@@ -182,7 +193,8 @@ def create_parallel_function(serial_idx, key, v):
         if not flg_has_recursive:
             non_recursive_eles.append(s_v)
         else:
-            recursive_eles.append(s_v)
+            assert (len(s_v) > 1)
+            recursive_eles.append(s_v[1:])
 
     assert (len(non_recursive_eles) > 0)
 
@@ -205,7 +217,7 @@ def create_parallel_function(serial_idx, key, v):
             content_non_op = f"unreachable({tag_name});return output;"
             return content_non_op, "", "", "", flg
         content_r_op, content_r_init, content_r_type, content_r_func_def, flg = create_parallel_function_normal(
-            recursive_eles, k, 1, len(non_recursive_eles))
+            recursive_eles, k, 1, len(non_recursive_eles), "output", True)
         if not flg:
             content_r_op = f"unreachable({tag_name});return output;"
             return content_r_op, "", "", "", flg
@@ -382,11 +394,11 @@ namespace lps::parser::details {
     constexpr static ParseFunctionKind kind = ParseFunctionKind::TYPE;                     \\
     ~NAME() = default;                                                  \\
     template <typename... Params>                                       \\
-    explicit NAME(bool opt, Params... params) : base(opt, params...) {} \\
+    explicit NAME(bool opt, Params... params) : base(#NAME,opt, params...) {} \\
     template <typename... Params>                                       \\
-    explicit NAME(Params... params) : base(params...) {}                \\
+    explicit NAME(Params... params) : base(#NAME,params...) {}                \\
     explicit NAME(const ParseFunctionInputs& param)         \\
-        : base(param) {}                                               \\
+        : base(#NAME,param) {}                                               \\
     ParseFunctionOutputs operator()() override;             \\
   };
 
@@ -423,6 +435,7 @@ ___CONTENT_DEF___
 #include "diag.h"
 #include "parse_function/function.h"
 #include "parse_function/parallel_function_impl.h"
+#include "parse_function/recursive_function_impl.h"
 #include "parse_function/serial_function_impl.h"
 #include "token.h"
 

@@ -35,11 +35,12 @@ class ParallelParseFunctions : public ParseFunction<NumElements> {
 
  public:
   using base = ParseFunction<NumElements>;
-  ParallelParseFunctions(const ParallelParseFunctions& other) = default;
-  explicit ParallelParseFunctions(const ParseFunctionInputs& param,
+  explicit ParallelParseFunctions(const char* kName,
+                                  const ParseFunctionInputs& param,
                                   ParseFuncs&&... funcs)
-      : base(param), parse_functions_(funcs...) {}
+      : base(kName, param), parse_functions_(funcs...) {}
   ParseFunctionOutputs operator()() override;
+  void reset() override;
 
  protected:
   std::tuple<ParseFuncs...> parse_functions_;
@@ -50,13 +51,37 @@ class SerialParseFunctions : public ParseFunction<1> {
 
  public:
   using base = ParseFunction<1>;
-  SerialParseFunctions(const SerialParseFunctions& other) = default;
-  explicit SerialParseFunctions(const ParseFunctionInputs& param,
+  explicit SerialParseFunctions(const char* kName,
+                                const ParseFunctionInputs& param,
                                 ParseFuncs&&... funcs)
-      : base(param), parse_functions_(funcs...) {}
+      : base(kName, param), parse_functions_(funcs...) {}
   ParseFunctionOutputs operator()() override;
+  void reset() override;
 
  protected:
   std::tuple<ParseFuncs...> parse_functions_;
+};
+
+template <typename... ParseFuncs>
+class RecursiveParseFunctions : public ParseFunction<1> {
+
+ public:
+  static constexpr int kNFuncs = sizeof...(ParseFuncs);
+  using working_list_type = basic::Bitset<kNFuncs>;
+  using working_list_stack_type = std::stack<working_list_type>;
+  using base = ParseFunction<1>;
+  explicit RecursiveParseFunctions(const char* kName,
+                                   const ParseFunctionInputs& param,
+                                   ParseFuncs&&... funcs)
+      : base(kName, param), parse_functions_(funcs...) {}
+  ParseFunctionOutputs operator()() override;
+
+ protected:
+  void execute(ParseFunctionOutputs&, working_list_type& executed_mask);
+  bool regret(const working_list_type& executed_mask);
+  void reset() override;
+
+  std::tuple<ParseFuncs...> parse_functions_;
+  working_list_stack_type working_list_stack_;
 };
 }  // namespace lps::parser::details

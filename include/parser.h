@@ -228,23 +228,27 @@ class ParseFunction {
   const ParseFunctionKind kKind = ParseFunctionKind::kExpectedToken;
 
   template <typename... Params>
-  explicit ParseFunction(Params... params) : params_(params...) {}
+  explicit ParseFunction(const char* kName, Params... params)
+      : kName_(kName), params_(params...) {}
   template <typename... Params>
-  explicit ParseFunction(custom_func_type func,
+  explicit ParseFunction(const char* kName, custom_func_type func,
                          token::details::TokenKind expected_token_kind,
                          Params... params)
-      : custom_func_(func),
+      : kName_(kName),
+        custom_func_(func),
         params_(params...),
         expected_token_kind_(expected_token_kind) {}
-  explicit ParseFunction(ParseFunctionInputs param,
+  explicit ParseFunction(const char* kName, ParseFunctionInputs param,
                          token::details::TokenKind expected_token_kind,
                          custom_func_type func)
-      : params_(std::move(param)),
+      : kName_(kName),
+        params_(std::move(param)),
         custom_func_(func),
         expected_token_kind_(expected_token_kind) {}
-  explicit ParseFunction(const ParseFunctionInputs& param) : params_(param) {}
-  explicit ParseFunction(ParseFunctionInputs&& param)
-      : params_(std::move(param)) {}
+  explicit ParseFunction(const char* kName, const ParseFunctionInputs& param)
+      : kName_(kName), params_(param) {}
+  explicit ParseFunction(const char* kName, ParseFunctionInputs&& param)
+      : kName_(kName), params_(std::move(param)) {}
 
   virtual output_type operator()() {
     if (custom_func_) {
@@ -262,20 +266,10 @@ class ParseFunction {
   [[nodiscard]] token::Token last_token() const { return params_.last_token_; }
   [[nodiscard]] token::Token cur_token() const { return params_.cur_token_; }
 
-  [[nodiscard]] inline size_t len() const {
-    return src::Manager::instance().size(params_.cur_token_.file_id());
-  }
-
-  [[nodiscard]] inline const char* eof() const {
-    auto content =
-        src::Manager::instance().ref_of_char_file(params_.cur_token_.file_id());
-    return content.data() + len();
-  }
   [[nodiscard]] inline bool valid() const { return valid(params_.cur_token_); }
 
   [[nodiscard]] inline bool valid(const token::Token& tok) const {
-    return token::TokenLists::instance().next(tok).kind() !=
-           token::details::TokenKind::eof;
+    return tok.kind() != token::details::TokenKind::eof;
   }
 
   void opt(bool opt) { params_.opt_ = opt; }
@@ -287,8 +281,11 @@ class ParseFunction {
   void calling_depth(size_t depth) { params_.calling_depth_ = depth; }
   [[nodiscard]] bitset_type executed_mask() const { return executed_mask_; }
   void executed_mask(const bitset_type& mask) { executed_mask_ = mask; }
-  void reset() { executed_mask_.reset(); }
-  bool ok_to_try() { return !executed_mask_.all(); }
+  virtual void reset() { executed_mask_.reset(); }
+  bool ok_to_try() {
+    auto status = executed_mask_.all();
+    return !status;
+  }
 
   static type create_single_token_check(bool opt, size_t calling_depth,
                                         token::details::TokenKind token_kind,
@@ -315,6 +312,9 @@ class ParseFunction {
         lexer::Lexer lexer(output.cur_token_.next_visitor().second,
                            output.cur_token_.next_visitor().first);
         lexer.lex(next_tok);
+        if (next_tok.kind() == token::details::TokenKind::eof) {
+          next_tok.file_id(output.cur_token_.file_id());
+        }
 
         lps_assert("create_single_token_check",
                    next_tok.kind() != token::details::TokenKind::unknown);
@@ -347,13 +347,15 @@ class ParseFunction {
 
       return output;
     });
-    return type(z, token_kind, opt, calling_depth);
+    return type(token::details::kMap.at(token_kind), z, token_kind, opt,
+                calling_depth);
   }
 
  protected:
   ParseFunctionInputs params_;
   custom_func_type custom_func_{nullptr};
   bitset_type executed_mask_;
+  const char* kName_;
 
  private:
   token::details::TokenKind expected_token_kind_{

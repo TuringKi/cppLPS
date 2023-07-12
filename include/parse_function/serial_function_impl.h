@@ -24,7 +24,7 @@
 
 #include <stack>
 #include "diag.h"
-#include "parse_function/parallel_serial_function.h"
+#include "parse_function/parallel_serial_recursive_function.h"
 #include "parser.h"
 #include "token.h"
 
@@ -139,16 +139,30 @@ ParseFunctionOutputs SerialParseFunctions<ParseFuncs...>::operator()() {
   if (path_stack.top().work_) {
     path_stack.top().node_ = std::move(node);
     diag::infos() << basic::str::from(
-        std::string(this->calling_depth(), '>'), " ", "_SerialFunc ",
+        std::string(this->calling_depth(), '>'), " ", this->kName_,
         basic::tui::color::Shell::colorize(basic::str::from(" ok.\n"),
                                            basic::tui::color::Shell::fgreen()));
   } else {
     diag::infos() << basic::str::from(
-        std::string(this->calling_depth(), '>'), " ", "_SerialFunc ",
+        std::string(this->calling_depth(), '>'), " ", this->kName_,
         basic::tui::color::Shell::colorize(basic::str::from(" failed\n"),
                                            basic::tui::color::Shell::fred()));
   }
   return path_stack.top();
+}
+
+template <typename... ParseFuncs>
+void SerialParseFunctions<ParseFuncs...>::reset() {
+  base::reset();
+  std::apply(
+      [](ParseFuncs&... funcs) {
+        (
+            [](auto& func) {
+              func.reset();
+            }(funcs),
+            ...);
+      },
+      parse_functions_);
 }
 
 }  // namespace lps::parser::details

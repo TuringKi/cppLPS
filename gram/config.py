@@ -185,6 +185,19 @@ sp_tokens = {
     "`false`":"kw_false",
     "`true`":"kw_true",
     "`nullptr`":"kw_nullptr",
+    "`binary-literal`":"binary_literal",
+    "`floating-point-literal`":"floating_point_literal",
+    "`character-literal`":"char_literal",
+    "`string-literal`":"string_literal",
+    "`integer-literal`":"integer_literal",
+    "`decimal-literal`":"decimal_literal",
+    "`octal-literal`":"octal_literal",
+    "`hexadecimal-literal`":"hexadecimal_literal",
+    "`raw-string`":"raw_string",
+    "`user-defined-character-literal`":"user_defined_char_literal",
+    "`user-defined-string-literal`":"user_defined_string_literal",
+    "`user-defined-floating-point-literal`":"user_defined_floating_point_literal",
+    "`user-defined-integer-literal`":"user_defined_integer_literal",
 }
 
 gram_tree = {}
@@ -654,7 +667,7 @@ gram_tree["simple-declaration"] = [
 
 gram_tree["static_assert-declaration"] = [
     ["`static_assert`", "`(`", "constant-expression", "`)`", "`;`"],
-    ["`static_assert`", "`(`", "constant-expression", "`,`", "string-literal", "`)`", "`;`"]
+    ["`static_assert`", "`(`", "constant-expression", "`,`", "`string-literal`", "`)`", "`;`"]
 ]
 
 gram_tree["empty-declaration"] = [
@@ -1056,16 +1069,16 @@ gram_tree["using-declarator"] = [
 ]
 
 gram_tree["asm-declaration"] = [
-    "attribute-specifier-seq[opt]", "`asm`", "`(`", "string-literal", "`)`", "`;`",
+    "attribute-specifier-seq[opt]", "`asm`", "`(`", "`string-literal`", "`)`", "`;`",
 ]
 
 gram_tree["linkage-specification"] = [
-    ["`extern`", "string-literal", "`{`", "declaration-seq[opt]", "`}`"],
-    ["`extern`", "string-literal", "declaration"],
+    ["`extern`", "`string-literal`", "`{`", "declaration-seq[opt]", "`}`"],
+    ["`extern`", "`string-literal`", "declaration"],
 ]
 
 gram_tree["attribute-specifier-seq"] = [
-    "attribute-specifier", "attribute-specifier-seq[opt]", 
+    "attribute-specifier", "attribute-specifier-seq[opt]",
 ]
 
 gram_tree["attribute-specifier"] = [
@@ -1310,8 +1323,8 @@ gram_tree["the_operator"] = [
 ]
 
 gram_tree["literal-operator-id"] = [
-    ["`operator`", "string-literal", "`identifier`"],
-    ["`operator`", "user-defined-string-literal"],
+    ["`operator`", "`string-literal`", "`identifier`"],
+    ["`operator`", "`user-defined-string-literal`"],
 ]
 
 gram_tree["template-declaration"] = [
@@ -1562,7 +1575,7 @@ gram_tree["h-pp-tokens"] = [
 ]
 
 gram_tree["header-name-tokens"] = [
-    ["string-literal"],
+    ["`string-literal`"],
     ["`<`", "h-pp-tokens", "`>`"],
 ]
 
@@ -1605,10 +1618,10 @@ gram_tree["preprocessing-token"] = [
     ["`export`"],
     ["`identifier`"],
     ["pp-number"],
-    ["character-literal"],
-    ["user-defined-character-literal"],
-    ["string-literal"],
-    ["user-defined-string-literal"],
+    ["`character-literal`"],
+    ["`user-defined-character-literal`"],
+    ["`string-literal`"],
+    ["`user-defined-string-literal`"],
     ["preprocessing-op-or-punc"],
     # each non-whitespace character that cannot be one of the above
 ]
@@ -1698,41 +1711,17 @@ gram_tree["operator-or-punctuator"] = [
 ]
 
 gram_tree["literal"] = [
-    ["integer-literal"],
-    ["character-literal"],
-    ["floating-point-literal"],
-    ["string-literal"],
+    ["`integer-literal`"],
+    ["`binary-literal`"],
+    ["`octal-literal`"],
+    ["`decimal-literal`"],
+    ["`hexadecimal-literal`"],
+    ["`character-literal`"],
+    ["`floating-point-literal`"],
+    ["`string-literal`"],
     ["boolean-literal"],
     ["pointer-literal"],
     ["user-defined-literal"],
-]
-
-gram_tree["integer-literal"] = [
-    ["binary-literal", "integer-suffix[opt]"],
-    ["octal-literal", "integer-suffix[opt]"],
-    ["decimal-literal", "integer-suffix[opt]"],
-    ["hexadecimal-literal", "integer-suffix[opt]"],
-]
-
-gram_tree["binary-literal"] = [
-    ["`0b`", "binary-digit"],
-    ["`0B`", "`binary-digit`"],
-    ["binary-literal", "`'`"],
-    ["binary-literal", "`'`[opt]", "binary-digit"],
-]
-
-gram_tree["octal-literal"] = [
-    ["`0`"],
-    ["octal-literal", "`'`[opt]", "octal-digit"],
-]
-
-gram_tree["decimal-literal"] = [
-    ["nonzero-digit"],
-    ["decimal-literal", "`'`[opt]", "digit"],
-]
-
-gram_tree["hexadecimal-literal"] = [
-    "hexadecimal-prefix", "hexadecimal-digit-sequence",
 ]
 
 gram_tree["binary-digit"] = [
@@ -1810,10 +1799,6 @@ gram_tree["long-long-suffix"] = [
     ["`ll`"], ["`LL`"],
 ]
 
-gram_tree["character-literal"] = [
-    "encoding-prefix[opt]", "`'`","c-char-sequence", "`'`",
-]
-
 gram_tree["encoding-prefix"] = [
     ["`u8`"],["`u`"], ["`U`"], ["`L`"],
 ]
@@ -1849,11 +1834,6 @@ gram_tree["octal-escape-sequence"] = [
 gram_tree["hexadecimal-escape-sequence"] = [
     ["`\\x`", "hexadecimal-digit"],
     ["hexadecimal-escape-sequence", "hexadecimal-digit"],
-]
-
-gram_tree["floating-point-literal"] = [
-    ["decimal-floating-point-literal"],
-    ["hexadecimal-floating-point-literal"],
 ]
 
 gram_tree["decimal-floating-point-literal"] = [
@@ -1899,11 +1879,6 @@ gram_tree["floating-point-suffix"] = [
     ["`f`"], ["`l`"], ["`F`"], ["`L`"],
 ]
 
-gram_tree["string-literal"] = [
-    ["encoding-prefix[opt]", '`"`', "s-char-sequence[opt]", '`"`'],
-    ["encoding-prefix[opt]", '`R`', "raw-string"],
-]
-
 gram_tree["s-char-sequence"] = [
     ["s-char"],
     ["s-char-sequence", "s-char"],
@@ -1915,9 +1890,6 @@ gram_tree["s-char"] = [
     ["universal-character-name"],
 ]
 
-gram_tree["raw-string"] = [
-    '`"`', "d-char-sequence[opt]", "`(`", "r-char-sequence[opt]"  ,"`)`", "d-char-sequence[opt]", '`"`',
-]
 
 gram_tree["r-char-sequence"] = [
     ["r-char"],
@@ -1950,33 +1922,12 @@ gram_tree["pointer-literal"] = [
 ]
 
 gram_tree["user-defined-literal"] = [
-    ["user-defined-integer-literal"],
-    ["user-defined-floating-point-literal"],
-    ["user-defined-string-literal"],
-    ["user-defined-character-literal"],
+    ["`user-defined-integer-literal`"],
+    ["`user-defined-floating-point-literal`"],
+    ["`user-defined-string-literal`"],
+    ["`user-defined-character-literal`"],
 ]
 
-gram_tree["user-defined-integer-literal"] = [
-    ["decimal-literal", "ud-suffix"],
-    ["octal-literal", "ud-suffix"],
-    ["hexadecimal-literal", "ud-suffix"],
-    ["binary-literal", "ud-suffix"],
-]
-
-gram_tree["user-defined-floating-point-literal"] = [
-    ["fractional-constant", "exponent-part[opt]", "ud-suffix"],
-    ["digit-sequence", "exponent-part", "ud-suffix"],
-    ["hexadecimal-prefix", "hexadecimal-fractional-constant", "binary-exponent-part", "ud-suffix"],
-    ["hexadecimal-prefix", "hexadecimal-digit-sequence", "binary-exponent-part", "ud-suffix"],
-]
-
-gram_tree["user-defined-string-literal"] = [
-    "string-literal", "ud-suffix",
-]
-
-gram_tree["user-defined-character-literal"] = [
-    "character-literal", "ud-suffix",
-]
 
 gram_tree["ud-suffix"] = [
     "`identifier`",
