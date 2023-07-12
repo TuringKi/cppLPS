@@ -25,7 +25,7 @@
 #include "basic/exception.h"
 #include "diag.h"
 #include "lexer.h"
-#include "parse_function/function_impl.h"
+#include "parse_function/function.h"
 #include "token.h"
 
 namespace lps::parser {

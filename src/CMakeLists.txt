@@ -2,10 +2,6 @@
 file(GLOB SRC  "./*.cc")
 list(REMOVE_ITEM SRC "./main.cc")
 
-SET(FUNC_IMPL ${CMAKE_SOURCE_DIR}/include/parse_function/function_impl.h)
-SET(FUNC_DEF ${CMAKE_SOURCE_DIR}/include/parse_function/function.h)
-SET(FUNC_KIND_DEF ${CMAKE_SOURCE_DIR}/include/parse_function/kinds.def)
-
 add_custom_command(
   OUTPUT ${FUNC_IMPL} ${FUNC_DEF} ${FUNC_KIND_DEF}
   COMMAND python3  ${CMAKE_SOURCE_DIR}/gram/create_parse_functions.py

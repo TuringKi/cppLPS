@@ -36,5 +36,10 @@ set(INCLUDE_DIR ${PROJECT_SOURCE_DIR}/include)
 
 include_directories(${INCLUDE_DIR})
 
+
+SET(FUNC_IMPL ${CMAKE_SOURCE_DIR}/src/parse_function/function_impl.cc)
+SET(FUNC_DEF ${CMAKE_SOURCE_DIR}/include/parse_function/function.h)
+SET(FUNC_KIND_DEF ${CMAKE_SOURCE_DIR}/include/parse_function/kinds.def)
+
 add_subdirectory(src)
 add_subdirectory(tests)
