@@ -284,8 +284,34 @@ if __name__ == "__main__":
     all_content_out_path = args[0]
     all_header_content_out_path = args[1]
     all_header_kind_content_out_path = args[2]
-    if len(args) > 3:
-        all_single_src_out_path = args[3]
+    all_header_diag_def_out_path = args[3]
+    if len(args) > 4:
+        all_single_src_out_path = args[4]
+
+    diag_def_title = """/*
+* MIT License
+* Copyright (c) 2023 mxlol233 (mxlol233@outlook.com)
+
+* Permission is hereby granted, free of charge, to any person obtaining a copy
+* of this software and associated documentation files (the "Software"), to deal
+* in the Software without restriction, including without limitation the rights
+* to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+* copies of the Software, and to permit persons to whom the Software is
+* furnished to do so, subject to the following conditions:
+
+* The above copyright notice and this permission notice shall be included in all
+* copies or substantial portions of the Software.
+
+* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+* IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+* FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+* AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+*LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+* OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+* SOFTWARE.
+*/
+
+"""
 
     kind_def_title = """/*
 * MIT License
@@ -477,7 +503,7 @@ ___CONTENT_COM___
         header_content_defs += f"""ParseFunctionDef({camel_case(k)},k{camel_case(k)}, {num_ele});"""
         header_content_types += f"""    PARSE_FUNC(k{camel_case(k)})
         """
-        if len(args) > 3:
+        if len(args) > 4:
             src_file_name = f"""{all_single_src_out_path}/{k.replace("-","_")}.cc"""
             write_to_file(src_file_name, the_contents, title)
     header_contents = header_contents_template.replace(
@@ -485,12 +511,16 @@ ___CONTENT_COM___
     write_to_file(f"{all_content_out_path}", all_contents, title)
     write_to_file(f"{all_header_content_out_path}",
                   header_contents, header_title)
+
+    diag_def_contents = ""
+    for k, v in diag_kinds.items():
+        z = f"""DIAG({k}, "expected {v[0]} in {v[1]}.", "",
+            Level::kError)
+            """
+        diag_def_contents += z
+
+    write_to_file(f"{all_header_diag_def_out_path}", "\n" +
+                  diag_def_contents, diag_def_title, "\n")
+
     write_to_file(f"{all_header_kind_content_out_path}", "\n" +
                   header_content_types, kind_def_title, "\n#undef PARSE_FUNC")
-
-#     with open(f"{os.path.dirname(__file__)}/../.build/t.def", "w") as f:
-#         for k, v in diag_kinds.items():
-#             z = f"""DIAG({k}, "expected {v[0]} in {v[1]}.", "",
-#         Level::kError)
-# """
-#             f.write(z)
