@@ -48,7 +48,6 @@ class Preprocessing : public Base {
 
     if (basic::str::ascii::is::Ws(*ptr)) {
       do {
-        this->inc(1);
         ++ptr;
       } while (basic::str::ascii::is::Ws(*ptr));
     }
@@ -56,14 +55,30 @@ class Preprocessing : public Base {
     auto first_ptr = ptr;
     if (*ptr == '#') {  // control-line
       ++ptr;
-      auto tmp_ptr = ptr;
-      auto tmp_tok = tok;
-      if (lex_control_line(first_ptr, tmp_ptr, tmp_tok)) {
-        ptr = tmp_ptr;
-        tok = tmp_tok;
-        return;
+      {
+        auto tmp_ptr = ptr;
+        auto tmp_tok = tok;
+        if (lex_control_line(first_ptr, tmp_ptr, tmp_tok)) {
+          ptr = tmp_ptr;
+          tok = tmp_tok;
+          return;
+        }
       }
-    } else {
+      {
+        auto tmp_ptr = ptr;
+        auto tmp_tok = tok;
+        if (lex_if_section(first_ptr, tmp_ptr, tmp_tok)) {
+          ptr = tmp_ptr;
+          tok = tmp_tok;
+          return;
+        }
+      }
+      diag(first_ptr, ptr,
+           diag::DiagKind::expected_directive_command_after_hash);
+      tok.kind(token::details::TokenKind::eof);
+      return;
+    }
+    {
       if (basic::str::ascii::is::NonDigit(*first_ptr)) {
         auto tmp_ptr = ptr;
         auto tmp_tok = tok;
@@ -418,20 +433,9 @@ class Preprocessing : public Base {
               }
 
               horzws_skipping(tmp_ptr2);
-              advance(tmp_ptr2);
+              ++tmp_ptr2;
               horzws_skipping(tmp_ptr2);
-              if (*tmp_ptr2 == '\\') {
-                if (!basic::str::ascii::is::VertWs(*(tmp_ptr2 + 1))) {
-                  diag(tmp_ptr2, tmp_ptr2 + 1,
-                       diag::DiagKind::
-                           expected_vertws_after_slash_in_preprocessing);
-                  tok.kind(token::details::TokenKind::eof);
-                  return true;
-                }
-                ++tmp_ptr2;
-                ++tmp_ptr2;
-                horzws_skipping(tmp_ptr2);
-              }
+
               tmp_first_ptr = tmp_ptr2;
               ++tmp_ptr2;
               replacement_tokens =
@@ -486,7 +490,7 @@ class Preprocessing : public Base {
         case token::details::TokenKind::kw_pragma:
 
         default:
-          unreachable(kTag);
+          return false;
       }
       ptr = tmp_ptr;
     }
@@ -496,7 +500,91 @@ class Preprocessing : public Base {
     }
     return false;
   }
-  void command() {}
+
+  // conditional-expression:
+  // 	logical_or_expression
+  // 	logical_or_expression, `?`, expression, `:`, assignment_expression
+  bool lex_conditional_expression(const typename base::ptr_type& first_ptr,
+                                  typename base::ptr_type& ptr,
+                                  token::Token& tok);
+  // constant-expression:
+  //  conditional-expression
+  bool lex_constant_expression(const typename base::ptr_type& first_ptr,
+                               typename base::ptr_type& ptr,
+                               token::Token& tok) {
+    return lex_conditional_expression(first_ptr, ptr, tok);
+  }
+
+  // if-group:
+  //  # if constant-expression new-line group[opt]
+  //  # ifdef identifier new-line group[opt]
+  //  # ifndef identifier new-line group[opt]
+  bool lex_if_group(const typename base::ptr_type& first_ptr,
+                    typename base::ptr_type& ptr, token::Token& tok) {
+    auto tmp_first_ptr = first_ptr;
+    auto tmp_ptr = ptr;
+    if (*tmp_first_ptr != '#') {
+      return false;
+    }
+    ++tmp_first_ptr;
+    ++tmp_ptr;
+    token::Token kw_token;
+    if (this->lex_identifier(tmp_first_ptr, tmp_ptr, kw_token)) {
+      switch (kw_token.kind()) {
+
+        case token::details::TokenKind::kw_if: {
+          horzws_skipping(tmp_ptr);
+          tmp_first_ptr = tmp_ptr;
+          ++tmp_ptr;
+          token::Token constant_expr;
+          if (!lex_constant_expression(tmp_first_ptr, tmp_ptr, constant_expr)) {
+            diag(tmp_first_ptr, tmp_ptr,
+                 diag::DiagKind::
+                     expected_constant_expression_after_if_directive);
+            throw basic::vfile::Eof();
+            return false;
+          }
+          horzws_skipping(tmp_ptr);
+          if (*tmp_ptr != '\n') {
+            diag(tmp_first_ptr, tmp_ptr,
+                 diag::DiagKind::
+                     expected_new_line_after_if_constant_expression_directive);
+            throw basic::vfile::Eof();
+            return false;
+          }
+          ++tmp_ptr;
+          horzws_skipping(tmp_ptr);
+
+          unreachable(kTag);
+
+          break;
+        }
+        case token::details::TokenKind::kw_ifdef: {
+          break;
+        }
+        case token::details::TokenKind::kw_ifndef: {
+          break;
+        }
+        default: {
+          return false;
+        }
+      }
+    }
+
+    return false;
+  }
+
+  // if-section:
+  // 	if_group, elif_groups[opt], else_group[opt], endif_line
+  bool lex_if_section(const typename base::ptr_type& first_ptr,
+                      typename base::ptr_type& ptr, token::Token& tok) {
+
+    if (!lex_if_group(first_ptr, ptr, tok)) {
+      return false;
+    }
+
+    return false;
+  }
 };  // namespace lps::lexer::details
 
 }  // namespace lps::lexer::details::pp
