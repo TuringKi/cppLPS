@@ -225,7 +225,12 @@ class ParseFunction {
   using custom_func_type = std::function<output_type(type*)>;
   using bitset_type = basic::Bitset<NumElements>;
   static constexpr size_t kNumberOfElements = NumElements;
-  const ParseFunctionKind kKind = ParseFunctionKind::kExpectedToken;
+
+  virtual ParseFunctionKind kind() {
+    static constexpr ParseFunctionKind kKind =
+        ParseFunctionKind::kExpectedToken;
+    return kKind;
+  }
 
   template <typename... Params>
   explicit ParseFunction(const char* kName, Params... params)

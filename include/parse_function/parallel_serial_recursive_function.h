@@ -41,6 +41,10 @@ class ParallelParseFunctions : public ParseFunction<NumElements> {
       : base(kName, param), parse_functions_(funcs...) {}
   ParseFunctionOutputs operator()() override;
   void reset() override;
+  ParseFunctionKind kind() override {
+    static constexpr ParseFunctionKind kKind = ParseFunctionKind::kUnknown;
+    return kKind;
+  }
 
  protected:
   std::tuple<ParseFuncs...> parse_functions_;
@@ -57,6 +61,10 @@ class SerialParseFunctions : public ParseFunction<1> {
       : base(kName, param), parse_functions_(funcs...) {}
   ParseFunctionOutputs operator()() override;
   void reset() override;
+  ParseFunctionKind kind() override {
+    static constexpr ParseFunctionKind kKind = ParseFunctionKind::kUnknown;
+    return kKind;
+  }
 
  protected:
   std::tuple<ParseFuncs...> parse_functions_;
@@ -75,6 +83,10 @@ class RecursiveParseFunctions : public ParseFunction<1> {
                                    ParseFuncs&&... funcs)
       : base(kName, param), parse_functions_(funcs...) {}
   ParseFunctionOutputs operator()() override;
+  ParseFunctionKind kind() override {
+    static constexpr ParseFunctionKind kKind = ParseFunctionKind::kUnknown;
+    return kKind;
+  }
 
  protected:
   void execute(ParseFunctionOutputs&, working_list_type& executed_mask);

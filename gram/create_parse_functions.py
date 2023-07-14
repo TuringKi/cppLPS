@@ -391,7 +391,10 @@ namespace lps::parser::details {
    public:   \\
     constexpr static basic::mem::TraceTag::tag_type kTag = #NAME;  \\
     using base = ParseFunction< N>;                      \\
-    constexpr static ParseFunctionKind kind = ParseFunctionKind::TYPE;                     \\
+           ParseFunctionKind kind() override{\\
+   constexpr static ParseFunctionKind kKind = ParseFunctionKind::TYPE;  \\
+    return kKind;\\
+  }\\
     ~NAME() = default;                                                  \\
     template <typename... Params>                                       \\
     explicit NAME(bool opt, Params... params) : base(#NAME,opt, params...) {} \\
