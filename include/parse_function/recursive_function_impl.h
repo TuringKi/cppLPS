@@ -113,7 +113,7 @@ void RecursiveParseFunctions<ParseFuncs...>::execute(
                   auto local_output = func();
                 }
                 if (local_output.work_) {  // only allow one of them work
-                  if (local_output.len() > max_len_match_output.len()) {
+                  if (local_output.len_ > max_len_match_output.len_) {
                     max_len_match_output = std::move(local_output);
                     max_len_match_idx = running_sub_func_idx;
                     if (!this->valid(
@@ -133,7 +133,6 @@ void RecursiveParseFunctions<ParseFuncs...>::execute(
       },
       parse_functions_);
   if (max_len_match_output.work_) {
-    output.node_ = std::move(max_len_match_output.node_);
     diag::infos() << basic::str::from(
         std::string(this->calling_depth(), '>'), " ", this->kName_,
         basic::tui::color::Shell::colorize(

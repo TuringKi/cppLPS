@@ -44,18 +44,10 @@ void Parser::parse(uint32_t file_id) {
       params.cur_token_ = next_tok;
       if (next_tok.kind() != token::details::TokenKind::unknown) {
         context->token_lists().append(next_tok);
-      }
-      details::TranslationUnit func(context, params);
-      auto output = func();
-      for (const auto& a : output.diag_inputs_) {
-        diag::doing(a.main_token_, a.kind_, a.context_tokens_);
-      }
-      if (output.work_) {
-        for (const auto& node : output.node_.sub_nodes_) {
-          if (node->kind_ != details::ParseFunctionKind::kUnknown) {
-            // todo(@mxlol233): handle the recursive tree nodes...
-          }
-        }
+        context->start_token(next_tok);
+        details::TranslationUnit func(context, params);
+        auto output = func();
+        if (output.work_) {}
       }
     });
   }

@@ -44,9 +44,15 @@ class Context {
   using executed_func_type = std::function<void(Context*)>;
   void with(const executed_func_type& func) { func(this); }
   token::TokenLists& token_lists() { return token_lists_; }
+  const token::Token& start_token() const { return start_token_; }
+  void start_token(const token::Token& token) { start_token_ = token; }
+  size_t len_from_start(const token::Token& cur_token) {
+    return token_lists_.len(start_token_, cur_token);
+  }
 
  private:
   token::TokenLists token_lists_;
+  token::Token start_token_;
 };
 
 class ContextTrait {
@@ -115,26 +121,19 @@ class Tree {
 };
 
 struct ParseFunctionOutputs {
-  using diag_input_type = basic::Vector<4, diag::DiagInputs>;
-  using token_list_infos_type =
-      basic::Vector<16, const token::TokenLists::ele_type*>;
   explicit ParseFunctionOutputs() = default;
 
-#define SET_MOVE(A, B)                             \
-  (A)->work_ = (B).work_;                          \
-  (A)->last_token_ = (B).last_token_;              \
-  (A)->cur_token_ = (B).cur_token_;                \
-  (A)->diag_inputs_ = std::move((B).diag_inputs_); \
-  (A)->node_ = std::move((B).node_);               \
-  (A)->token_list_infos_ = std::move((B).token_list_infos_);
+#define SET_MOVE(A, B)                \
+  (A)->work_ = (B).work_;             \
+  (A)->last_token_ = (B).last_token_; \
+  (A)->cur_token_ = (B).cur_token_;   \
+  (A)->len_ = (B).len_;
 
-#define SET(A, B)                       \
-  (A)->work_ = (B).work_;               \
-  (A)->last_token_ = (B).last_token_;   \
-  (A)->cur_token_ = (B).cur_token_;     \
-  (A)->diag_inputs_ = (B).diag_inputs_; \
-  (A)->node_ = (B).node_;               \
-  (A)->token_list_infos_ = (B).token_list_infos_;
+#define SET(A, B)                     \
+  (A)->work_ = (B).work_;             \
+  (A)->last_token_ = (B).last_token_; \
+  (A)->cur_token_ = (B).cur_token_;   \
+  (A)->len_ = (B).len_;
 
   ParseFunctionOutputs(const ParseFunctionOutputs& other) {
     SET(this, other);
@@ -157,38 +156,22 @@ struct ParseFunctionOutputs {
 #undef SET_MOVE
 #undef SET
 
-  [[nodiscard]] size_t len() const {
-    return token_list_infos_.size();
-  }
-
-  void diag_record(diag::DiagInputs&& a) {
-    diag_inputs_.append(std::move(a));
-  }
-
   void concat(ParseFunctionOutputs&& other, bool opt = true) {
     if (!opt) {
-      for (auto& a : other.diag_inputs_) {
-        typename decltype(diag_inputs_)::ele_type b(std::move(a));
-        this->diag_inputs_.append(std::move(b));
-      }
       this->work_ = other.work_;
     }
     if (other.work_) {
       this->last_token_ = other.last_token_;
       this->cur_token_ = other.cur_token_;
       this->work_ = other.work_;
-      for (auto& a : other.token_list_infos_) {
-        this->token_list_infos_.append(a);
-      }
+      len_ += other.len_;
     }
   }
 
   bool work_{false};
   token::Token last_token_;
   token::Token cur_token_;
-  diag_input_type diag_inputs_;
-  token_list_infos_type token_list_infos_;
-  Tree::Node node_;
+  size_t len_{0};
 };
 
 struct ParseFunctionInputs {
@@ -361,8 +344,7 @@ class ParseFunction : public ContextTrait {
 
       if (output.cur_token_.kind() != token_kind) {
         if (!func->opt()) {
-          output.diag_record(
-              diag::record(output.cur_token_, diag_kind, {output.last_token_}));
+          //todo(@mxlol233): add diag.
         }
         output.work_ = false;
         return output;
@@ -372,10 +354,7 @@ class ParseFunction : public ContextTrait {
         output.last_token_ = output.cur_token_;
         output.work_ = true;
         output.cur_token_ = next_tok;
-        if (next_tok.kind() != token::details::TokenKind::unknown) {
-          output.token_list_infos_.append(
-              &(func->context()->token_lists().at(next_tok)));
-        }
+        ++output.len_;
       }
 
       return output;

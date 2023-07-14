@@ -233,7 +233,6 @@ class TokenLists {
 
   const ele_type& last(const Token& tok) const {
     lps_assert(kTag, has(tok));
-    auto info = Info::create(tok);
     const auto* ptr = at(tok).last();
     if (!ptr) {
       static const ele_type kEmptyTok;
@@ -244,7 +243,6 @@ class TokenLists {
 
   const ele_type& next(const Token& tok) const {
     lps_assert(kTag, has(tok));
-    auto info = Info::create(tok);
     const auto* ptr = at(tok).next();
     if (!ptr) {
       static const ele_type kEmptyTok;
@@ -256,6 +254,20 @@ class TokenLists {
   bool has(const Token& tok) const {
     auto info = Info::create(tok);
     return has(info);
+  }
+
+  size_t len(const Token& start, const Token& end) const {
+    lps_assert(kTag, has(start) && has(end));
+    const Token* t = &start;
+    int l = 0;
+
+    while (t != nullptr && *t != end) {
+      auto info = Info::create(*t);
+      t = at(info).next();
+      ++l;
+    }
+    lps_assert(kTag, t != nullptr);
+    return l;
   }
 
   void append(const Token& tok, Info last_tok_info = {0, 0}) {

@@ -41,11 +41,12 @@ bool Preprocessing::lex_conditional_expression(
       lexer.lex(next_tok);
       if (next_tok.kind() != token::details::TokenKind::unknown) {
         context->token_lists().append(next_tok);
+        context->start_token(next_tok);
+        params.cur_token_ = next_tok;
+        parser::details::ConditionalExpression func(context, params);
+        auto output = func();
+        int dummy = -1;
       }
-      params.cur_token_ = next_tok;
-      parser::details::ConditionalExpression func(context, params);
-      auto output = func();
-      int dummy = -1;
     });
   }
 

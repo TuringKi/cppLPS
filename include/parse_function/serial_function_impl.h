@@ -72,43 +72,36 @@ ParseFunctionOutputs SerialParseFunctions<ParseFuncs...>::operator()() {
                 if (running_sub_func_idx++ < running_sub_func_stack_top_idx) {
                   return;
                 }
-                auto make_try_again =
-                    [&](basic::Vector<4, diag::DiagInputs>&& diag_inputs) {
-                      if ((running_sub_func_idx - 1) == 0) {
-                        flg_continue = false;
-                        return;
-                      }
-                      flg_not_continue = true;
-                      running_sub_func_stack_top_idx =
-                          (running_sub_func_idx - 1) - 1;
-                      func.reset();
-                      auto tmp_output(path_stack.top());
-                      tmp_output.work_ = false;
-                      lps_assert("make_try_again", path_stack.size() > 0);
+                auto make_try_again = [&]() {
+                  if ((running_sub_func_idx - 1) == 0) {
+                    flg_continue = false;
+                    return;
+                  }
+                  flg_not_continue = true;
+                  running_sub_func_stack_top_idx =
+                      (running_sub_func_idx - 1) - 1;
+                  func.reset();
+                  auto tmp_output(path_stack.top());
+                  tmp_output.work_ = false;
+                  lps_assert("make_try_again", path_stack.size() > 0);
 
-                      path_stack.pop();
+                  path_stack.pop();
 
-                      path_stack.top().concat(std::move(tmp_output), false);
-
-                      if (!diag_inputs.empty()) {
-                        decltype(tmp_output) tmp_output0;
-                        tmp_output0.diag_inputs_ = std::move(diag_inputs);
-                        path_stack.top().concat(std::move(tmp_output0), false);
-                      }
-                      return;
-                    };
+                  path_stack.top().concat(std::move(tmp_output), false);
+                  return;
+                };
                 if (flg_continue) {
                   func.last_token(path_stack.top().last_token_);
                   func.cur_token(path_stack.top().cur_token_);
 
                   if (!func.ok_to_try() || (!func.valid() && !func.opt())) {
-                    make_try_again(basic::Vector<4, diag::DiagInputs>());
+                    make_try_again();
                     return;
                   }
 
                   auto local_output = func();
                   if (!local_output.work_ && !func.opt()) {
-                    make_try_again(std::move(local_output.diag_inputs_));
+                    make_try_again();
                     return;
                   }
 
@@ -129,7 +122,6 @@ ParseFunctionOutputs SerialParseFunctions<ParseFuncs...>::operator()() {
   }
   lps_assert("serial_function_impl", path_stack.size() > 0);
   if (path_stack.top().work_) {
-    path_stack.top().node_ = std::move(node);
     diag::infos() << basic::str::from(
         std::string(this->calling_depth(), '>'), " ", this->kName_,
         basic::tui::color::Shell::colorize(basic::str::from(" ok.\n"),
