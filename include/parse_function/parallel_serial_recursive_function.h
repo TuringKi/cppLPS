@@ -30,7 +30,7 @@
 
 namespace lps::parser::details {
 
-template <size_t NumElements, typename... ParseFuncs>
+template <ParseFunctionKind Kind, size_t NumElements, typename... ParseFuncs>
 class ParallelParseFunctions : public ParseFunction<NumElements> {
 
  public:
@@ -41,16 +41,13 @@ class ParallelParseFunctions : public ParseFunction<NumElements> {
       : base(context, kName, param), parse_functions_(funcs...) {}
   ParseFunctionOutputs operator()() override;
   void reset() override;
-  ParseFunctionKind kind() override {
-    static constexpr ParseFunctionKind kKind = ParseFunctionKind::kUnknown;
-    return kKind;
-  }
+  ParseFunctionKind kind() override { return Kind; }
 
  protected:
   std::tuple<ParseFuncs...> parse_functions_;
 };
 
-template <typename... ParseFuncs>
+template <ParseFunctionKind Kind, typename... ParseFuncs>
 class SerialParseFunctions : public ParseFunction<1> {
 
  public:
@@ -61,16 +58,13 @@ class SerialParseFunctions : public ParseFunction<1> {
       : base(context, kName, param), parse_functions_(funcs...) {}
   ParseFunctionOutputs operator()() override;
   void reset() override;
-  ParseFunctionKind kind() override {
-    static constexpr ParseFunctionKind kKind = ParseFunctionKind::kUnknown;
-    return kKind;
-  }
+  ParseFunctionKind kind() override { return Kind; }
 
  protected:
   std::tuple<ParseFuncs...> parse_functions_;
 };
 
-template <typename... ParseFuncs>
+template <ParseFunctionKind Kind, typename... ParseFuncs>
 class RecursiveParseFunctions : public ParseFunction<1> {
 
  public:
@@ -83,10 +77,7 @@ class RecursiveParseFunctions : public ParseFunction<1> {
                                    ParseFuncs&&... funcs)
       : base(context, kName, param), parse_functions_(funcs...) {}
   ParseFunctionOutputs operator()() override;
-  ParseFunctionKind kind() override {
-    static constexpr ParseFunctionKind kKind = ParseFunctionKind::kUnknown;
-    return kKind;
-  }
+  ParseFunctionKind kind() override { return Kind; }
 
  protected:
   void execute(ParseFunctionOutputs&, working_list_type& executed_mask);

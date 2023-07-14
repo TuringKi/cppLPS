@@ -26,6 +26,7 @@
 #include <filesystem>
 #include <limits>
 #include <map>
+#include "ast.h"
 #include "basic/exception.h"
 #include "basic/file.h"
 #include "basic/mem.h"
@@ -198,6 +199,11 @@ class TokenLists {
 
   using ele_type = token::archived_type;
 
+  struct SavedStructure {
+    ele_type token_;
+    basic::Vector<8, lps::parser::details::ParseFunctionKind> colors_;
+  };
+
   bool has(uint32_t file_id, uint64_t offset) const {
     if (lists_.contains(file_id)) {
       return lists_.at(file_id).contains(offset);
@@ -267,6 +273,17 @@ class TokenLists {
       ++l;
     }
     lps_assert(kTag, t != nullptr);
+    return l;
+  }
+
+  static size_t len(const Token* p_start, const Token* p_end) {
+    const Token* p = p_start;
+    size_t l = 0;
+    while (p != nullptr && p != p_end) {
+      p = p->next();
+      ++l;
+    }
+    lps_assert(kTag, p != nullptr);
     return l;
   }
 

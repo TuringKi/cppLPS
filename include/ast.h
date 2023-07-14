@@ -22,4 +22,86 @@
 */
 #pragma once
 
-namespace lsp::ast {}
+#include <array>
+#include "basic/map.h"
+#include "basic/vec.h"
+#include "token.h"
+
+namespace lps::parser::details {
+
+enum class ParseFunctionKind : uint16_t {
+  kUnknown = 0,
+  kExpectedToken = 1,
+#define PARSE_FUNC(FUNC) FUNC,
+#include "parse_function/kinds.def"
+  kNum,
+};
+
+namespace kind {
+
+static constexpr std::array<std::pair<ParseFunctionKind, const char*>,
+                            static_cast<uint16_t>(ParseFunctionKind::kNum)>
+    kLists = {{
+#define PARSE_FUNC(X) {ParseFunctionKind::X, #X},
+#include "parse_function/kinds.def"
+    }};
+
+static constexpr lps::basic::map::Map<ParseFunctionKind, const char*,
+                                      static_cast<uint16_t>(
+                                          ParseFunctionKind::kNum)>
+    kMap{kLists};
+
+}  // namespace kind
+
+inline std::ostream& operator<<(std::ostream& s, ParseFunctionKind kind) {
+  s << kind::kMap.at(kind);
+  return s;
+}
+
+struct Line {
+  using segments_type = basic::Vector<2, const Line*>;
+  Line() = default;
+  Line(const token::Token* start, const token::Token* end,
+       ParseFunctionKind kind, token::details::TokenKind token_kind, size_t len,
+       size_t calling_depth, segments_type&& segments)
+      : start_(start),
+        end_(end),
+        kind_(kind),
+        token_kind_(token_kind),
+        len_(len),
+        calling_depth_(calling_depth),
+        segments_(std::move(segments)) {}
+  const token::Token* start_{nullptr};
+  const token::Token* end_{nullptr};
+  ParseFunctionKind kind_{ParseFunctionKind::kUnknown};
+  token::details::TokenKind token_kind_{token::details::TokenKind::unknown};
+  size_t len_{0};
+  size_t calling_depth_{0};
+  segments_type segments_;
+};
+
+inline bool operator==(const Line& a, const Line& b) {
+  return a.start_ == b.start_ && a.end_ == b.end_ && a.kind_ == b.kind_ &&
+         a.token_kind_ == b.token_kind_ && a.len_ == b.len_ &&
+         a.calling_depth_ == b.calling_depth_ && a.segments_ == b.segments_;
+}
+
+class Tree {
+ public:
+  struct Node {
+    using sub_nodes_type = basic::Vector<4, Node*>;
+    sub_nodes_type children_;
+    Line line_;
+  };
+  Node* append(const Node& n) {
+    nodes_.append(n);
+    return &nodes_.back();
+  }
+  Node& root() { return root_; }
+
+ private:
+  Node root_;
+  basic::Vector<8, Node> nodes_;
+};
+
+}  // namespace lps::parser::details

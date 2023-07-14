@@ -30,8 +30,9 @@
 
 namespace lps::parser::details {
 
-template <typename... ParseFuncs>
-ParseFunctionOutputs RecursiveParseFunctions<ParseFuncs...>::operator()() {
+template <ParseFunctionKind Kind, typename... ParseFuncs>
+ParseFunctionOutputs
+RecursiveParseFunctions<Kind, ParseFuncs...>::operator()() {
   lps_assert("RecursiveParseFunctions", this->ok_to_try());
   auto output = base::operator()();
   this->executed_mask_.set();
@@ -41,6 +42,9 @@ ParseFunctionOutputs RecursiveParseFunctions<ParseFuncs...>::operator()() {
   uint32_t recursive_depth = 0;
   working_list_type executed_mask;
   auto tmp_output = output;
+
+  Line::segments_type saved_lines;
+
   do {
 
     execute(tmp_output, executed_mask);
@@ -62,18 +66,32 @@ ParseFunctionOutputs RecursiveParseFunctions<ParseFuncs...>::operator()() {
     executed_mask.reset();
     ++recursive_depth;
     output = tmp_output;
+    saved_lines.append(tmp_output.line_);
   } while (true);
+
+  const auto* p_start = &context_->token_lists().at(this->cur_token());
+  const auto* p_end = &context_->token_lists().at(output.cur_token_);
+  Line line{
+      p_start,
+      p_end,
+      this->kind(),
+      token::details::TokenKind::unknown,
+      token::TokenLists::len(p_start, p_end),
+      this->calling_depth(),
+      std::move(saved_lines),
+  };
+  output.line_ = context_->paint(line);
 
   return output;
 }
-template <typename... ParseFuncs>
-bool RecursiveParseFunctions<ParseFuncs...>::regret(
+template <ParseFunctionKind Kind, typename... ParseFuncs>
+bool RecursiveParseFunctions<Kind, ParseFuncs...>::regret(
     const working_list_type& executed_mask) {
   return !executed_mask.all();
 }
 
-template <typename... ParseFuncs>
-void RecursiveParseFunctions<ParseFuncs...>::reset() {
+template <ParseFunctionKind Kind, typename... ParseFuncs>
+void RecursiveParseFunctions<Kind, ParseFuncs...>::reset() {
   std::apply(
       [](ParseFuncs&... funcs) {
         (
@@ -85,8 +103,8 @@ void RecursiveParseFunctions<ParseFuncs...>::reset() {
       parse_functions_);
 }
 
-template <typename... ParseFuncs>
-void RecursiveParseFunctions<ParseFuncs...>::execute(
+template <ParseFunctionKind Kind, typename... ParseFuncs>
+void RecursiveParseFunctions<Kind, ParseFuncs...>::execute(
     ParseFunctionOutputs& output, working_list_type& executed_mask) {
   bool flg_continue = true;
   uint32_t running_sub_func_idx = 0;

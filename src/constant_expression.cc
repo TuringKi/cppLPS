@@ -21,6 +21,7 @@
 * SOFTWARE.
 */
 
+#include "ast.h"
 #include "lex/pp.h"
 #include "parse_function/function.h"
 
@@ -31,23 +32,30 @@ bool Preprocessing::lex_conditional_expression(
     token::Token& tok) {
 
   {
+    token::Token next_tok;
+    lexer::Lexer lexer(first_ptr.file_id(), first_ptr.pos());
+    lexer.lex(next_tok);
 
     parser::details::Context context;
-    context.with([first_ptr](parser::details::Context* context) {
+    context.with([first_ptr, &next_tok](parser::details::Context* context) {
       parser::details::ParseFunctionInputs params;
       params.opt_ = false;
-      token::Token next_tok;
-      lexer::Lexer lexer(first_ptr.file_id(), first_ptr.pos());
-      lexer.lex(next_tok);
       if (next_tok.kind() != token::details::TokenKind::unknown) {
         context->token_lists().append(next_tok);
         context->start_token(next_tok);
         params.cur_token_ = next_tok;
+        params.calling_depth_ = 1;
         parser::details::ConditionalExpression func(context, params);
         auto output = func();
-        int dummy = -1;
       }
     });
+    auto line = context.longest_line(next_tok);
+    if (line.kind_ !=
+            parser::details::ParseFunctionKind::kConditionalExpression ||
+        line.calling_depth_ != 1) {
+      return false;
+    }
+    int dummy = -1;
   }
 
   return false;

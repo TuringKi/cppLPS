@@ -29,9 +29,9 @@
 
 namespace lps::parser::details {
 
-template <size_t NumElements, typename... ParseFuncs>
+template <ParseFunctionKind Kind, size_t NumElements, typename... ParseFuncs>
 ParseFunctionOutputs
-ParallelParseFunctions<NumElements, ParseFuncs...>::operator()() {
+ParallelParseFunctions<Kind, NumElements, ParseFuncs...>::operator()() {
   lps_assert("ParallelParseFunctions", this->ok_to_try());
   auto output = base::operator()();
   if (!this->valid()) {
@@ -96,8 +96,8 @@ ParallelParseFunctions<NumElements, ParseFuncs...>::operator()() {
   return output;
 }
 
-template <size_t NumElements, typename... ParseFuncs>
-void ParallelParseFunctions<NumElements, ParseFuncs...>::reset() {
+template <ParseFunctionKind Kind, size_t NumElements, typename... ParseFuncs>
+void ParallelParseFunctions<Kind, NumElements, ParseFuncs...>::reset() {
   base::reset();
   std::apply(
       [](ParseFuncs&... funcs) {

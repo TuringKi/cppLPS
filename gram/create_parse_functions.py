@@ -42,8 +42,8 @@ def create_serial_parse_function(serial_idx, key, v, tag_name="TagName"):
     tag_name = f""" {name}::kTag """
 
     content_init = ""
-    content_type = f"using parse_func_type = SerialParseFunctions<"
-    content_func_def = f"""SerialParseFunctions serial_funcs(context_,"{name}_serial",
+    content_type = f"using parse_func_type = SerialParseFunctions<ParseFunctionKind::k{name},"
+    content_func_def = f"""parse_func_type serial_funcs(context_,"{name}_serial",
         ParseFunctionInputs(false ,calling_depth(), output.last_token_, output.cur_token_),"""
     for idx, s_ in enumerate(v):
         assert isinstance(s_, str)
@@ -83,6 +83,7 @@ create_single_token_check(context_, {opt_str},calling_depth() + 1,
     comments = comments[:-2]
 
     content_op = f"""
+    {content_type + ">;"}
     {content_func_def});
         static_assert(base::kNumberOfElements == 1);
      serial_funcs.executed_mask( decltype(serial_funcs)::base::bitset_type(this->executed_mask_.value() ) );
@@ -101,8 +102,8 @@ def create_serial_in_parallel_function(s_v, k, flg, idx_str, tidx):
     name = camel_case(k)
     tag_name = f""" {name}::kTag """
     assert isinstance(s_v, list)
-    contents_type = f"SerialParseFunctions<"
-    contents = f"""SerialParseFunctions(context_, "{name}_{idx_str}_serial_{tidx}", ParseFunctionInputs(
+    contents_type = f"SerialParseFunctions<ParseFunctionKind::k{name},"
+    contents = f"""(context_, "{name}_{idx_str}_serial_{tidx}", ParseFunctionInputs(
         false,calling_depth() + 1),"""
     for s_ in s_v:
         assert isinstance(s_, str)
@@ -117,7 +118,7 @@ def create_serial_in_parallel_function(s_v, k, flg, idx_str, tidx):
                 break
             contents_type += f""" ParseFunction,"""
             contents += f"""ParseFunction::
-create_single_token_check(context_, {opt_str},calling_depth() + 2,
+create_single_token_check(context_, {opt_str},calling_depth() + 1,
     token::details::TokenKind::{sp_tokens[s]},
     diag::DiagKind::{k.replace("-","_")}_expect_{sp_tokens[s]}),"""
 
@@ -128,9 +129,10 @@ create_single_token_check(context_, {opt_str},calling_depth() + 2,
         else:
             assert s in gram_tree
             contents_type += f"{camel_case(s)},"
-            contents += f"{camel_case(s)}(context_, {opt_str}, calling_depth() + 2),"
+            contents += f"{camel_case(s)}(context_, {opt_str}, calling_depth() + 1),"
     contents = contents[:-1]
     contents_type = contents_type[:-1]
+    contents = contents_type + ">" + contents
     contents_type += ">,"
     contents += "),"
     return contents, contents_type, flg
@@ -139,11 +141,11 @@ create_single_token_check(context_, {opt_str},calling_depth() + 2,
 def create_parallel_function_normal(v, k, idx, offset, out_name="output", type_recursive=False):
     name = camel_case(k)
     tag_name = f""" {name}::kTag """
-    contents_type = f"""ParallelParseFunctions<{len(v)}, """
+    contents_type = f"""ParallelParseFunctions<ParseFunctionKind::k{name},{len(v)}, """
     sub_str = f"""parallel_{idx}"""
     if type_recursive:
         sub_str = f"""recursive_{idx}"""
-        contents_type = f"""RecursiveParseFunctions<"""
+        contents_type = f"""RecursiveParseFunctions<ParseFunctionKind::k{name},"""
     content_func_def = f"""
      parallel_funcs_{idx}(context_,"{name}_parallel_{idx}",ParseFunctionInputs(false,calling_depth(), output.last_token_,output.cur_token_),
      """
@@ -234,10 +236,25 @@ def create_parallel_function(serial_idx, key, v):
         """ + "\n}\n" + f"""
             diag::infos() << basic::str::from({tag_name}, "into recursive. \\n");
             {content_r_type} {content_r_func_def}
-            {content_r_op}""" + """
-            if(!output.work_){
+            {content_r_op}""" + f"""
+            if(!output.work_){{
                 return non_recursive_output;
-            }
+            }}
+const auto* p_start = &context_->token_lists().at(start_token);
+  const auto* p_end = &context_->token_lists().at(output.cur_token_);
+  Line line{{
+      p_start,
+      p_end,
+      this->kind(),
+      token::details::TokenKind::unknown,
+      token::TokenLists::len(p_start, p_end),
+      this->calling_depth(),
+      Line::segments_type()
+  }};
+  line.segments_.append(non_recursive_output.line_);
+  line.segments_.append(output.line_);
+  output.line_ = context_->paint(line);
+
             return output;
 
         """
@@ -458,6 +475,7 @@ ___CONTENT_COM___
         if (!this->valid()) {
             return output;
         }
+        auto start_token = output.cur_token_;
          ___CONTENT_OP___
     }
         """

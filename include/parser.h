@@ -25,7 +25,9 @@
 
 #include <functional>
 #include <limits>
+#include <unordered_map>
 #include <utility>
+#include "ast.h"
 #include "basic/bitset.h"
 #include "basic/exception.h"
 #include "basic/mem.h"
@@ -37,10 +39,10 @@
 namespace lps::parser {
 
 namespace details {
-
 class Context {
  public:
   friend class ContextTrait;
+  static constexpr basic::mem::TraceTag::tag_type kTag = "Context";
   using executed_func_type = std::function<void(Context*)>;
   void with(const executed_func_type& func) { func(this); }
   token::TokenLists& token_lists() { return token_lists_; }
@@ -49,10 +51,65 @@ class Context {
   size_t len_from_start(const token::Token& cur_token) {
     return token_lists_.len(start_token_, cur_token);
   }
+  const Line* paint(const Line& the_line) {
+    if (path_.contains(the_line.start_)) {
+      for (auto& line : path_[the_line.start_]) {
+        if (line == the_line) {
+          return &line;
+        }
+      }
+    }
+    path_[the_line.start_].append(the_line);
+    return &path_[the_line.start_].back();
+  }
+
+  Line longest_line(const auto& start) {
+    size_t max_l = 0;
+    const auto* p_start = &token_lists_.at(start);
+    auto cmp = [](size_t a, size_t b) {
+      return a > b;
+    };
+    return find_line<cmp>(p_start, max_l);
+  }
+
+  Line shortest_line(const token::Token& start) {
+    size_t min_l = std::numeric_limits<size_t>::max();
+    const auto* p_start = &token_lists_.at(start);
+    auto cmp = [](size_t a, size_t b) {
+      return a < b;
+    };
+    return find_line<cmp>(p_start, min_l);
+  }
+
+  Tree l2t(const Line& root_line) {  // line to tree
+    Tree tree;
+
+    return tree;
+  }
 
  private:
+  Line shortest_line(const token::Token* p_start, size_t min_l) {
+    return find_line<[](size_t a, size_t b) {
+      return a < b;
+    }>(p_start, min_l);
+  }
+
+  template <auto F>
+  Line find_line(const token::archived_type* p_start, size_t the_l) {
+    Line the_line;
+    lps_assert(kTag, path_.contains(p_start));
+    for (const auto& line : path_[p_start]) {
+      if (F(line.len_, the_l)) {
+        the_line = line;
+      }
+    }
+    lps_assert(kTag, the_line.len_ > 0);
+    return the_line;
+  }
+
   token::TokenLists token_lists_;
   token::Token start_token_;
+  std::unordered_map<const token::Token*, basic::Vector<16, Line>> path_;
 };
 
 class ContextTrait {
@@ -64,62 +121,6 @@ class ContextTrait {
   Context* context_;
 };
 
-enum class ParseFunctionKind : uint16_t {
-  kUnknown = 0,
-  kExpectedToken = 1,
-#define PARSE_FUNC(FUNC) FUNC,
-#include "parse_function/kinds.def"
-  kNum,
-};
-
-namespace kind {
-
-static constexpr std::array<std::pair<ParseFunctionKind, const char*>,
-                            static_cast<uint16_t>(ParseFunctionKind::kNum)>
-    kLists = {{
-#define PARSE_FUNC(X) {ParseFunctionKind::X, #X},
-#include "parse_function/kinds.def"
-    }};
-
-static constexpr lps::basic::map::Map<ParseFunctionKind, const char*,
-                                      static_cast<uint16_t>(
-                                          ParseFunctionKind::kNum)>
-    kMap{kLists};
-
-}  // namespace kind
-
-inline std::ostream& operator<<(std::ostream& s, ParseFunctionKind kind) {
-  s << kind::kMap.at(kind);
-  return s;
-}
-
-class Tree {
- public:
-  static Tree& instance() {
-    static Tree tree;
-    return tree;
-  }
-
-  struct Node {
-    using sub_nodes_type = basic::Vector<4, Node*>;
-    using token_pts_type = basic::Vector<8, token::archived_type*>;
-    ParseFunctionKind kind_{ParseFunctionKind::kUnknown};
-    sub_nodes_type sub_nodes_;
-    token_pts_type token_pts_;
-    token::details::TokenKind expected_token_kind_{
-        token::details::TokenKind::unknown};
-  };
-
-  Node* append(const Node& node) {
-    nodes_.append(node);
-    return &nodes_.back();
-  }
-  [[nodiscard]] size_t size() const { return nodes_.size(); }
-
- private:
-  basic::Vector<4, Node> nodes_;
-};
-
 struct ParseFunctionOutputs {
   explicit ParseFunctionOutputs() = default;
 
@@ -127,12 +128,14 @@ struct ParseFunctionOutputs {
   (A)->work_ = (B).work_;             \
   (A)->last_token_ = (B).last_token_; \
   (A)->cur_token_ = (B).cur_token_;   \
+  (A)->line_ = (B).line_;             \
   (A)->len_ = (B).len_;
 
 #define SET(A, B)                     \
   (A)->work_ = (B).work_;             \
   (A)->last_token_ = (B).last_token_; \
   (A)->cur_token_ = (B).cur_token_;   \
+  (A)->line_ = (B).line_;             \
   (A)->len_ = (B).len_;
 
   ParseFunctionOutputs(const ParseFunctionOutputs& other) {
@@ -165,12 +168,14 @@ struct ParseFunctionOutputs {
       this->cur_token_ = other.cur_token_;
       this->work_ = other.work_;
       len_ += other.len_;
+      this->line_ = other.line_;
     }
   }
 
   bool work_{false};
   token::Token last_token_;
   token::Token cur_token_;
+  const Line* line_{nullptr};
   size_t len_{0};
 };
 
@@ -355,6 +360,19 @@ class ParseFunction : public ContextTrait {
         output.work_ = true;
         output.cur_token_ = next_tok;
         ++output.len_;
+        {
+          const auto* p_start =
+              &func->context()->token_lists().at(output.last_token_);
+          const auto* p_end = &func->context()->token_lists().at(next_tok);
+          Line line{p_start,
+                    p_end,
+                    ParseFunctionKind::kExpectedToken,
+                    token_kind,
+                    token::TokenLists::len(p_start, p_end),
+                    func->calling_depth(),
+                    Line::segments_type()};
+          output.line_ = func->context()->paint(line);
+        }
       }
 
       return output;
