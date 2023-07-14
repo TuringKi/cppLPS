@@ -43,7 +43,7 @@ def create_serial_parse_function(serial_idx, key, v, tag_name="TagName"):
 
     content_init = ""
     content_type = f"using parse_func_type = SerialParseFunctions<"
-    content_func_def = f"""SerialParseFunctions serial_funcs("{name}_serial",
+    content_func_def = f"""SerialParseFunctions serial_funcs(context_,"{name}_serial",
         ParseFunctionInputs(false ,calling_depth(), output.last_token_, output.cur_token_),"""
     for idx, s_ in enumerate(v):
         assert isinstance(s_, str)
@@ -63,7 +63,7 @@ def create_serial_parse_function(serial_idx, key, v, tag_name="TagName"):
                 break
             content_type += f"""ParseFunction,"""
             content_func_def += f"""ParseFunction::
-create_single_token_check({opt_str},calling_depth() + 1,
+create_single_token_check(context_, {opt_str},calling_depth() + 1,
     token::details::TokenKind::{sp_tokens[s]},
     diag::DiagKind::{k.replace("-","_")}_expect_{sp_tokens[s]}),"""
 
@@ -74,7 +74,7 @@ create_single_token_check({opt_str},calling_depth() + 1,
         else:
             assert s in gram_tree
             content_type += f"{camel_case(s)},"
-            content_func_def += f"{camel_case(s)}({opt_str},calling_depth() + 1),"
+            content_func_def += f"{camel_case(s)}(context_, {opt_str},calling_depth() + 1),"
     content_func_def = content_func_def[:-1]
     content_type = content_type[:-1]
     comments = "// \t"
@@ -102,7 +102,7 @@ def create_serial_in_parallel_function(s_v, k, flg, idx_str, tidx):
     tag_name = f""" {name}::kTag """
     assert isinstance(s_v, list)
     contents_type = f"SerialParseFunctions<"
-    contents = f"""SerialParseFunctions("{name}_{idx_str}_serial_{tidx}", ParseFunctionInputs(
+    contents = f"""SerialParseFunctions(context_, "{name}_{idx_str}_serial_{tidx}", ParseFunctionInputs(
         false,calling_depth() + 1),"""
     for s_ in s_v:
         assert isinstance(s_, str)
@@ -117,7 +117,7 @@ def create_serial_in_parallel_function(s_v, k, flg, idx_str, tidx):
                 break
             contents_type += f""" ParseFunction,"""
             contents += f"""ParseFunction::
-create_single_token_check({opt_str},calling_depth() + 2,
+create_single_token_check(context_, {opt_str},calling_depth() + 2,
     token::details::TokenKind::{sp_tokens[s]},
     diag::DiagKind::{k.replace("-","_")}_expect_{sp_tokens[s]}),"""
 
@@ -128,7 +128,7 @@ create_single_token_check({opt_str},calling_depth() + 2,
         else:
             assert s in gram_tree
             contents_type += f"{camel_case(s)},"
-            contents += f"{camel_case(s)}({opt_str}, calling_depth() + 2),"
+            contents += f"{camel_case(s)}(context_, {opt_str}, calling_depth() + 2),"
     contents = contents[:-1]
     contents_type = contents_type[:-1]
     contents_type += ">,"
@@ -145,11 +145,11 @@ def create_parallel_function_normal(v, k, idx, offset, out_name="output", type_r
         sub_str = f"""recursive_{idx}"""
         contents_type = f"""RecursiveParseFunctions<"""
     content_func_def = f"""
-     parallel_funcs_{idx}("{name}_parallel_{idx}",ParseFunctionInputs(false,calling_depth(), output.last_token_,output.cur_token_),
+     parallel_funcs_{idx}(context_,"{name}_parallel_{idx}",ParseFunctionInputs(false,calling_depth(), output.last_token_,output.cur_token_),
      """
     if type_recursive:
         content_func_def = f"""
-     recursive_funcs_{idx}("{name}_recursive", ParseFunctionInputs(false,calling_depth(), output.last_token_,output.cur_token_),
+     recursive_funcs_{idx}(context_,"{name}_recursive", ParseFunctionInputs(false,calling_depth(), output.last_token_,output.cur_token_),
      """
     flg = True
     for ii, s_v in enumerate(v):
@@ -397,11 +397,11 @@ namespace lps::parser::details {
   }\\
     ~NAME() = default;                                                  \\
     template <typename... Params>                                       \\
-    explicit NAME(bool opt, Params... params) : base(#NAME,opt, params...) {} \\
+    explicit NAME(Context* context, bool opt, Params... params) : base(context, #NAME,opt, params...) {} \\
     template <typename... Params>                                       \\
-    explicit NAME(Params... params) : base(#NAME,params...) {}                \\
-    explicit NAME(const ParseFunctionInputs& param)         \\
-        : base(#NAME,param) {}                                               \\
+    explicit NAME(Context* context,Params... params) : base(context,#NAME,params...) {}                \\
+    explicit NAME(Context* context,const ParseFunctionInputs& param)         \\
+        : base(context,#NAME,param) {}                                               \\
     ParseFunctionOutputs operator()() override;             \\
   };
 

@@ -197,10 +197,7 @@ class TokenLists {
   };
 
   using ele_type = token::archived_type;
-  static TokenLists& instance() {
-    static TokenLists lists;
-    return lists;
-  }
+
   bool has(uint32_t file_id, uint64_t offset) const {
     if (lists_.contains(file_id)) {
       return lists_.at(file_id).contains(offset);
@@ -228,11 +225,16 @@ class TokenLists {
     auto info = Info::create(tok);
     return lists_.at(info.file_id_).at(info.offset_);
   }
+  const ele_type& at(const Token& tok) const {
+    lps_assert(kTag, has(tok));
+    auto info = Info::create(tok);
+    return lists_.at(info.file_id_).at(info.offset_);
+  }
 
   const ele_type& last(const Token& tok) const {
     lps_assert(kTag, has(tok));
     auto info = Info::create(tok);
-    const auto* ptr = token::TokenLists::instance().at(tok).last();
+    const auto* ptr = at(tok).last();
     if (!ptr) {
       static const ele_type kEmptyTok;
       return kEmptyTok;
@@ -243,7 +245,7 @@ class TokenLists {
   const ele_type& next(const Token& tok) const {
     lps_assert(kTag, has(tok));
     auto info = Info::create(tok);
-    const auto* ptr = token::TokenLists::instance().at(tok).next();
+    const auto* ptr = at(tok).next();
     if (!ptr) {
       static const ele_type kEmptyTok;
       return kEmptyTok;

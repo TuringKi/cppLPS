@@ -38,6 +38,26 @@ namespace lps::parser {
 
 namespace details {
 
+class Context {
+ public:
+  friend class ContextTrait;
+  using executed_func_type = std::function<void(Context*)>;
+  void with(const executed_func_type& func) { func(this); }
+  token::TokenLists& token_lists() { return token_lists_; }
+
+ private:
+  token::TokenLists token_lists_;
+};
+
+class ContextTrait {
+ public:
+  explicit ContextTrait(Context* context) : context_(context) {}
+  Context* context() { return context_; }
+
+ protected:
+  Context* context_;
+};
+
 enum class ParseFunctionKind : uint16_t {
   kUnknown = 0,
   kExpectedToken = 1,
@@ -218,9 +238,10 @@ struct ParseFunctionInputs {
 };
 
 template <size_t NumElements = 1>
-class ParseFunction {
+class ParseFunction : public ContextTrait {
  public:
   using type = ParseFunction<NumElements>;
+  using context_trait_type = ContextTrait;
   using output_type = ParseFunctionOutputs;
   using custom_func_type = std::function<output_type(type*)>;
   using bitset_type = basic::Bitset<NumElements>;
@@ -233,27 +254,33 @@ class ParseFunction {
   }
 
   template <typename... Params>
-  explicit ParseFunction(const char* kName, Params... params)
-      : kName_(kName), params_(params...) {}
+  explicit ParseFunction(Context* context, const char* kName, Params... params)
+      : context_trait_type(context), kName_(kName), params_(params...) {}
   template <typename... Params>
-  explicit ParseFunction(const char* kName, custom_func_type func,
+  explicit ParseFunction(Context* context, const char* kName,
+                         custom_func_type func,
                          token::details::TokenKind expected_token_kind,
                          Params... params)
-      : kName_(kName),
+      : context_trait_type(context),
+        kName_(kName),
         custom_func_(func),
         params_(params...),
         expected_token_kind_(expected_token_kind) {}
-  explicit ParseFunction(const char* kName, ParseFunctionInputs param,
+  explicit ParseFunction(Context* context, const char* kName,
+                         ParseFunctionInputs param,
                          token::details::TokenKind expected_token_kind,
                          custom_func_type func)
-      : kName_(kName),
+      : context_trait_type(context),
+        kName_(kName),
         params_(std::move(param)),
         custom_func_(func),
         expected_token_kind_(expected_token_kind) {}
-  explicit ParseFunction(const char* kName, const ParseFunctionInputs& param)
-      : kName_(kName), params_(param) {}
-  explicit ParseFunction(const char* kName, ParseFunctionInputs&& param)
-      : kName_(kName), params_(std::move(param)) {}
+  explicit ParseFunction(Context* context, const char* kName,
+                         const ParseFunctionInputs& param)
+      : context_trait_type(context), kName_(kName), params_(param) {}
+  explicit ParseFunction(Context* context, const char* kName,
+                         ParseFunctionInputs&& param)
+      : context_trait_type(context), kName_(kName), params_(std::move(param)) {}
 
   virtual output_type operator()() {
     if (custom_func_) {
@@ -292,7 +319,8 @@ class ParseFunction {
     return !status;
   }
 
-  static type create_single_token_check(bool opt, size_t calling_depth,
+  static type create_single_token_check(Context* context, bool opt,
+                                        size_t calling_depth,
                                         token::details::TokenKind token_kind,
                                         diag::DiagKind diag_kind) {
     typename type::custom_func_type z([token_kind, diag_kind](type* func) {
@@ -305,9 +333,9 @@ class ParseFunction {
       }
       token::Token next_tok;
       bool flg_use_lexer = true;
-      if (token::TokenLists::instance().has(output.cur_token_)) {
+      if (func->context()->token_lists().has(output.cur_token_)) {
         const auto* tok_ptr =
-            token::TokenLists::instance().at(output.cur_token_).next();
+            func->context()->token_lists().at(output.cur_token_).next();
         if (tok_ptr) {
           flg_use_lexer = false;
           next_tok = *tok_ptr;
@@ -324,7 +352,7 @@ class ParseFunction {
         lps_assert("create_single_token_check",
                    next_tok.kind() != token::details::TokenKind::unknown);
 
-        token::TokenLists::instance().append(
+        func->context()->token_lists().append(
             next_tok, token::TokenLists::Info::create(output.cur_token_));
       }
 
@@ -346,14 +374,14 @@ class ParseFunction {
         output.cur_token_ = next_tok;
         if (next_tok.kind() != token::details::TokenKind::unknown) {
           output.token_list_infos_.append(
-              &(token::TokenLists::instance().at(next_tok)));
+              &(func->context()->token_lists().at(next_tok)));
         }
       }
 
       return output;
     });
-    return type(token::details::kMap.at(token_kind), z, token_kind, opt,
-                calling_depth);
+    return type(context, token::details::kMap.at(token_kind), z, token_kind,
+                opt, calling_depth);
   }
 
  protected:

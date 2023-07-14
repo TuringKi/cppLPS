@@ -113,16 +113,8 @@ ParseFunctionOutputs SerialParseFunctions<ParseFuncs...>::operator()() {
                   }
 
                   auto output(path_stack.top());
-                  auto* node_ptr = Tree::instance().append(local_output.node_);
-                  node_ptr->kind_ = func.kKind;
-                  if (func.kKind == ParseFunctionKind::kExpectedToken) {
-                    node_ptr->expected_token_kind_ = func.expected_token_kind();
-                  }
                   output.concat(std::move(local_output), func.opt());
                   path_stack.push(output);
-                  if (output.work_) {
-                    node.sub_nodes_.append(node_ptr);
-                  }
                   if ((running_sub_func_idx == running_sub_func_size &&
                        output.work_) ||
                       !func.valid()) {

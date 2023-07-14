@@ -35,10 +35,10 @@ class ParallelParseFunctions : public ParseFunction<NumElements> {
 
  public:
   using base = ParseFunction<NumElements>;
-  explicit ParallelParseFunctions(const char* kName,
+  explicit ParallelParseFunctions(Context* context, const char* kName,
                                   const ParseFunctionInputs& param,
                                   ParseFuncs&&... funcs)
-      : base(kName, param), parse_functions_(funcs...) {}
+      : base(context, kName, param), parse_functions_(funcs...) {}
   ParseFunctionOutputs operator()() override;
   void reset() override;
   ParseFunctionKind kind() override {
@@ -55,10 +55,10 @@ class SerialParseFunctions : public ParseFunction<1> {
 
  public:
   using base = ParseFunction<1>;
-  explicit SerialParseFunctions(const char* kName,
+  explicit SerialParseFunctions(Context* context, const char* kName,
                                 const ParseFunctionInputs& param,
                                 ParseFuncs&&... funcs)
-      : base(kName, param), parse_functions_(funcs...) {}
+      : base(context, kName, param), parse_functions_(funcs...) {}
   ParseFunctionOutputs operator()() override;
   void reset() override;
   ParseFunctionKind kind() override {
@@ -78,10 +78,10 @@ class RecursiveParseFunctions : public ParseFunction<1> {
   using working_list_type = basic::Bitset<kNFuncs>;
   using working_list_stack_type = std::stack<working_list_type>;
   using base = ParseFunction<1>;
-  explicit RecursiveParseFunctions(const char* kName,
+  explicit RecursiveParseFunctions(Context* context, const char* kName,
                                    const ParseFunctionInputs& param,
                                    ParseFuncs&&... funcs)
-      : base(kName, param), parse_functions_(funcs...) {}
+      : base(context, kName, param), parse_functions_(funcs...) {}
   ParseFunctionOutputs operator()() override;
   ParseFunctionKind kind() override {
     static constexpr ParseFunctionKind kKind = ParseFunctionKind::kUnknown;

@@ -31,18 +31,22 @@ bool Preprocessing::lex_conditional_expression(
     token::Token& tok) {
 
   {
-    parser::details::ParseFunctionInputs params;
-    params.opt_ = false;
-    token::Token next_tok;
-    lexer::Lexer lexer(first_ptr.file_id(), first_ptr.pos());
-    lexer.lex(next_tok);
-    if (next_tok.kind() != token::details::TokenKind::unknown) {
-      token::TokenLists::instance().append(next_tok);
-    }
-    params.cur_token_ = next_tok;
-    parser::details::ConditionalExpression func(params);
-    auto output = func();
-    int dummy = -1;
+
+    parser::details::Context context;
+    context.with([first_ptr](parser::details::Context* context) {
+      parser::details::ParseFunctionInputs params;
+      params.opt_ = false;
+      token::Token next_tok;
+      lexer::Lexer lexer(first_ptr.file_id(), first_ptr.pos());
+      lexer.lex(next_tok);
+      if (next_tok.kind() != token::details::TokenKind::unknown) {
+        context->token_lists().append(next_tok);
+      }
+      params.cur_token_ = next_tok;
+      parser::details::ConditionalExpression func(context, params);
+      auto output = func();
+      int dummy = -1;
+    });
   }
 
   return false;
