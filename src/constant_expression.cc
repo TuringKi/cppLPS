@@ -47,14 +47,17 @@ bool Preprocessing::lex_conditional_expression(
         params.calling_depth_ = 1;
         parser::details::ConditionalExpression func(context, params);
         auto output = func();
+        int dummy = -1;
       }
     });
-    auto line = context.longest_line(next_tok);
+    auto line = context.longest_line_with_kind(
+        next_tok, parser::details::ParseFunctionKind::kConditionalExpression);
     if (line.kind_ !=
             parser::details::ParseFunctionKind::kConditionalExpression ||
-        line.calling_depth_ != 1) {
+        line.calling_depth_ != 2) {
       return false;
     }
+    auto tree = context.l2t(line);
     int dummy = -1;
   }
 

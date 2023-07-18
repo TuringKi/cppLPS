@@ -25,6 +25,7 @@
 
 #include <functional>
 #include <limits>
+#include <list>
 #include <unordered_map>
 #include <utility>
 #include "ast.h"
@@ -59,57 +60,63 @@ class Context {
         }
       }
     }
-    path_[the_line.start_].append(the_line);
+    path_[the_line.start_].push_back(the_line);
+    lps_assert(kTag, path_[the_line.start_].back().len_ > 0);
     return &path_[the_line.start_].back();
   }
 
   Line longest_line(const auto& start) {
     size_t max_l = 0;
     const auto* p_start = &token_lists_.at(start);
-    auto cmp = [](size_t a, size_t b) {
-      return a > b;
+    auto cmp = [](const Line& l, size_t b) {
+      return l.len_ > b;
     };
     return find_line<cmp>(p_start, max_l);
+  }
+
+  Line longest_line_with_kind(const auto& start, ParseFunctionKind kind) {
+    size_t max_l = 0;
+    const auto* p_start = &token_lists_.at(start);
+    auto cmp = [](const Line& l, size_t b, ParseFunctionKind kind) {
+      return l.len_ > b && l.kind_ == kind;
+    };
+    return find_line<cmp>(p_start, max_l, kind);
   }
 
   Line shortest_line(const token::Token& start) {
     size_t min_l = std::numeric_limits<size_t>::max();
     const auto* p_start = &token_lists_.at(start);
-    auto cmp = [](size_t a, size_t b) {
-      return a < b;
+    auto cmp = [](const Line& l, size_t b) {
+      return l.len_ < b;
     };
     return find_line<cmp>(p_start, min_l);
   }
 
-  Tree l2t(const Line& root_line) {  // line to tree
-    Tree tree;
-
-    return tree;
-  }
+  Tree l2t(const Line& root_line);
 
  private:
   Line shortest_line(const token::Token* p_start, size_t min_l) {
-    return find_line<[](size_t a, size_t b) {
-      return a < b;
+    return find_line<[](const Line& l, size_t b) {
+      return l.len_ < b;
     }>(p_start, min_l);
   }
 
-  template <auto F>
-  Line find_line(const token::archived_type* p_start, size_t the_l) {
+  template <auto F, typename... Args>
+  Line find_line(const token::archived_type* p_start, size_t the_l,
+                 Args... args) {
     Line the_line;
     lps_assert(kTag, path_.contains(p_start));
     for (const auto& line : path_[p_start]) {
-      if (F(line.len_, the_l)) {
+      if (F(line, the_l, args...)) {
         the_line = line;
       }
     }
-    lps_assert(kTag, the_line.len_ > 0);
     return the_line;
   }
 
   token::TokenLists token_lists_;
   token::Token start_token_;
-  std::unordered_map<const token::Token*, basic::Vector<16, Line>> path_;
+  std::unordered_map<const token::Token*, std::list<Line>> path_;
 };
 
 class ContextTrait {

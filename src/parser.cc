@@ -29,6 +29,12 @@
 #include "token.h"
 
 namespace lps::parser {
+namespace details {
+Tree Context::l2t(const Line& root_line) {
+  Tree tree(&root_line);
+  return tree;
+}
+}  // namespace details
 
 // cpp grammar: https://timsong-cpp.github.io/cppwp/n4868/gram
 void Parser::parse(uint32_t file_id) {

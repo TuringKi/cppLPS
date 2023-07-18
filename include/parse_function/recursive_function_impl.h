@@ -69,19 +69,20 @@ RecursiveParseFunctions<Kind, ParseFuncs...>::operator()() {
     saved_lines.append(tmp_output.line_);
   } while (true);
 
-  const auto* p_start = &context_->token_lists().at(this->cur_token());
-  const auto* p_end = &context_->token_lists().at(output.cur_token_);
-  Line line{
-      p_start,
-      p_end,
-      this->kind(),
-      token::details::TokenKind::unknown,
-      token::TokenLists::len(p_start, p_end),
-      this->calling_depth(),
-      std::move(saved_lines),
-  };
-  output.line_ = context_->paint(line);
-
+  if (output.work_) {
+    const auto* p_start = &context_->token_lists().at(this->cur_token());
+    const auto* p_end = &context_->token_lists().at(output.cur_token_);
+    Line line{
+        p_start,
+        p_end,
+        this->kind(),
+        token::details::TokenKind::unknown,
+        token::TokenLists::len(p_start, p_end),
+        this->calling_depth(),
+        std::move(saved_lines),
+    };
+    output.line_ = context_->paint(line);
+  }
   return output;
 }
 template <ParseFunctionKind Kind, typename... ParseFuncs>

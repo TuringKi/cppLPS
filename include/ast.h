@@ -89,19 +89,30 @@ inline bool operator==(const Line& a, const Line& b) {
 class Tree {
  public:
   struct Node {
-    using sub_nodes_type = basic::Vector<4, Node*>;
+    using sub_nodes_type = std::vector<Node>;
     sub_nodes_type children_;
-    Line line_;
+    const token::Token* start_{nullptr};
+    const token::Token* end_{nullptr};
+    ParseFunctionKind kind_{ParseFunctionKind::kUnknown};
+    token::details::TokenKind token_kind_{token::details::TokenKind::unknown};
+    size_t len_{0};
+    explicit Node() = default;
+    Node(const Line* line)
+        : start_(line->start_),
+          end_(line->end_),
+          kind_(line->kind_),
+          token_kind_(line->token_kind_),
+          len_(line->len_) {
+      for (const auto* p : line->segments_) {
+        children_.push_back(Node(p));
+      }
+    }
   };
-  Node* append(const Node& n) {
-    nodes_.append(n);
-    return &nodes_.back();
-  }
-  Node& root() { return root_; }
+  explicit Tree(const Line* line) : root_(Node(line)) {}
+  const Node& root() { return root_; }
 
  private:
   Node root_;
-  basic::Vector<8, Node> nodes_;
 };
 
 }  // namespace lps::parser::details

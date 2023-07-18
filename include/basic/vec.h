@@ -32,8 +32,7 @@
 #include "basic/mem.h"
 
 template <typename T>
-using SizeType =
-    std::conditional_t<sizeof(T) < 4 && sizeof(void*) >= 8, uint64_t, uint32_t>;
+using SizeType = std::conditional_t<sizeof(void*) >= 8, uint64_t, uint32_t>;
 
 namespace lps::basic::vec::details {
 
