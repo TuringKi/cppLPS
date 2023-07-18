@@ -39,7 +39,8 @@ class ParallelParseFunctions : public ParseFunction<NumElements> {
                                   const ParseFunctionInputs& param,
                                   ParseFuncs&&... funcs)
       : base(context, kName, param), parse_functions_(funcs...) {}
-  ParseFunctionOutputs operator()() override;
+  virtual ~ParallelParseFunctions() = default;
+  ParseFunctionOutputs operator()();
   void reset() override;
   ParseFunctionKind kind() override { return Kind; }
 
@@ -56,7 +57,8 @@ class SerialParseFunctions : public ParseFunction<1> {
                                 const ParseFunctionInputs& param,
                                 ParseFuncs&&... funcs)
       : base(context, kName, param), parse_functions_(funcs...) {}
-  ParseFunctionOutputs operator()() override;
+  virtual ~SerialParseFunctions() = default;
+  ParseFunctionOutputs operator()();
   void reset() override;
   ParseFunctionKind kind() override { return Kind; }
 
@@ -76,7 +78,8 @@ class RecursiveParseFunctions : public ParseFunction<1> {
                                    const ParseFunctionInputs& param,
                                    ParseFuncs&&... funcs)
       : base(context, kName, param), parse_functions_(funcs...) {}
-  ParseFunctionOutputs operator()() override;
+  virtual ~RecursiveParseFunctions() = default;
+  ParseFunctionOutputs operator()();
   ParseFunctionKind kind() override { return Kind; }
 
  protected:

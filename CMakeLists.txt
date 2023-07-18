@@ -27,7 +27,7 @@ execute_process(COMMAND
 configure_file("${CMAKE_CURRENT_SOURCE_DIR}/src/version.cc.in" "${CMAKE_CURRENT_BINARY_DIR}/src/version.cc" @ONLY)
 
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++20 -O0 -Werror")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++20 -Werror")
 
 set(CMAKE_INSTALL_PREFIX ${PROJECT_SOURCE_DIR}/.install/)
 

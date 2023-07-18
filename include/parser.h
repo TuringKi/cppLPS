@@ -240,7 +240,7 @@ class ParseFunction : public ContextTrait {
         ParseFunctionKind::kExpectedToken;
     return kKind;
   }
-
+  virtual ~ParseFunction() = default;
   template <typename... Params>
   explicit ParseFunction(Context* context, const char* kName, Params... params)
       : context_trait_type(context), kName_(kName), params_(params...) {}
@@ -270,7 +270,7 @@ class ParseFunction : public ContextTrait {
                          ParseFunctionInputs&& param)
       : context_trait_type(context), kName_(kName), params_(std::move(param)) {}
 
-  virtual output_type operator()() {
+  output_type operator()() {
     if (custom_func_) {
       return custom_func_(this);
     }

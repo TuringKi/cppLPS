@@ -419,7 +419,7 @@ namespace lps::parser::details {
     explicit NAME(Context* context,Params... params) : base(context,#NAME,params...) {}                \\
     explicit NAME(Context* context,const ParseFunctionInputs& param)         \\
         : base(context,#NAME,param) {}                                               \\
-    ParseFunctionOutputs operator()() override;             \\
+    ParseFunctionOutputs operator()() ;             \\
   };
 
 ___CONTENT_DEF___
@@ -469,7 +469,7 @@ namespace lps::parser::details {
 
         define_tmplate = """
 ___CONTENT_COM___
-    inline ParseFunctionOutputs ___NAME___::operator()()
+     ParseFunctionOutputs ___NAME___::operator()()
     {
          auto output = base::operator()();
         if (!this->valid()) {
