@@ -32,8 +32,7 @@
 #include "basic/mem.h"
 
 template <typename T>
-using SizeType =
-    std::conditional_t<sizeof(T) < 4 && sizeof(void*) >= 8, uint64_t, uint32_t>;
+using SizeType = std::conditional_t<sizeof(void*) >= 8, uint64_t, uint32_t>;
 
 namespace lps::basic::vec::details {
 
@@ -270,6 +269,12 @@ class Vector : public vec::details::Impl<N, T> {
     SET();
   }
 
+  Vector(size_t N_hat, const ele_type& val) : base_type("Vector") {
+    for (size_t i = 0; i < N_hat; i++) {
+      this->append(val);
+    }
+  }
+
   explicit Vector(const Vector& v) : base_type(v.tag_) {
     for (const T& a : v) {
       this->append(a);
@@ -288,6 +293,30 @@ class Vector : public vec::details::Impl<N, T> {
     this->init(v.tag_);
     SET();
     return *this;
+  }
+
+  bool operator==(const Vector& v) const {
+    if (this->size() != v.size()) {
+      return false;
+    }
+    for (size_t i = 0; i < this->size_; ++i) {
+      if (this->first_[i] != v.first_[i]) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  bool operator!=(const Vector& v) const {
+    if (this->size() != v.size()) {
+      return true;
+    }
+    for (size_t i = 0; i < this->size_; ++i) {
+      if (this->first_[i] != v.first_[i]) {
+        return true;
+      }
+    }
+    return false;
   }
 
 #undef SET

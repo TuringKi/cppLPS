@@ -21,42 +21,47 @@
 * SOFTWARE.
 */
 
-#include "parser.h"
-#include "basic/exception.h"
-#include "diag.h"
-#include "lexer.h"
+#include "ast.h"
+#include "lex/pp.h"
 #include "parse_function/function.h"
-#include "token.h"
 
-namespace lps::parser {
-namespace details {
-Tree Context::l2t(const Line& root_line) {
-  Tree tree(&root_line);
-  return tree;
-}
-}  // namespace details
+namespace lps::lexer::details::pp {
 
-// cpp grammar: https://timsong-cpp.github.io/cppwp/n4868/gram
-void Parser::parse(uint32_t file_id) {
-  auto content = src::Manager::instance().ref_of_char_file(file_id);
-  if (!content.empty()) {
-    details::Context context;
-    context.with([file_id](details::Context* context) {
-      details::ParseFunctionInputs params;
+bool Preprocessing::lex_conditional_expression(
+    const typename base::ptr_type& first_ptr, typename base::ptr_type& ptr,
+    token::Token& tok) {
+
+  {
+    token::Token next_tok;
+    lexer::Lexer lexer(first_ptr.file_id(), first_ptr.pos());
+    lexer.lex(next_tok);
+
+    parser::details::Context context;
+    context.with([first_ptr, &next_tok](parser::details::Context* context) {
+      parser::details::ParseFunctionInputs params;
       params.opt_ = false;
-      token::Token next_tok;
-      lexer::Lexer lexer(file_id, 0);
-      lexer.lex(next_tok);
-      params.cur_token_ = next_tok;
       if (next_tok.kind() != token::details::TokenKind::unknown) {
         context->token_lists().append(next_tok);
         context->start_token(next_tok);
-        details::TranslationUnit func(context, params);
+        params.cur_token_ = next_tok;
+        params.calling_depth_ = 1;
+        parser::details::ConditionalExpression func(context, params);
         auto output = func();
-        if (output.work_) {}
+        int dummy = -1;
       }
     });
+    auto line = context.longest_line_with_kind(
+        next_tok, parser::details::ParseFunctionKind::kConditionalExpression);
+    if (line.kind_ !=
+            parser::details::ParseFunctionKind::kConditionalExpression ||
+        line.calling_depth_ != 2) {
+      return false;
+    }
+    auto tree = context.l2t(line);
+    int dummy = -1;
   }
+
+  return false;
 }
 
-}  // namespace lps::parser
+}  // namespace lps::lexer::details::pp

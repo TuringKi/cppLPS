@@ -22,38 +22,111 @@
 */
 #pragma once
 
-#include "basic/tui.h"
+#include <stack>
 #include "diag.h"
 #include "parse_function/parallel_serial_recursive_function.h"
+#include "parser.h"
 #include "token.h"
 
 namespace lps::parser::details {
 
-template <ParseFunctionKind Kind, size_t NumElements, typename... ParseFuncs>
+template <ParseFunctionKind Kind, typename... ParseFuncs>
 ParseFunctionOutputs
-ParallelParseFunctions<Kind, NumElements, ParseFuncs...>::operator()() {
-  lps_assert("ParallelParseFunctions", this->ok_to_try());
+RecursiveParseFunctions<Kind, ParseFuncs...>::operator()() {
+  lps_assert("RecursiveParseFunctions", this->ok_to_try());
   auto output = base::operator()();
+  this->executed_mask_.set();
   if (!this->valid()) {
-    this->executed_mask_.set();
     return output;
   }
+  uint32_t recursive_depth = 0;
+  working_list_type executed_mask;
+  auto tmp_output = output;
 
+  Line::segments_type saved_lines;
+
+  do {
+
+    execute(tmp_output, executed_mask);
+
+    if (!tmp_output.work_) {
+      if (recursive_depth > 0) {
+        lps_assert("RecursiveParseFunctions", !working_list_stack_.empty());
+        executed_mask = working_list_stack_.top();
+        if (!regret(executed_mask)) {
+          break;
+        }
+        working_list_stack_.pop();
+        --recursive_depth;
+        continue;
+      }
+      break;
+    }
+    working_list_stack_.push(executed_mask);
+    executed_mask.reset();
+    ++recursive_depth;
+    output = tmp_output;
+    saved_lines.append(tmp_output.line_);
+  } while (true);
+
+  if (output.work_) {
+    const auto* p_start = &context_->token_lists().at(this->cur_token());
+    const auto* p_end = &context_->token_lists().at(output.cur_token_);
+    Line line{
+        p_start,
+        p_end,
+        this->kind(),
+        token::details::TokenKind::unknown,
+        token::TokenLists::len(p_start, p_end),
+        this->calling_depth(),
+        std::move(saved_lines),
+    };
+    output.line_ = context_->paint(line);
+  }
+  return output;
+}
+template <ParseFunctionKind Kind, typename... ParseFuncs>
+bool RecursiveParseFunctions<Kind, ParseFuncs...>::regret(
+    const working_list_type& executed_mask) {
+  return !executed_mask.all();
+}
+
+template <ParseFunctionKind Kind, typename... ParseFuncs>
+void RecursiveParseFunctions<Kind, ParseFuncs...>::reset() {
+  std::apply(
+      [](ParseFuncs&... funcs) {
+        (
+            [](auto& func) {
+              func.reset();
+            }(funcs),
+            ...);
+      },
+      parse_functions_);
+}
+
+template <ParseFunctionKind Kind, typename... ParseFuncs>
+void RecursiveParseFunctions<Kind, ParseFuncs...>::execute(
+    ParseFunctionOutputs& output, working_list_type& executed_mask) {
   bool flg_continue = true;
   uint32_t running_sub_func_idx = 0;
   ParseFunctionOutputs max_len_match_output;
   max_len_match_output.last_token_ = this->last_token();
   max_len_match_output.cur_token_ = this->cur_token();
   uint32_t max_len_match_idx = -1;
+
+  reset();
+
   std::apply(
       [this, &flg_continue, &output, &max_len_match_output,
-       &running_sub_func_idx, &max_len_match_idx](ParseFuncs&... funcs) {
+       &running_sub_func_idx, &max_len_match_idx,
+       &executed_mask](ParseFuncs&... funcs) {
         (
             [this, &flg_continue, &output, &max_len_match_output,
-             &running_sub_func_idx, &max_len_match_idx](auto& func) {
-              if (!this->executed_mask_.at(running_sub_func_idx)) {
-                func.last_token(this->last_token());
-                func.cur_token(this->cur_token());
+             &running_sub_func_idx, &max_len_match_idx,
+             &executed_mask](auto& func) {
+              if (!executed_mask.at(running_sub_func_idx)) {
+                func.last_token(output.last_token_);
+                func.cur_token(output.cur_token_);
                 auto local_output = func();
                 while (!local_output.work_ && func.ok_to_try()) {
                   auto local_output = func();
@@ -64,13 +137,13 @@ ParallelParseFunctions<Kind, NumElements, ParseFuncs...>::operator()() {
                     max_len_match_idx = running_sub_func_idx;
                     if (!this->valid(
                             local_output.cur_token_)) {  // no more chance
-                      this->executed_mask_.set();
+                      executed_mask.set();
                       return;
                     }
                   }
                 } else {
                   output.concat(std::move(local_output), false);
-                  this->executed_mask_.set(running_sub_func_idx);
+                  executed_mask.set(running_sub_func_idx);
                 }
                 running_sub_func_idx++;
               }
@@ -79,35 +152,14 @@ ParallelParseFunctions<Kind, NumElements, ParseFuncs...>::operator()() {
       },
       parse_functions_);
   if (max_len_match_output.work_) {
-    this->executed_mask_.set(max_len_match_idx);
     diag::infos() << basic::str::from(
         std::string(this->calling_depth(), '>'), " ", this->kName_,
         basic::tui::color::Shell::colorize(
             basic::str::from(" ok, matched idx = ", max_len_match_idx, ".\n"),
             basic::tui::color::Shell::fgreen()));
   } else {
-    this->executed_mask_.set();
-    diag::infos() << basic::str::from(
-        std::string(this->calling_depth(), '>'), " ", this->kName_,
-        basic::tui::color::Shell::colorize(basic::str::from(" failed\n"),
-                                           basic::tui::color::Shell::fred()));
   }
   output.concat(std::move(max_len_match_output), false);
-  return output;
-}
-
-template <ParseFunctionKind Kind, size_t NumElements, typename... ParseFuncs>
-void ParallelParseFunctions<Kind, NumElements, ParseFuncs...>::reset() {
-  base::reset();
-  std::apply(
-      [](ParseFuncs&... funcs) {
-        (
-            [](auto& func) {
-              func.reset();
-            }(funcs),
-            ...);
-      },
-      parse_functions_);
 }
 
 }  // namespace lps::parser::details

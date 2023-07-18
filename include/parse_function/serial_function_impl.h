@@ -24,14 +24,14 @@
 
 #include <stack>
 #include "diag.h"
-#include "parse_function/parallel_serial_function.h"
+#include "parse_function/parallel_serial_recursive_function.h"
 #include "parser.h"
 #include "token.h"
 
 namespace lps::parser::details {
 
-template <typename... ParseFuncs>
-ParseFunctionOutputs SerialParseFunctions<ParseFuncs...>::operator()() {
+template <ParseFunctionKind Kind, typename... ParseFuncs>
+ParseFunctionOutputs SerialParseFunctions<Kind, ParseFuncs...>::operator()() {
   lps_assert("SerialParseFunctions", this->ok_to_try());
   this->executed_mask_.set();
   auto output = base::operator()();
@@ -53,76 +53,67 @@ ParseFunctionOutputs SerialParseFunctions<ParseFuncs...>::operator()() {
       },
       parse_functions_);
 
+  Line::segments_type saved_lines(running_sub_func_size, nullptr);
+
   std::stack<decltype(output)> path_stack;
   path_stack.push(output);
-  Tree::Node node;
+
   while (flg_continue) {
     std::apply(
-        [this, &running_sub_func_size, &node, &path_stack, &flg_continue,
-         &running_sub_func_stack_top_idx](ParseFuncs&... funcs) {
+        [this, &running_sub_func_size, &path_stack, &flg_continue,
+         &running_sub_func_stack_top_idx, &saved_lines](ParseFuncs&... funcs) {
           bool flg_not_continue = false;
           uint32_t running_sub_func_idx = 0;
           (
-              [this, &running_sub_func_size, &node, &path_stack,
-               &flg_not_continue, &flg_continue, &running_sub_func_idx,
-               &running_sub_func_stack_top_idx](auto& func) {
+              [this, &running_sub_func_size, &path_stack, &flg_not_continue,
+               &flg_continue, &running_sub_func_idx,
+               &running_sub_func_stack_top_idx, &saved_lines](auto& func) {
                 if (flg_not_continue || !flg_continue) {
                   return;
                 }
                 if (running_sub_func_idx++ < running_sub_func_stack_top_idx) {
                   return;
                 }
-                auto make_try_again =
-                    [&](basic::Vector<4, diag::DiagInputs>&& diag_inputs) {
-                      if ((running_sub_func_idx - 1) == 0) {
-                        flg_continue = false;
-                        return;
-                      }
-                      flg_not_continue = true;
-                      running_sub_func_stack_top_idx =
-                          (running_sub_func_idx - 1) - 1;
-                      func.reset();
-                      auto tmp_output(path_stack.top());
-                      tmp_output.work_ = false;
-                      lps_assert("make_try_again", path_stack.size() > 0);
+                auto make_try_again = [&]() {
+                  if ((running_sub_func_idx - 1) == 0) {
+                    flg_continue = false;
+                    return;
+                  }
+                  flg_not_continue = true;
+                  running_sub_func_stack_top_idx =
+                      (running_sub_func_idx - 1) - 1;
+                  func.reset();
+                  auto tmp_output(path_stack.top());
+                  tmp_output.work_ = false;
+                  lps_assert("make_try_again", path_stack.size() > 0);
 
-                      path_stack.pop();
+                  path_stack.pop();
 
-                      path_stack.top().concat(std::move(tmp_output), false);
-
-                      if (!diag_inputs.empty()) {
-                        decltype(tmp_output) tmp_output0;
-                        tmp_output0.diag_inputs_ = std::move(diag_inputs);
-                        path_stack.top().concat(std::move(tmp_output0), false);
-                      }
-                      return;
-                    };
+                  path_stack.top().concat(std::move(tmp_output), false);
+                  return;
+                };
                 if (flg_continue) {
                   func.last_token(path_stack.top().last_token_);
                   func.cur_token(path_stack.top().cur_token_);
 
                   if (!func.ok_to_try() || (!func.valid() && !func.opt())) {
-                    make_try_again(basic::Vector<4, diag::DiagInputs>());
+                    make_try_again();
                     return;
                   }
 
                   auto local_output = func();
                   if (!local_output.work_ && !func.opt()) {
-                    make_try_again(std::move(local_output.diag_inputs_));
+                    make_try_again();
                     return;
+                  }
+                  if (local_output.work_) {
+                    lps_assert(this->kName_, local_output.line_ != nullptr);
+                    saved_lines[running_sub_func_idx - 1] = local_output.line_;
                   }
 
                   auto output(path_stack.top());
-                  auto* node_ptr = Tree::instance().append(local_output.node_);
-                  node_ptr->kind_ = func.kKind;
-                  if (func.kKind == ParseFunctionKind::kExpectedToken) {
-                    node_ptr->expected_token_kind_ = func.expected_token_kind();
-                  }
                   output.concat(std::move(local_output), func.opt());
                   path_stack.push(output);
-                  if (output.work_) {
-                    node.sub_nodes_.append(node_ptr);
-                  }
                   if ((running_sub_func_idx == running_sub_func_size &&
                        output.work_) ||
                       !func.valid()) {
@@ -135,20 +126,47 @@ ParseFunctionOutputs SerialParseFunctions<ParseFuncs...>::operator()() {
         },
         parse_functions_);
   }
-  lps_assert("serial_function_impl", path_stack.size() > 0);
+  lps_assert(this->kName_, path_stack.size() > 0);
   if (path_stack.top().work_) {
-    path_stack.top().node_ = std::move(node);
+    const auto* p_start = &context_->token_lists().at(this->cur_token());
+    const auto* p_end =
+        &context_->token_lists().at(path_stack.top().cur_token_);
+    Line line{
+        p_start,
+        p_end,
+        this->kind(),
+        token::details::TokenKind::unknown,
+        token::TokenLists::len(p_start, p_end),
+        this->calling_depth(),
+        std::move(saved_lines),
+    };
+    path_stack.top().line_ = context_->paint(line);
+
     diag::infos() << basic::str::from(
-        std::string(this->calling_depth(), '>'), " ", "_SerialFunc ",
+        std::string(this->calling_depth(), '>'), " ", this->kName_,
         basic::tui::color::Shell::colorize(basic::str::from(" ok.\n"),
                                            basic::tui::color::Shell::fgreen()));
   } else {
     diag::infos() << basic::str::from(
-        std::string(this->calling_depth(), '>'), " ", "_SerialFunc ",
+        std::string(this->calling_depth(), '>'), " ", this->kName_,
         basic::tui::color::Shell::colorize(basic::str::from(" failed\n"),
                                            basic::tui::color::Shell::fred()));
   }
   return path_stack.top();
+}
+
+template <ParseFunctionKind Kind, typename... ParseFuncs>
+void SerialParseFunctions<Kind, ParseFuncs...>::reset() {
+  base::reset();
+  std::apply(
+      [](ParseFuncs&... funcs) {
+        (
+            [](auto& func) {
+              func.reset();
+            }(funcs),
+            ...);
+      },
+      parse_functions_);
 }
 
 }  // namespace lps::parser::details

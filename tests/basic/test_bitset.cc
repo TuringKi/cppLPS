@@ -21,42 +21,12 @@
 * SOFTWARE.
 */
 
-#include "parser.h"
-#include "basic/exception.h"
-#include "diag.h"
-#include "lexer.h"
-#include "parse_function/function.h"
-#include "token.h"
+#include "basic/bitset.h"
 
-namespace lps::parser {
-namespace details {
-Tree Context::l2t(const Line& root_line) {
-  Tree tree(&root_line);
-  return tree;
+int main(int argc, char** argv) {
+  lps::basic::Bitset<2> a;
+  a.set();
+
+  lps::basic::Bitset<1> b(a.value(1));
+  return 0;
 }
-}  // namespace details
-
-// cpp grammar: https://timsong-cpp.github.io/cppwp/n4868/gram
-void Parser::parse(uint32_t file_id) {
-  auto content = src::Manager::instance().ref_of_char_file(file_id);
-  if (!content.empty()) {
-    details::Context context;
-    context.with([file_id](details::Context* context) {
-      details::ParseFunctionInputs params;
-      params.opt_ = false;
-      token::Token next_tok;
-      lexer::Lexer lexer(file_id, 0);
-      lexer.lex(next_tok);
-      params.cur_token_ = next_tok;
-      if (next_tok.kind() != token::details::TokenKind::unknown) {
-        context->token_lists().append(next_tok);
-        context->start_token(next_tok);
-        details::TranslationUnit func(context, params);
-        auto output = func();
-        if (output.work_) {}
-      }
-    });
-  }
-}
-
-}  // namespace lps::parser

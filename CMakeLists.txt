@@ -27,7 +27,7 @@ execute_process(COMMAND
 configure_file("${CMAKE_CURRENT_SOURCE_DIR}/src/version.cc.in" "${CMAKE_CURRENT_BINARY_DIR}/src/version.cc" @ONLY)
 
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++20 -O0 -Werror")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++20 -Werror")
 
 set(CMAKE_INSTALL_PREFIX ${PROJECT_SOURCE_DIR}/.install/)
 
@@ -35,6 +35,12 @@ set(CMAKE_INSTALL_PREFIX ${PROJECT_SOURCE_DIR}/.install/)
 set(INCLUDE_DIR ${PROJECT_SOURCE_DIR}/include)
 
 include_directories(${INCLUDE_DIR})
+
+
+SET(FUNC_IMPL ${CMAKE_SOURCE_DIR}/src/parse_function/function_impl.cc)
+SET(FUNC_DEF ${CMAKE_SOURCE_DIR}/include/parse_function/function.h)
+SET(FUNC_KIND_DEF ${CMAKE_SOURCE_DIR}/include/parse_function/kinds.def)
+SET(FUNC_DIAG_DEF ${CMAKE_SOURCE_DIR}/include/diag/kinds_parse.def)
 
 add_subdirectory(src)
 add_subdirectory(tests)

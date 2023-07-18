@@ -71,3 +71,9 @@ DIAG(expected_r_paren_in_the_define_with_parameters, "expected `)`.", "",
      Level::kError)
 DIAG(expected_vertws_after_slash_in_preprocessing, "expected `\\n` after `\\`.",
      "", Level::kError)
+DIAG(expected_directive_command_after_hash,
+     "expected directive command after `#`.", "", Level::kError)
+DIAG(expected_constant_expression_after_if_directive,
+     "expected `constant-expression` after `#if`.", "", Level::kError)
+DIAG(expected_new_line_after_if_constant_expression_directive,
+     "expected `\\n` after `#if constant-expression`.", "", Level::kError)

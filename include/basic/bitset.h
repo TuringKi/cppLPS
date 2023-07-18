@@ -23,62 +23,77 @@
 
 #pragma once
 
-#include <bits/ranges_algo.h>
 #include <algorithm>
-#include <bitset>
 #include "basic/exception.h"
 #include "basic/mem.h"
-#include "basic/vec.h"
 
 namespace lps::basic {
-template <size_t N, typename T = void>
+template <size_t N>
 class Bitset {
  public:
+  using ele_type = bool;
+  using bitset = std::array<ele_type, N>;
   constexpr static mem::TraceTag::tag_type kTag = "Bitset";
   template <std::size_t R, std::size_t L>
-  static std::bitset<N> range(std::bitset<N> b) {
+  static std::array<ele_type, L - R> range(const bitset& b) {
     static_assert(R <= L && L <= N, "Not valid.");
-    b >>= R;
-    b <<= (N - L + R);
-    b >>= (N - L);
-    return b;
+    std::array<ele_type, L - R> new_b;
+    size_t idx = 0;
+    for (int i = R; i < L; i++) {
+      new_b[idx++] = b[i];
+    }
+    return new_b;
   }
 
-  static std::bitset<N> range(std::bitset<N> b, std::size_t R, std::size_t L) {
+  static bitset range(const bitset& b, std::size_t R, std::size_t L) {
     lps_assert(kTag, R <= L && L <= N);
-    b >>= R;
-    b <<= (N - L + R);
-    b >>= (N - L);
-    return b;
+    bitset new_b;
+    size_t idx = 0;
+    for (int i = R; i < L; i++) {
+      new_b[idx++] = b[i];
+    }
+    return new_b;
   }
 
   static constexpr size_t kN = N;
-  Bitset() : len_(N) { value_.reset(); }
+
+  explicit Bitset() { reset(); }
+
   template <size_t N1>
-  explicit Bitset(const std::array<bool, N1>& other, size_t start_idx = 0)
+  explicit Bitset(const std::array<ele_type, N1>& other, size_t start_idx = 0)
       : start_idx_(start_idx) {
-    size_t m = std::min(N, N1);
-    for (size_t i = start_idx; i < m; i++) {
-      value_[i] = other[i];
-    }
-    len_ = m;
+    set(other, start_idx);
   }
 
   template <size_t N1>
-  explicit Bitset(const std::bitset<N1>& other, size_t start_idx = 0)
-      : start_idx_(start_idx) {
+  void set(const std::array<ele_type, N1>& other, size_t start_idx = 0) {
+    start_idx_ = start_idx;
     size_t m = std::min(N, N1);
     if (start_idx > 0) {
       lps_assert(kTag, N1 < N);
-      value_ = value_.to_ullong() || (other.to_ullong() << start_idx);
+      for (int i = 0; i < N1; i++) {
+        value_[start_idx + i] = other[i];
+      }
     } else {
-      value_ = other.to_ullong();
+
+      for (int i = 0; i < m; i++) {
+        value_[i] = other[i];
+      }
     }
     len_ = m;
+    lps_assert(kTag, len_ + start_idx_ <= N);
   }
 
-  void reset() { value_ = value(start_idx_).reset().to_ullong(); }
-  void set() { value_ = value(start_idx_).set().to_ullong(); }
+  void reset() {
+    for (int i = start_idx_; i < start_idx_ + len_; i++) {
+      value_[i] = false;
+    }
+  }
+  void set() {
+    for (int i = start_idx_; i < start_idx_ + len_; i++) {
+      value_[i] = true;
+    }
+  }
   void set(size_t pos) {
     lps_assert(kTag, (pos + start_idx_) < len_);
     value_[pos + start_idx_] = true;
@@ -87,73 +102,29 @@ class Bitset {
     lps_assert(kTag, (pos + start_idx_) < len_);
     return value_[pos + start_idx_];
   }
-  std::bitset<N> value(size_t start_idx = 0) {
-    return std::bitset<N>(
-        range(value_, start_idx, start_idx + len_).to_ullong());
+  bitset value(size_t start_idx = 0) {
+    if (start_idx == 0) {
+      return range(value_, 0, len_);
+    }
+    auto a = range(value_, start_idx, len_);
+    return a;
   }
 
-  template <size_t N1>
-  std::bitset<N1> value(size_t start_idx = 0) {
-    return std::bitset<N1>(
-        range(value_, start_idx, start_idx + len_).to_ullong());
-  }
-
-  bool all() {
-    return range(value_, start_idx_, start_idx_ + len_).count() == len_;
+  [[nodiscard]] bool all() const {
+    size_t cnt = 0;
+    for (int i = start_idx_; i < start_idx_ + len_; i++) {
+      if (value_[i]) {
+        cnt++;
+      }
+    }
+    return cnt == len_;
   }
   [[nodiscard]] size_t start_idx() const { return start_idx_; }
 
  private:
-  std::bitset<N> value_;
-  size_t len_{0};
+  bitset value_;
+  size_t len_{N};
   size_t start_idx_{0};
 };
 
-template <size_t N>
-class Bitset<N, typename std::enable_if<(N > (8 * sizeof(unsigned long long))),
-                                        bool>::type> {
- public:
-  constexpr static mem::TraceTag::tag_type kTag = "Bitset";
-  static constexpr size_t kN = N;
-  Bitset() : len_(N) { LPS_ERROR(kTag, "Unsupport yet."); }
-  template <size_t N1>
-  explicit Bitset(const std::array<bool, N1>& other, size_t start_idx = 0) {
-    constexpr size_t kM = std::min(N, N1);
-    for (size_t i = start_idx; i < kM; i++) {
-      value_[i] = other[i];
-    }
-    len_ = kM;
-  }
-  template <size_t N1>
-  explicit Bitset(const std::bitset<N1>& other, size_t start_idx = 0) {
-    static_assert(N1 < N, "not valid size");
-    for (size_t i = start_idx; i < N1; i++) {
-      value_[i] = other[i];
-    }
-    len_ = N1;
-  }
-  void reset() { value_.fill(false); }
-  void set() { value_.fill(true); }
-  void set(size_t pos) {
-    lps_assert(kTag, pos < len_);
-    value_[pos] = true;
-  }
-  bool at(size_t pos) {
-    lps_assert(kTag, pos < len_);
-    return value_[pos];
-  }
-  std::array<bool, N> value(size_t start_idx = 0) {
-    lps_assert(kTag, start_idx == 0);
-    return value_;
-  }
-  bool all() {
-    lps_assert(kTag, len_ <= N);
-    return std::ranges::all_of(value_.begin(), value_.begin() + len_,
-                               [](bool a) { return a; });
-  }
-
- private:
-  basic::Vector<N, bool> value_;
-  size_t len_{0};
-};
 }  // namespace lps::basic

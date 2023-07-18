@@ -26,6 +26,7 @@
 #include <filesystem>
 #include <limits>
 #include <map>
+#include "ast.h"
 #include "basic/exception.h"
 #include "basic/file.h"
 #include "basic/mem.h"
@@ -197,10 +198,12 @@ class TokenLists {
   };
 
   using ele_type = token::archived_type;
-  static TokenLists& instance() {
-    static TokenLists lists;
-    return lists;
-  }
+
+  struct SavedStructure {
+    ele_type token_;
+    basic::Vector<8, lps::parser::details::ParseFunctionKind> colors_;
+  };
+
   bool has(uint32_t file_id, uint64_t offset) const {
     if (lists_.contains(file_id)) {
       return lists_.at(file_id).contains(offset);
@@ -228,11 +231,15 @@ class TokenLists {
     auto info = Info::create(tok);
     return lists_.at(info.file_id_).at(info.offset_);
   }
+  const ele_type& at(const Token& tok) const {
+    lps_assert(kTag, has(tok));
+    auto info = Info::create(tok);
+    return lists_.at(info.file_id_).at(info.offset_);
+  }
 
   const ele_type& last(const Token& tok) const {
     lps_assert(kTag, has(tok));
-    auto info = Info::create(tok);
-    const auto* ptr = token::TokenLists::instance().at(tok).last();
+    const auto* ptr = at(tok).last();
     if (!ptr) {
       static const ele_type kEmptyTok;
       return kEmptyTok;
@@ -242,8 +249,7 @@ class TokenLists {
 
   const ele_type& next(const Token& tok) const {
     lps_assert(kTag, has(tok));
-    auto info = Info::create(tok);
-    const auto* ptr = token::TokenLists::instance().at(tok).next();
+    const auto* ptr = at(tok).next();
     if (!ptr) {
       static const ele_type kEmptyTok;
       return kEmptyTok;
@@ -254,6 +260,31 @@ class TokenLists {
   bool has(const Token& tok) const {
     auto info = Info::create(tok);
     return has(info);
+  }
+
+  size_t len(const Token& start, const Token& end) const {
+    lps_assert(kTag, has(start) && has(end));
+    const Token* t = &start;
+    int l = 0;
+
+    while (t != nullptr && *t != end) {
+      auto info = Info::create(*t);
+      t = at(info).next();
+      ++l;
+    }
+    lps_assert(kTag, t != nullptr);
+    return l;
+  }
+
+  static size_t len(const Token* p_start, const Token* p_end) {
+    const Token* p = p_start;
+    size_t l = 0;
+    while (p != nullptr && p != p_end) {
+      p = p->next();
+      ++l;
+    }
+    lps_assert(kTag, p != nullptr);
+    return l;
   }
 
   void append(const Token& tok, Info last_tok_info = {0, 0}) {

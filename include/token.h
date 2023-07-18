@@ -241,6 +241,15 @@ struct Token {
   } next_visitor_{0, 0};
 };
 
+inline bool operator==(const Token& a, const Token& b) {
+  return (a.file_id() == b.file_id()) && (a.offset() == b.offset()) &&
+         (a.kind() == b.kind());
+}
+
+inline bool operator!=(const Token& a, const Token& b) {
+  return !(a == b);
+}
+
 inline std::ostream& operator<<(std::ostream& s, const Token& tok) {
 
   s << "kind:" << tok.kind();
