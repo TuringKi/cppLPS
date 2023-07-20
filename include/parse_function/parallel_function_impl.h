@@ -84,10 +84,6 @@ ParseFunctionOutputs ParallelParseFunctions<Kind, ParseFuncs...>::operator()() {
               [](const ParseFunctionOutputs& a, const ParseFunctionOutputs& b) {
                 return a.len_ < b.len_;
               });
-    // for (const auto& a : valid_outputs) {
-    //   this->context_->save(this->cur_token(), a.cur_token_, this->kind(),
-    //                        a.line_, a.len_);
-    // }
     this->opt_idx(this->valid_outputs_.size() - 2);
     diag::infos() << basic::str::from(
         std::string(this->calling_depth(), '>'), ":", this->calling_depth(),
