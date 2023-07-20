@@ -809,7 +809,7 @@ gram_tree["ptr-declarator"] = [
 ]
 
 gram_tree["noptr-declarator"] = [
-    ["declarator-id", "attribute-specifier-seq"],
+    ["declarator-id", "attribute-specifier-seq[opt]"],
     ["noptr-declarator", "parameters-and-qualifiers"],
     ["noptr-declarator", "`[`", "constant-expression[opt]", "`]`", "attribute-specifier-seq[opt]"],
     ["`(`", "ptr-declarator", "`)`"],
@@ -1333,7 +1333,7 @@ gram_tree["template-declaration"] = [
 ]
 
 gram_tree["template-head"] = [
-    "`template`", "`<`", "template-parameter-list", "`>`", "requires-clause",
+    "`template`", "`<`", "template-parameter-list", "`>`", "requires-clause[opt]",
 ]
 
 gram_tree["template-parameter-list"] = [

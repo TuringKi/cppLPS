@@ -24,6 +24,7 @@
 #pragma once
 
 #include <algorithm>
+#include <cstddef>
 #include "basic/exception.h"
 #include "basic/mem.h"
 
@@ -109,16 +110,17 @@ class Bitset {
     auto a = range(value_, start_idx, len_);
     return a;
   }
-
-  [[nodiscard]] bool all() const {
+  [[nodiscard]] size_t cnt() const {
     size_t cnt = 0;
     for (int i = start_idx_; i < start_idx_ + len_; i++) {
       if (value_[i]) {
         cnt++;
       }
     }
-    return cnt == len_;
+    return cnt;
   }
+  [[nodiscard]] size_t size() const { return len_; }
+  [[nodiscard]] bool all() const { return cnt() == len_; }
   [[nodiscard]] size_t start_idx() const { return start_idx_; }
 
  private:

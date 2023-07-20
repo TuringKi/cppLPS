@@ -40,97 +40,17 @@
 namespace lps::parser {
 
 namespace details {
-class Context {
- public:
-  friend class ContextTrait;
-  static constexpr basic::mem::TraceTag::tag_type kTag = "Context";
-  using executed_func_type = std::function<void(Context*)>;
-  void with(const executed_func_type& func) { func(this); }
-  token::TokenLists& token_lists() { return token_lists_; }
-  const token::Token& start_token() const { return start_token_; }
-  void start_token(const token::Token& token) { start_token_ = token; }
-  size_t len_from_start(const token::Token& cur_token) {
-    return token_lists_.len(start_token_, cur_token);
-  }
-  const Line* paint(const Line& the_line) {
-    if (path_.contains(the_line.start_)) {
-      for (auto& line : path_[the_line.start_]) {
-        if (line == the_line) {
-          return &line;
-        }
-      }
-    }
-    path_[the_line.start_].push_back(the_line);
-    lps_assert(kTag, path_[the_line.start_].back().len_ > 0);
-    return &path_[the_line.start_].back();
-  }
-
-  Line longest_line(const auto& start) {
-    size_t max_l = 0;
-    const auto* p_start = &token_lists_.at(start);
-    auto cmp = [](const Line& l, size_t b) {
-      return l.len_ > b;
-    };
-    return find_line<cmp>(p_start, max_l);
-  }
-
-  Line longest_line_with_kind(const auto& start, ParseFunctionKind kind) {
-    size_t max_l = 0;
-    const auto* p_start = &token_lists_.at(start);
-    auto cmp = [](const Line& l, size_t b, ParseFunctionKind kind) {
-      return l.len_ > b && l.kind_ == kind;
-    };
-    return find_line<cmp>(p_start, max_l, kind);
-  }
-
-  Line shortest_line(const token::Token& start) {
-    size_t min_l = std::numeric_limits<size_t>::max();
-    const auto* p_start = &token_lists_.at(start);
-    auto cmp = [](const Line& l, size_t b) {
-      return l.len_ < b;
-    };
-    return find_line<cmp>(p_start, min_l);
-  }
-
-  Tree l2t(const Line& root_line);
-
- private:
-  Line shortest_line(const token::Token* p_start, size_t min_l) {
-    return find_line<[](const Line& l, size_t b) {
-      return l.len_ < b;
-    }>(p_start, min_l);
-  }
-
-  template <auto F, typename... Args>
-  Line find_line(const token::archived_type* p_start, size_t the_l,
-                 Args... args) {
-    Line the_line;
-    lps_assert(kTag, path_.contains(p_start));
-    for (const auto& line : path_[p_start]) {
-      if (F(line, the_l, args...)) {
-        the_line = line;
-      }
-    }
-    return the_line;
-  }
-
-  token::TokenLists token_lists_;
-  token::Token start_token_;
-  std::unordered_map<const token::Token*, std::list<Line>> path_;
-};
-
-class ContextTrait {
- public:
-  explicit ContextTrait(Context* context) : context_(context) {}
-  Context* context() { return context_; }
-
- protected:
-  Context* context_;
-};
 
 struct ParseFunctionOutputs {
   explicit ParseFunctionOutputs() = default;
-
+  ParseFunctionOutputs(bool work, const token::Token& last_token,
+                       const token::Token& cur_token, const Line* line,
+                       size_t len)
+      : work_(work),
+        last_token_(last_token),
+        cur_token_(cur_token),
+        line_(line),
+        len_(len) {}
 #define SET_MOVE(A, B)                \
   (A)->work_ = (B).work_;             \
   (A)->last_token_ = (B).last_token_; \
@@ -186,6 +106,171 @@ struct ParseFunctionOutputs {
   size_t len_{0};
 };
 
+class Context {
+ public:
+  struct SavedParseFunctionOutputs {
+    token::Token* end_{nullptr};
+    const Line* line_{nullptr};
+    size_t len_{0};
+  };
+  struct SavedParseFunctionOutputsWarper {
+    bool valid_;
+    basic::Vector<4, SavedParseFunctionOutputs> outputs_;
+  };
+  friend class ContextTrait;
+  static constexpr basic::mem::TraceTag::tag_type kTag = "Context";
+  using executed_func_type = std::function<void(Context*)>;
+  void with(const executed_func_type& func) { func(this); }
+  token::TokenLists& token_lists() { return token_lists_; }
+  const token::Token& start_token() const { return start_token_; }
+  void start_token(const token::Token& token) { start_token_ = token; }
+  size_t len_from_start(const token::Token& cur_token) {
+    return token_lists_.len(start_token_, cur_token);
+  }
+  const Line* paint(const Line& the_line) {
+    if (path_.contains(the_line.start_)) {
+      for (auto& line : path_[the_line.start_]) {
+        if (line == the_line) {
+          return &line;
+        }
+      }
+    }
+    path_[the_line.start_].push_back(the_line);
+    lps_assert(kTag, path_[the_line.start_].back().len_ > 0);
+    return &path_[the_line.start_].back();
+  }
+
+  Line longest_line(const auto& start) {
+    size_t max_l = 0;
+    const auto* p_start = &token_lists_.at(start);
+    auto cmp = [](const Line& l, size_t b) {
+      return l.len_ > b;
+    };
+    return find_line<cmp>(p_start, max_l);
+  }
+
+  Line longest_line_with_kind(const auto& start, ParseFunctionKind kind) {
+    size_t max_l = 0;
+    const auto* p_start = &token_lists_.at(start);
+    auto cmp = [](const Line& l, size_t b, ParseFunctionKind kind) {
+      return l.len_ > b && l.kind_ == kind;
+    };
+    return find_line<cmp>(p_start, max_l, kind);
+  }
+
+  Line shortest_line(const token::Token& start) {
+    size_t min_l = std::numeric_limits<size_t>::max();
+    const auto* p_start = &token_lists_.at(start);
+    auto cmp = [](const Line& l, size_t b) {
+      return l.len_ < b;
+    };
+    return find_line<cmp>(p_start, min_l);
+  }
+
+  Tree l2t(const Line& root_line);
+
+  Tree grow(const token::Token& start, ParseFunctionKind kind) {
+    auto line = longest_line_with_kind(
+        start, parser::details::ParseFunctionKind::kConditionalExpression);
+    if (line.kind_ != kind) {
+      return Tree();
+    }
+    return l2t(line);
+  }
+  int64_t saved(const token::Token& start, ParseFunctionKind kind) {
+    if (!saved_outputs_.contains(kind)) {
+      return -2;
+    }
+    const auto* p_start = &token_lists_.at(start);
+    if (saved_outputs_[kind].contains(p_start)) {
+      if (!saved_outputs_[kind][p_start].valid_) {
+        return -1;
+      }
+      return saved_outputs_[kind][p_start].outputs_.size() - 1;
+    }
+    return -2;
+  }
+  std::pair<bool, ParseFunctionOutputs> saved(const token::Token& start,
+                                              ParseFunctionKind kind,
+                                              size_t idx) {
+    if (!saved_outputs_.contains(kind)) {
+      return {false, ParseFunctionOutputs()};
+    }
+    const auto* p_start = &token_lists_.at(start);
+    if (!saved_outputs_[kind].contains(p_start)) {
+      return {false, ParseFunctionOutputs()};
+    }
+
+    if (!saved_outputs_[kind][p_start].valid_) {
+      return {true, ParseFunctionOutputs()};
+    }
+
+    if (idx < 0) {
+      idx = saved_outputs_[kind][p_start].outputs_.size() + idx;
+    }
+
+    lps_assert(kTag,
+               idx >= 0 && idx < saved_outputs_[kind][p_start].outputs_.size());
+
+    auto end = *(saved_outputs_[kind][p_start].outputs_[idx].end_);
+    auto last = *end.last();
+    return {true,
+            {true, last, end, saved_outputs_[kind][p_start].outputs_[idx].line_,
+             saved_outputs_[kind][p_start].outputs_[idx].len_}};
+  }
+
+  void save(const token::Token& start, const token::Token& end,
+            ParseFunctionKind kind, const Line* line = nullptr,
+            size_t len = 0) {
+    const auto* p_start = &token_lists_.at(start);
+    auto* p_end = &token_lists_.at(end);
+    if (!line) {
+      saved_outputs_[kind][p_start].valid_ = false;
+      return;
+    }
+    saved_outputs_[kind][p_start].valid_ = true;
+    saved_outputs_[kind][p_start].outputs_.append({p_end, line, len});
+  }
+
+ private:
+  Line shortest_line(const token::Token* p_start, size_t min_l) {
+    return find_line<[](const Line& l, size_t b) {
+      return l.len_ < b;
+    }>(p_start, min_l);
+  }
+
+  template <auto F, typename... Args>
+  Line find_line(const token::archived_type* p_start, size_t the_l,
+                 Args... args) {
+    Line the_line;
+    lps_assert(kTag, path_.contains(p_start));
+    for (const auto& line : path_[p_start]) {
+      if (F(line, the_l, args...)) {
+        the_line = line;
+      }
+    }
+    return the_line;
+  }
+
+  token::TokenLists token_lists_;
+  token::Token start_token_;
+  std::unordered_map<const token::Token*, std::list<Line>> path_;
+
+  std::unordered_map<
+      ParseFunctionKind,
+      std::unordered_map<const token::Token*, SavedParseFunctionOutputsWarper>>
+      saved_outputs_;
+};
+
+class ContextTrait {
+ public:
+  explicit ContextTrait(Context* context) : context_(context) {}
+  Context* context() { return context_; }
+
+ protected:
+  Context* context_;
+};
+
 struct ParseFunctionInputs {
 
   explicit ParseFunctionInputs() = default;
@@ -232,15 +317,12 @@ struct ParseFunctionInputs {
   size_t calling_depth_{0};
 };
 
-template <size_t NumElements = 1>
 class ParseFunction : public ContextTrait {
  public:
-  using type = ParseFunction<NumElements>;
+  using type = ParseFunction;
   using context_trait_type = ContextTrait;
   using output_type = ParseFunctionOutputs;
   using custom_func_type = std::function<output_type(type*)>;
-  using bitset_type = basic::Bitset<NumElements>;
-  static constexpr size_t kNumberOfElements = NumElements;
 
   virtual ParseFunctionKind kind() {
     static constexpr ParseFunctionKind kKind =
@@ -292,26 +374,22 @@ class ParseFunction : public ContextTrait {
   [[nodiscard]] bool opt() const { return params_.opt_; }
   [[nodiscard]] token::Token last_token() const { return params_.last_token_; }
   [[nodiscard]] token::Token cur_token() const { return params_.cur_token_; }
-
   [[nodiscard]] inline bool valid() const { return valid(params_.cur_token_); }
-
   [[nodiscard]] inline bool valid(const token::Token& tok) const {
     return tok.kind() != token::details::TokenKind::eof;
   }
-
   void opt(bool opt) { params_.opt_ = opt; }
   void last_token(const token::Token& tok) { params_.last_token_ = tok; }
-
   void cur_token(const token::Token& tok) { params_.cur_token_ = tok; }
-
+  virtual void reset() { opt_idx_ = 0; }
   [[nodiscard]] size_t calling_depth() const { return params_.calling_depth_; }
   void calling_depth(size_t depth) { params_.calling_depth_ = depth; }
-  [[nodiscard]] bitset_type executed_mask() const { return executed_mask_; }
-  void executed_mask(const bitset_type& mask) { executed_mask_ = mask; }
-  virtual void reset() { executed_mask_.reset(); }
-  bool ok_to_try() {
-    auto status = executed_mask_.all();
-    return !status;
+  [[nodiscard]] int64_t opt_idx() const { return opt_idx_; }
+  void opt_idx(int64_t idx) { opt_idx_ = idx; }
+  virtual bool ok_to_try() { return opt_idx_ >= 0; }
+  void tried() {
+    lps_assert("ParseFunction::ok_to_try", opt_idx_ >= 0);
+    --opt_idx_;
   }
 
   static type create_single_token_check(Context* context, bool opt,
@@ -319,8 +397,8 @@ class ParseFunction : public ContextTrait {
                                         token::details::TokenKind token_kind,
                                         diag::DiagKind diag_kind) {
     typename type::custom_func_type z([token_kind, diag_kind](type* func) {
-      func->executed_mask_.set();
       ParseFunctionOutputs output;
+      func->opt_idx(-1);
       output.last_token_ = func->last_token();
       output.cur_token_ = func->cur_token();
       if (!func->valid()) {
@@ -391,8 +469,8 @@ class ParseFunction : public ContextTrait {
  protected:
   ParseFunctionInputs params_;
   custom_func_type custom_func_{nullptr};
-  bitset_type executed_mask_;
   const char* kName_;
+  int64_t opt_idx_{0};
 
  private:
   token::details::TokenKind expected_token_kind_{

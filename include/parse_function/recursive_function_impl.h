@@ -22,6 +22,7 @@
 */
 #pragma once
 
+#include <cstdint>
 #include <stack>
 #include "diag.h"
 #include "parse_function/parallel_serial_recursive_function.h"
@@ -35,7 +36,7 @@ ParseFunctionOutputs
 RecursiveParseFunctions<Kind, ParseFuncs...>::operator()() {
   lps_assert("RecursiveParseFunctions", this->ok_to_try());
   auto output = base::operator()();
-  this->executed_mask_.set();
+  this->opt_idx(-1);
   if (!this->valid()) {
     return output;
   }
@@ -44,51 +45,37 @@ RecursiveParseFunctions<Kind, ParseFuncs...>::operator()() {
   auto tmp_output = output;
 
   Line::segments_type saved_lines;
-
+  basic::Vector<4, ParseFunctionOutputs> valid_outputs;
+  int64_t valid_idx = 0;
   do {
-
-    execute(tmp_output, executed_mask);
+    tmp_output.len_ = 0;
+    execute(tmp_output, saved_lines);
 
     if (!tmp_output.work_) {
-      if (recursive_depth > 0) {
-        lps_assert("RecursiveParseFunctions", !working_list_stack_.empty());
-        executed_mask = working_list_stack_.top();
-        if (!regret(executed_mask)) {
-          break;
+      if (valid_idx > 0) {
+        --valid_idx;
+        while (valid_idx >= 0 && this->valid_outputs_[valid_idx].cur_token_ !=
+                                     tmp_output.cur_token_) {
+          --valid_idx;
         }
-        working_list_stack_.pop();
-        --recursive_depth;
-        continue;
+        if (valid_idx >= 0) {
+          tmp_output = this->valid_outputs_[valid_idx];
+          continue;
+        }
       }
       break;
     }
-    working_list_stack_.push(executed_mask);
-    executed_mask.reset();
-    ++recursive_depth;
-    output = tmp_output;
+
+    valid_idx = this->valid_outputs_.size() - 1;
     saved_lines.append(tmp_output.line_);
   } while (true);
 
-  if (output.work_) {
-    const auto* p_start = &context_->token_lists().at(this->cur_token());
-    const auto* p_end = &context_->token_lists().at(output.cur_token_);
-    Line line{
-        p_start,
-        p_end,
-        this->kind(),
-        token::details::TokenKind::unknown,
-        token::TokenLists::len(p_start, p_end),
-        this->calling_depth(),
-        std::move(saved_lines),
-    };
-    output.line_ = context_->paint(line);
+  if (!this->valid_outputs_.empty()) {
+    this->opt_idx(this->valid_outputs_.size() - 2);
+    return this->valid_outputs_.back();
   }
+  this->opt_idx(-1);
   return output;
-}
-template <ParseFunctionKind Kind, typename... ParseFuncs>
-bool RecursiveParseFunctions<Kind, ParseFuncs...>::regret(
-    const working_list_type& executed_mask) {
-  return !executed_mask.all();
 }
 
 template <ParseFunctionKind Kind, typename... ParseFuncs>
@@ -101,12 +88,12 @@ void RecursiveParseFunctions<Kind, ParseFuncs...>::reset() {
             }(funcs),
             ...);
       },
-      parse_functions_);
+      this->parse_functions_);
 }
 
 template <ParseFunctionKind Kind, typename... ParseFuncs>
 void RecursiveParseFunctions<Kind, ParseFuncs...>::execute(
-    ParseFunctionOutputs& output, working_list_type& executed_mask) {
+    ParseFunctionOutputs& output, const Line::segments_type& saved_lines) {
   bool flg_continue = true;
   uint32_t running_sub_func_idx = 0;
   ParseFunctionOutputs max_len_match_output;
@@ -114,50 +101,84 @@ void RecursiveParseFunctions<Kind, ParseFuncs...>::execute(
   max_len_match_output.cur_token_ = this->cur_token();
   uint32_t max_len_match_idx = -1;
 
+  std::apply(
+      [&output](ParseFuncs&... funcs) {
+        (
+            [&output](auto& func) {
+              func.last_token(output.last_token_);
+              func.cur_token(output.cur_token_);
+            }(funcs),
+            ...);
+      },
+      this->parse_functions_);
+
   reset();
+
+  basic::Vector<4, ParseFunctionOutputs> local_saved_outputs;
 
   std::apply(
       [this, &flg_continue, &output, &max_len_match_output,
        &running_sub_func_idx, &max_len_match_idx,
-       &executed_mask](ParseFuncs&... funcs) {
+       &local_saved_outputs](ParseFuncs&... funcs) {
         (
             [this, &flg_continue, &output, &max_len_match_output,
              &running_sub_func_idx, &max_len_match_idx,
-             &executed_mask](auto& func) {
-              if (!executed_mask.at(running_sub_func_idx)) {
-                func.last_token(output.last_token_);
-                func.cur_token(output.cur_token_);
+             &local_saved_outputs](auto& func) {
+              auto local_output = func();
+              while (!local_output.work_ && func.ok_to_try()) {
                 auto local_output = func();
-                while (!local_output.work_ && func.ok_to_try()) {
-                  auto local_output = func();
-                }
-                if (local_output.work_) {  // only allow one of them work
-                  if (local_output.len_ > max_len_match_output.len_) {
-                    max_len_match_output = std::move(local_output);
-                    max_len_match_idx = running_sub_func_idx;
-                    if (!this->valid(
-                            local_output.cur_token_)) {  // no more chance
-                      executed_mask.set();
-                      return;
-                    }
-                  }
-                } else {
-                  output.concat(std::move(local_output), false);
-                  executed_mask.set(running_sub_func_idx);
-                }
-                running_sub_func_idx++;
               }
+              if (local_output.work_) {  // only allow one of them work
+                if (local_output.len_ > max_len_match_output.len_) {
+                  max_len_match_output = std::move(local_output);
+                  max_len_match_idx = running_sub_func_idx;
+                  if (!this->valid(
+                          local_output.cur_token_)) {  // no more chance
+                    local_saved_outputs.append(local_output);
+                    return;
+                  }
+                }
+                local_saved_outputs.append(local_output);
+              } else {
+                output.concat(std::move(local_output), false);
+              }
+              running_sub_func_idx++;
             }(funcs),
             ...);
       },
-      parse_functions_);
+      this->parse_functions_);
   if (max_len_match_output.work_) {
     diag::infos() << basic::str::from(
-        std::string(this->calling_depth(), '>'), " ", this->kName_,
+        std::string(this->calling_depth(), '>'), ":", this->calling_depth(),
+        " ", this->kName_,
         basic::tui::color::Shell::colorize(
             basic::str::from(" ok, matched idx = ", max_len_match_idx, ".\n"),
             basic::tui::color::Shell::fgreen()));
   } else {
+  }
+  if (!local_saved_outputs.empty()) {
+    std::sort(local_saved_outputs.begin(), local_saved_outputs.end(),
+              [](const ParseFunctionOutputs& a, const ParseFunctionOutputs& b) {
+                return a.len_ < b.len_;
+              });
+
+    for (auto& a : local_saved_outputs) {
+      Line::segments_type tmp_saved_lines(saved_lines);
+      tmp_saved_lines.append(a.line_);
+      const auto* p_start = &context_->token_lists().at(this->cur_token());
+      const auto* p_end = a.line_->end_;
+      Line line{
+          p_start,
+          p_end,
+          this->kind(),
+          token::details::TokenKind::unknown,
+          token::TokenLists::len(p_start, p_end),
+          this->calling_depth(),
+          std::move(tmp_saved_lines),
+      };
+      a.line_ = context_->paint(line);
+      this->valid_outputs_.append(a);
+    }
   }
   output.concat(std::move(max_len_match_output), false);
 }

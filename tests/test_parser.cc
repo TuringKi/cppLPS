@@ -27,7 +27,7 @@
 #include "src.h"
 int main(int argc, char** argv) {
 
-  lps_assert("test_lexer", argc == 2);
+  lps_assert("test_parser", argc == 2);
 
   const char* file_path = argv[1];
 

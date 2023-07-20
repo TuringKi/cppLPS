@@ -23,6 +23,7 @@
 #pragma once
 
 #include <stack>
+#include "basic/exception.h"
 #include "diag.h"
 #include "parse_function/parallel_serial_recursive_function.h"
 #include "parser.h"
@@ -33,7 +34,7 @@ namespace lps::parser::details {
 template <ParseFunctionKind Kind, typename... ParseFuncs>
 ParseFunctionOutputs SerialParseFunctions<Kind, ParseFuncs...>::operator()() {
   lps_assert("SerialParseFunctions", this->ok_to_try());
-  this->executed_mask_.set();
+  this->opt_idx(-1);
   auto output = base::operator()();
   if (!this->valid()) {
     return output;
@@ -51,7 +52,7 @@ ParseFunctionOutputs SerialParseFunctions<Kind, ParseFuncs...>::operator()() {
             }(funcs),
             ...);
       },
-      parse_functions_);
+      this->parse_functions_);
 
   Line::segments_type saved_lines(running_sub_func_size, nullptr);
 
@@ -124,7 +125,7 @@ ParseFunctionOutputs SerialParseFunctions<Kind, ParseFuncs...>::operator()() {
               }(funcs),
               ...);
         },
-        parse_functions_);
+        this->parse_functions_);
   }
   lps_assert(this->kName_, path_stack.size() > 0);
   if (path_stack.top().work_) {
@@ -141,23 +142,26 @@ ParseFunctionOutputs SerialParseFunctions<Kind, ParseFuncs...>::operator()() {
         std::move(saved_lines),
     };
     path_stack.top().line_ = context_->paint(line);
-
+    lps_assert(this->kName_, this->valid_outputs_.empty());
+    this->valid_outputs_.append(path_stack.top());
     diag::infos() << basic::str::from(
-        std::string(this->calling_depth(), '>'), " ", this->kName_,
+        std::string(this->calling_depth(), '>'), ":", this->calling_depth(),
+        " ", this->kName_,
         basic::tui::color::Shell::colorize(basic::str::from(" ok.\n"),
                                            basic::tui::color::Shell::fgreen()));
   } else {
-    diag::infos() << basic::str::from(
-        std::string(this->calling_depth(), '>'), " ", this->kName_,
-        basic::tui::color::Shell::colorize(basic::str::from(" failed\n"),
-                                           basic::tui::color::Shell::fred()));
+    // diag::infos() << basic::str::from(
+    //     std::string(this->calling_depth(), '>'), " ", this->kName_,
+    //     basic::tui::color::Shell::colorize(basic::str::from(" failed\n"),
+    //                                        basic::tui::color::Shell::fred()));
   }
   return path_stack.top();
 }
 
 template <ParseFunctionKind Kind, typename... ParseFuncs>
 void SerialParseFunctions<Kind, ParseFuncs...>::reset() {
-  base::reset();
+  this->opt_idx(0);
+  this->valid_outputs_.clear();
   std::apply(
       [](ParseFuncs&... funcs) {
         (
@@ -166,7 +170,7 @@ void SerialParseFunctions<Kind, ParseFuncs...>::reset() {
             }(funcs),
             ...);
       },
-      parse_functions_);
+      this->parse_functions_);
 }
 
 }  // namespace lps::parser::details

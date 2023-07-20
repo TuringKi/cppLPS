@@ -22,20 +22,22 @@
 */
 #pragma once
 
+#include <algorithm>
+#include "basic/exception.h"
 #include "basic/tui.h"
 #include "diag.h"
 #include "parse_function/parallel_serial_recursive_function.h"
+#include "parser.h"
 #include "token.h"
 
 namespace lps::parser::details {
 
-template <ParseFunctionKind Kind, size_t NumElements, typename... ParseFuncs>
-ParseFunctionOutputs
-ParallelParseFunctions<Kind, NumElements, ParseFuncs...>::operator()() {
+template <ParseFunctionKind Kind, typename... ParseFuncs>
+ParseFunctionOutputs ParallelParseFunctions<Kind, ParseFuncs...>::operator()() {
   lps_assert("ParallelParseFunctions", this->ok_to_try());
   auto output = base::operator()();
   if (!this->valid()) {
-    this->executed_mask_.set();
+    this->opt_idx(-1);
     return output;
   }
 
@@ -45,60 +47,77 @@ ParallelParseFunctions<Kind, NumElements, ParseFuncs...>::operator()() {
   max_len_match_output.last_token_ = this->last_token();
   max_len_match_output.cur_token_ = this->cur_token();
   uint32_t max_len_match_idx = -1;
+  lps_assert(this->kName_, this->valid_outputs_.empty());
   std::apply(
       [this, &flg_continue, &output, &max_len_match_output,
        &running_sub_func_idx, &max_len_match_idx](ParseFuncs&... funcs) {
         (
             [this, &flg_continue, &output, &max_len_match_output,
              &running_sub_func_idx, &max_len_match_idx](auto& func) {
-              if (!this->executed_mask_.at(running_sub_func_idx)) {
-                func.last_token(this->last_token());
-                func.cur_token(this->cur_token());
+              func.last_token(this->last_token());
+              func.cur_token(this->cur_token());
+              auto local_output = func();
+              while (!local_output.work_ && func.ok_to_try()) {
                 auto local_output = func();
-                while (!local_output.work_ && func.ok_to_try()) {
-                  auto local_output = func();
-                }
-                if (local_output.work_) {  // only allow one of them work
-                  if (local_output.len_ > max_len_match_output.len_) {
-                    max_len_match_output = std::move(local_output);
-                    max_len_match_idx = running_sub_func_idx;
-                    if (!this->valid(
-                            local_output.cur_token_)) {  // no more chance
-                      this->executed_mask_.set();
-                      return;
-                    }
-                  }
-                } else {
-                  output.concat(std::move(local_output), false);
-                  this->executed_mask_.set(running_sub_func_idx);
-                }
-                running_sub_func_idx++;
               }
+              if (local_output.work_) {  // only allow one of them work
+                if (local_output.len_ > max_len_match_output.len_) {
+                  max_len_match_output = std::move(local_output);
+                  max_len_match_idx = running_sub_func_idx;
+                  if (!this->valid(
+                          local_output.cur_token_)) {  // no more chance
+                    this->valid_outputs_.append(local_output);
+                    return;
+                  }
+                }
+                this->valid_outputs_.append(local_output);
+              } else {
+                output.concat(std::move(local_output), false);
+              }
+              running_sub_func_idx++;
             }(funcs),
             ...);
       },
-      parse_functions_);
-  if (max_len_match_output.work_) {
-    this->executed_mask_.set(max_len_match_idx);
+      this->parse_functions_);
+  if (!this->valid_outputs_.empty()) {
+    std::sort(this->valid_outputs_.begin(), this->valid_outputs_.end(),
+              [](const ParseFunctionOutputs& a, const ParseFunctionOutputs& b) {
+                return a.len_ < b.len_;
+              });
+    // for (const auto& a : valid_outputs) {
+    //   this->context_->save(this->cur_token(), a.cur_token_, this->kind(),
+    //                        a.line_, a.len_);
+    // }
+    this->opt_idx(this->valid_outputs_.size() - 2);
     diag::infos() << basic::str::from(
-        std::string(this->calling_depth(), '>'), " ", this->kName_,
+        std::string(this->calling_depth(), '>'), ":", this->calling_depth(),
+        " ", this->kName_,
         basic::tui::color::Shell::colorize(
             basic::str::from(" ok, matched idx = ", max_len_match_idx, ".\n"),
             basic::tui::color::Shell::fgreen()));
   } else {
-    this->executed_mask_.set();
-    diag::infos() << basic::str::from(
-        std::string(this->calling_depth(), '>'), " ", this->kName_,
-        basic::tui::color::Shell::colorize(basic::str::from(" failed\n"),
-                                           basic::tui::color::Shell::fred()));
+    this->opt_idx(-1);
   }
+
   output.concat(std::move(max_len_match_output), false);
   return output;
 }
 
-template <ParseFunctionKind Kind, size_t NumElements, typename... ParseFuncs>
-void ParallelParseFunctions<Kind, NumElements, ParseFuncs...>::reset() {
-  base::reset();
+template <ParseFunctionKind Kind, typename... ParseFuncs>
+void ParallelParseFunctions<Kind, ParseFuncs...>::reset() {
+  this->valid_outputs_.clear();
+  if (this->cur_token().file_id() == 0) {
+    opt_idx_ = 0;
+    return;
+  }
+  auto r = this->context_->saved(this->cur_token(), kind());
+  if (r >= 0) {
+    opt_idx_ = r;
+  } else if (r == -2 || r == -1) {
+    opt_idx_ = 0;
+  } else {
+    unreachable(this->kName_);
+  }
   std::apply(
       [](ParseFuncs&... funcs) {
         (
@@ -107,7 +126,7 @@ void ParallelParseFunctions<Kind, NumElements, ParseFuncs...>::reset() {
             }(funcs),
             ...);
       },
-      parse_functions_);
+      this->parse_functions_);
 }
 
 }  // namespace lps::parser::details
