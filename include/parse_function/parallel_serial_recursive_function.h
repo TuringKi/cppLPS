@@ -25,69 +25,87 @@
 
 #include <stack>
 #include <type_traits>
+#include "ast.h"
 #include "basic/exception.h"
 #include "parser.h"
 
 namespace lps::parser::details {
 
-template <ParseFunctionKind Kind, size_t NumElements, typename... ParseFuncs>
-class ParallelParseFunctions : public ParseFunction<NumElements> {
+template <ParseFunctionKind Kind, typename... ParseFuncs>
+class SpecialParseFunctions {
+ public:
+  explicit SpecialParseFunctions(ParseFuncs&&... funcs)
+      : parse_functions_(funcs...) {}
+  [[nodiscard]] const basic::Vector<4, ParseFunctionOutputs>& valid_outputs()
+      const {
+    return valid_outputs_;
+  }
+
+ protected:
+  std::tuple<ParseFuncs...> parse_functions_;
+  basic::Vector<4, ParseFunctionOutputs> valid_outputs_;
+};
+
+template <ParseFunctionKind Kind, typename... ParseFuncs>
+class ParallelParseFunctions
+    : public ParseFunction,
+      public SpecialParseFunctions<Kind, ParseFuncs...> {
 
  public:
-  using base = ParseFunction<NumElements>;
+  using base = ParseFunction;
+  using special_functions_type = SpecialParseFunctions<Kind, ParseFuncs...>;
   explicit ParallelParseFunctions(Context* context, const char* kName,
                                   const ParseFunctionInputs& param,
                                   ParseFuncs&&... funcs)
-      : base(context, kName, param), parse_functions_(funcs...) {}
+      : base(context, kName, param),
+        special_functions_type(std::move(funcs)...) {}
   virtual ~ParallelParseFunctions() = default;
   ParseFunctionOutputs operator()();
   void reset() override;
   ParseFunctionKind kind() override { return Kind; }
-
- protected:
-  std::tuple<ParseFuncs...> parse_functions_;
 };
 
 template <ParseFunctionKind Kind, typename... ParseFuncs>
-class SerialParseFunctions : public ParseFunction<1> {
+class SerialParseFunctions : public ParseFunction,
+                             public SpecialParseFunctions<Kind, ParseFuncs...> {
 
  public:
-  using base = ParseFunction<1>;
+  using base = ParseFunction;
+  using special_functions_type = SpecialParseFunctions<Kind, ParseFuncs...>;
   explicit SerialParseFunctions(Context* context, const char* kName,
                                 const ParseFunctionInputs& param,
                                 ParseFuncs&&... funcs)
-      : base(context, kName, param), parse_functions_(funcs...) {}
+      : base(context, kName, param),
+        special_functions_type(std::move(funcs)...) {}
   virtual ~SerialParseFunctions() = default;
   ParseFunctionOutputs operator()();
   void reset() override;
   ParseFunctionKind kind() override { return Kind; }
-
- protected:
-  std::tuple<ParseFuncs...> parse_functions_;
 };
 
 template <ParseFunctionKind Kind, typename... ParseFuncs>
-class RecursiveParseFunctions : public ParseFunction<1> {
+class RecursiveParseFunctions
+    : public ParseFunction,
+      public SpecialParseFunctions<Kind, ParseFuncs...> {
 
  public:
   static constexpr int kNFuncs = sizeof...(ParseFuncs);
   using working_list_type = basic::Bitset<kNFuncs>;
   using working_list_stack_type = std::stack<working_list_type>;
-  using base = ParseFunction<1>;
+  using base = ParseFunction;
+  using special_functions_type = SpecialParseFunctions<Kind, ParseFuncs...>;
   explicit RecursiveParseFunctions(Context* context, const char* kName,
                                    const ParseFunctionInputs& param,
                                    ParseFuncs&&... funcs)
-      : base(context, kName, param), parse_functions_(funcs...) {}
+      : base(context, kName, param),
+        special_functions_type(std::move(funcs)...) {}
   virtual ~RecursiveParseFunctions() = default;
   ParseFunctionOutputs operator()();
   ParseFunctionKind kind() override { return Kind; }
 
  protected:
-  void execute(ParseFunctionOutputs&, working_list_type& executed_mask);
-  bool regret(const working_list_type& executed_mask);
+  void execute(ParseFunctionOutputs&, const Line::segments_type& saved_lines);
   void reset() override;
-
-  std::tuple<ParseFuncs...> parse_functions_;
   working_list_stack_type working_list_stack_;
 };
 }  // namespace lps::parser::details

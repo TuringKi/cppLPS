@@ -53,7 +53,11 @@ void Parser::parse(uint32_t file_id) {
         context->start_token(next_tok);
         details::TranslationUnit func(context, params);
         auto output = func();
-        if (output.work_) {}
+        auto line = context->longest_line(next_tok);
+        if (output.work_) {
+          auto tree = context->l2t(line);
+          int dummy = -1;
+        }
       }
     });
   }

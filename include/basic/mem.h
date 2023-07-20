@@ -353,7 +353,7 @@ class MemoryBuffer : public details::BlockInBuffer<BlockSizeType, T>,
 
   void grow() {
     if (dynamic_ == nullptr) {
-      LPS_NOTE(tag_, "grow to heap");
+      // LPS_NOTE(tag_, "grow to heap");
       dynamic_ = dynamic_buffer_type::create(tag_, BufferSize * 2 + 1);
       this->set_max(BufferSize * 2 + 1);
       this->clear();
@@ -363,7 +363,7 @@ class MemoryBuffer : public details::BlockInBuffer<BlockSizeType, T>,
       location_ = Location::kHeap;
     } else {
       auto sz = dynamic_->capacity() * 2 + 1;
-      LPS_NOTE(tag_, "the heap grow[size = ", sz, "]");
+      // LPS_NOTE(tag_, "the heap grow[size = ", sz, "]");
       dynamic_->grow(sz);
       top_ = dynamic_->ptr();
     }

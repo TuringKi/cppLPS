@@ -108,6 +108,7 @@ class Tree {
       }
     }
   };
+  Tree() = default;
   explicit Tree(const Line* line) : root_(Node(line)) {}
   const Node& root() { return root_; }
 

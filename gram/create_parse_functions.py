@@ -85,10 +85,11 @@ create_single_token_check(context_, {opt_str},calling_depth() + 1,
     content_op = f"""
     {content_type + ">;"}
     {content_func_def});
-        static_assert(base::kNumberOfElements == 1);
-     serial_funcs.executed_mask( decltype(serial_funcs)::base::bitset_type(this->executed_mask_.value() ) );
+     serial_funcs.opt_idx(this->opt_idx() );
     output = serial_funcs();
-    this->executed_mask_.set(serial_funcs.executed_mask().value());
+    this->opt_idx(serial_funcs.opt_idx());
+       this->context_->save(this->cur_token(), output.cur_token_, this->kind(),
+                            output.line_, output.len_);
     return output;
     """
     if not flg:
@@ -141,7 +142,7 @@ create_single_token_check(context_, {opt_str},calling_depth() + 1,
 def create_parallel_function_normal(v, k, idx, offset, out_name="output", type_recursive=False):
     name = camel_case(k)
     tag_name = f""" {name}::kTag """
-    contents_type = f"""ParallelParseFunctions<ParseFunctionKind::k{name},{len(v)}, """
+    contents_type = f"""ParallelParseFunctions<ParseFunctionKind::k{name}, """
     sub_str = f"""parallel_{idx}"""
     if type_recursive:
         sub_str = f"""recursive_{idx}"""
@@ -165,14 +166,23 @@ def create_parallel_function_normal(v, k, idx, offset, out_name="output", type_r
     contents_type = contents_type[:-1] + "> "
 
     content_op = f"""
-    static_assert(base::kNumberOfElements >= {len(v)});
-    using parallel_funcs_bitset_map = decltype(parallel_funcs_{idx})::base::bitset_type;
-     parallel_funcs_{idx}.executed_mask( parallel_funcs_bitset_map(this->executed_mask_.value({offset})) );
+     parallel_funcs_{idx}.opt_idx( this->opt_idx() );
     {out_name} = parallel_funcs_{idx}();
-    this->executed_mask_.set(parallel_funcs_{idx}.executed_mask().value() ,{offset});
+    this->opt_idx(parallel_funcs_{idx}.opt_idx());
+if(parallel_funcs_{idx}.valid_outputs().empty()){{
+ this->context_->save(this->cur_token(), {out_name}.cur_token_, this->kind());
+}}else{{
+ for (const auto& a : parallel_funcs_{idx}.valid_outputs()) {{
+       this->context_->save(this->cur_token(), a.cur_token_, this->kind(),
+                            a.line_, a.len_);
+     }}
+}}
+
+
     """
     if type_recursive:
-        content_op = f"""{out_name} = recursive_funcs_{idx}();"""
+        content_op = f"""{out_name} = recursive_funcs_{idx}();
+        """
     content_init = ""
     return content_op, content_init, contents_type,  content_func_def, flg
 
@@ -225,7 +235,7 @@ def create_parallel_function(serial_idx, key, v):
             return content_r_op, "", "", "", flg
         content_op = f"""
         decltype(output) non_recursive_output;
-        if(executed_mask_.start_idx() == 0)""" + "{\n" + f"""
+        """ + "{\n" + f"""
             {content_non_type} {content_non_func_def}
             {content_non_op}
             if(!output.work_)""" + """{
@@ -234,12 +244,13 @@ def create_parallel_function(serial_idx, key, v):
             non_recursive_output = output;
 
         """ + "\n}\n" + f"""
-            diag::infos() << basic::str::from({tag_name}, "into recursive. \\n");
+            diag::infos() << basic::str::from({tag_name}, " into recursive. \\n");
             {content_r_type} {content_r_func_def}
             {content_r_op}""" + f"""
             if(!output.work_){{
                 return non_recursive_output;
             }}
+
 const auto* p_start = &context_->token_lists().at(start_token);
   const auto* p_end = &context_->token_lists().at(output.cur_token_);
   Line line{{
@@ -254,7 +265,12 @@ const auto* p_start = &context_->token_lists().at(start_token);
   line.segments_.append(non_recursive_output.line_);
   line.segments_.append(output.line_);
   output.line_ = context_->paint(line);
-
+ for (const auto& a : recursive_funcs_1.valid_outputs()) {{
+       this->context_->save(this->cur_token(), a.cur_token_, this->kind(),
+                            a.line_, a.len_);
+     }}
+            this->reset();
+this->tried();
             return output;
 
         """
@@ -402,12 +418,12 @@ namespace lps::parser::details {
     """
     header_contents_template = """
 
-#define ParseFunctionDef(NAME,TYPE, N)                                  \\
+#define ParseFunctionDef(NAME,TYPE)                                  \\
                                                                         \\
-  class NAME : public ParseFunction<N> {                \\
+  class NAME : public ParseFunction {                \\
    public:   \\
     constexpr static basic::mem::TraceTag::tag_type kTag = #NAME;  \\
-    using base = ParseFunction< N>;                      \\
+    using base = ParseFunction;                      \\
            ParseFunctionKind kind() override{\\
    constexpr static ParseFunctionKind kKind = ParseFunctionKind::TYPE;  \\
     return kKind;\\
@@ -419,6 +435,14 @@ namespace lps::parser::details {
     explicit NAME(Context* context,Params... params) : base(context,#NAME,params...) {}                \\
     explicit NAME(Context* context,const ParseFunctionInputs& param)         \\
         : base(context,#NAME,param) {}                                               \\
+             void reset() override{\\
+                if(this->cur_token().file_id() == 0){opt_idx_=0;return;} \\
+                auto r = this->context_->saved(this->cur_token(), kind());\\
+               if(r>=0){\\
+opt_idx_ = r;\\
+               }else if(r==-2|| r==-1){opt_idx_ = 0;}else{ unreachable(kTag);}\\
+               \\
+        }\\
     ParseFunctionOutputs operator()() ;             \\
   };
 
@@ -475,7 +499,14 @@ ___CONTENT_COM___
         if (!this->valid()) {
             return output;
         }
+
         auto start_token = output.cur_token_;
+        auto saved_outputs= this->context_->saved(start_token, ParseFunctionKind::k___NAME___,this->opt_idx());
+         if(saved_outputs.first){
+            this->tried();
+            return saved_outputs.second;
+         }
+         this->reset();
          ___CONTENT_OP___
     }
         """
@@ -534,7 +565,7 @@ ___CONTENT_COM___
 
                 pass
         all_contents += the_contents
-        header_content_defs += f"""ParseFunctionDef({camel_case(k)},k{camel_case(k)}, {num_ele});"""
+        header_content_defs += f"""ParseFunctionDef({camel_case(k)},k{camel_case(k)});"""
         header_content_types += f"""    PARSE_FUNC(k{camel_case(k)})
         """
         if len(args) > 4:

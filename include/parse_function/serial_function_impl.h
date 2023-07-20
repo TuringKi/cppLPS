@@ -23,6 +23,7 @@
 #pragma once
 
 #include <stack>
+#include "basic/exception.h"
 #include "diag.h"
 #include "parse_function/parallel_serial_recursive_function.h"
 #include "parser.h"
@@ -33,7 +34,7 @@ namespace lps::parser::details {
 template <ParseFunctionKind Kind, typename... ParseFuncs>
 ParseFunctionOutputs SerialParseFunctions<Kind, ParseFuncs...>::operator()() {
   lps_assert("SerialParseFunctions", this->ok_to_try());
-  this->executed_mask_.set();
+  this->opt_idx(-1);
   auto output = base::operator()();
   if (!this->valid()) {
     return output;
@@ -51,7 +52,7 @@ ParseFunctionOutputs SerialParseFunctions<Kind, ParseFuncs...>::operator()() {
             }(funcs),
             ...);
       },
-      parse_functions_);
+      this->parse_functions_);
 
   Line::segments_type saved_lines(running_sub_func_size, nullptr);
 
@@ -124,10 +125,16 @@ ParseFunctionOutputs SerialParseFunctions<Kind, ParseFuncs...>::operator()() {
               }(funcs),
               ...);
         },
-        parse_functions_);
+        this->parse_functions_);
   }
   lps_assert(this->kName_, path_stack.size() > 0);
   if (path_stack.top().work_) {
+    Line::segments_type tmp_saved_lines;
+    for (const auto& a : saved_lines) {
+      if (a) {
+        tmp_saved_lines.append(a);
+      }
+    }
     const auto* p_start = &context_->token_lists().at(this->cur_token());
     const auto* p_end =
         &context_->token_lists().at(path_stack.top().cur_token_);
@@ -138,26 +145,53 @@ ParseFunctionOutputs SerialParseFunctions<Kind, ParseFuncs...>::operator()() {
         token::details::TokenKind::unknown,
         token::TokenLists::len(p_start, p_end),
         this->calling_depth(),
-        std::move(saved_lines),
+        std::move(tmp_saved_lines),
     };
     path_stack.top().line_ = context_->paint(line);
-
+    lps_assert(this->kName_, this->valid_outputs_.empty());
+    this->valid_outputs_.append(path_stack.top());
     diag::infos() << basic::str::from(
-        std::string(this->calling_depth(), '>'), " ", this->kName_,
+        std::string(this->calling_depth(), '>'), ":", this->calling_depth(),
+        " ", this->kName_,
         basic::tui::color::Shell::colorize(basic::str::from(" ok.\n"),
                                            basic::tui::color::Shell::fgreen()));
   } else {
-    diag::infos() << basic::str::from(
-        std::string(this->calling_depth(), '>'), " ", this->kName_,
-        basic::tui::color::Shell::colorize(basic::str::from(" failed\n"),
-                                           basic::tui::color::Shell::fred()));
+    // check if all the `parse_functions` are `opt`.
+    bool flg_all_opt = true;
+    std::apply(
+        [&flg_all_opt](ParseFuncs&... funcs) {
+          (
+              [&flg_all_opt](auto& func) {
+                if (!func.opt()) {
+                  flg_all_opt = false;
+                }
+              }(funcs),
+              ...);
+        },
+        this->parse_functions_);
+    if (flg_all_opt) {
+      Line empty_line;
+      empty_line.len_ = 0;
+      empty_line.start_ = &context_->token_lists().at(this->cur_token());
+      empty_line.start_ = empty_line.end_;
+      empty_line.calling_depth_ = this->calling_depth();
+      empty_line.kind_ = this->kind();
+      empty_line.token_kind_ = token::details::TokenKind::unknown;
+      output.line_ = context_->paint(empty_line);
+      output.work_ = true;
+      output.cur_token_ = this->cur_token();
+      output.last_token_ = this->last_token();
+      output.len_ = 0;
+      return output;
+    }
   }
   return path_stack.top();
 }
 
 template <ParseFunctionKind Kind, typename... ParseFuncs>
 void SerialParseFunctions<Kind, ParseFuncs...>::reset() {
-  base::reset();
+  this->opt_idx(0);
+  this->valid_outputs_.clear();
   std::apply(
       [](ParseFuncs&... funcs) {
         (
@@ -166,7 +200,7 @@ void SerialParseFunctions<Kind, ParseFuncs...>::reset() {
             }(funcs),
             ...);
       },
-      parse_functions_);
+      this->parse_functions_);
 }
 
 }  // namespace lps::parser::details
