@@ -129,6 +129,12 @@ ParseFunctionOutputs SerialParseFunctions<Kind, ParseFuncs...>::operator()() {
   }
   lps_assert(this->kName_, path_stack.size() > 0);
   if (path_stack.top().work_) {
+    Line::segments_type tmp_saved_lines;
+    for (const auto& a : saved_lines) {
+      if (a) {
+        tmp_saved_lines.append(a);
+      }
+    }
     const auto* p_start = &context_->token_lists().at(this->cur_token());
     const auto* p_end =
         &context_->token_lists().at(path_stack.top().cur_token_);
@@ -139,7 +145,7 @@ ParseFunctionOutputs SerialParseFunctions<Kind, ParseFuncs...>::operator()() {
         token::details::TokenKind::unknown,
         token::TokenLists::len(p_start, p_end),
         this->calling_depth(),
-        std::move(saved_lines),
+        std::move(tmp_saved_lines),
     };
     path_stack.top().line_ = context_->paint(line);
     lps_assert(this->kName_, this->valid_outputs_.empty());
@@ -150,10 +156,6 @@ ParseFunctionOutputs SerialParseFunctions<Kind, ParseFuncs...>::operator()() {
         basic::tui::color::Shell::colorize(basic::str::from(" ok.\n"),
                                            basic::tui::color::Shell::fgreen()));
   } else {
-    // diag::infos() << basic::str::from(
-    //     std::string(this->calling_depth(), '>'), " ", this->kName_,
-    //     basic::tui::color::Shell::colorize(basic::str::from(" failed\n"),
-    //                                        basic::tui::color::Shell::fred()));
   }
   return path_stack.top();
 }
