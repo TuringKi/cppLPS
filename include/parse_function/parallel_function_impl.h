@@ -42,11 +42,12 @@ ParseFunctionOutputs ParallelParseFunctions<Kind, ParseFuncs...>::operator()() {
   }
 
   bool flg_continue = true;
-  uint32_t running_sub_func_idx = 0;
+  int32_t running_sub_func_idx = 0;
   ParseFunctionOutputs max_len_match_output;
   max_len_match_output.last_token_ = this->last_token();
   max_len_match_output.cur_token_ = this->cur_token();
-  uint32_t max_len_match_idx = -1;
+  max_len_match_output.len_ = -1;
+  int32_t max_len_match_idx = -1;
   lps_assert(this->kName_, this->valid_outputs_.empty());
   std::apply(
       [this, &flg_continue, &output, &max_len_match_output,
@@ -80,6 +81,7 @@ ParseFunctionOutputs ParallelParseFunctions<Kind, ParseFuncs...>::operator()() {
       },
       this->parse_functions_);
   if (!this->valid_outputs_.empty()) {
+    lps_assert(this->kName_, max_len_match_idx >= 0);
     std::sort(this->valid_outputs_.begin(), this->valid_outputs_.end(),
               [](const ParseFunctionOutputs& a, const ParseFunctionOutputs& b) {
                 return a.len_ < b.len_;

@@ -156,6 +156,34 @@ ParseFunctionOutputs SerialParseFunctions<Kind, ParseFuncs...>::operator()() {
         basic::tui::color::Shell::colorize(basic::str::from(" ok.\n"),
                                            basic::tui::color::Shell::fgreen()));
   } else {
+    // check if all the `parse_functions` are `opt`.
+    bool flg_all_opt = true;
+    std::apply(
+        [&flg_all_opt](ParseFuncs&... funcs) {
+          (
+              [&flg_all_opt](auto& func) {
+                if (!func.opt()) {
+                  flg_all_opt = false;
+                }
+              }(funcs),
+              ...);
+        },
+        this->parse_functions_);
+    if (flg_all_opt) {
+      Line empty_line;
+      empty_line.len_ = 0;
+      empty_line.start_ = &context_->token_lists().at(this->cur_token());
+      empty_line.start_ = empty_line.end_;
+      empty_line.calling_depth_ = this->calling_depth();
+      empty_line.kind_ = this->kind();
+      empty_line.token_kind_ = token::details::TokenKind::unknown;
+      output.line_ = context_->paint(empty_line);
+      output.work_ = true;
+      output.cur_token_ = this->cur_token();
+      output.last_token_ = this->last_token();
+      output.len_ = 0;
+      return output;
+    }
   }
   return path_stack.top();
 }

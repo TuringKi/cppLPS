@@ -103,7 +103,7 @@ struct ParseFunctionOutputs {
   token::Token last_token_;
   token::Token cur_token_;
   const Line* line_{nullptr};
-  size_t len_{0};
+  int64_t len_{0};
 };
 
 class Context {
@@ -136,7 +136,11 @@ class Context {
       }
     }
     path_[the_line.start_].push_back(the_line);
-    lps_assert(kTag, path_[the_line.start_].back().len_ > 0);
+    lps_assert(kTag, path_[the_line.start_].back().len_ >= 0);
+    if (path_[the_line.start_].back().len_ == 0) {
+      lps_assert(kTag, path_[the_line.start_].back().start_ ==
+                           path_[the_line.start_].back().end_);
+    }
     return &path_[the_line.start_].back();
   }
 
