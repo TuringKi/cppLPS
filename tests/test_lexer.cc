@@ -29,6 +29,8 @@
 #include "token.h"
 #include "tu.h"
 int main(int argc, char** argv) {
+  lps::src::Manager::instance().exe_path(
+      weakly_canonical(std::filesystem::path(argv[0])).parent_path());
 
   lps_assert("test_lexer", argc >= 2);
 

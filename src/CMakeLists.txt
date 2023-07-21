@@ -19,6 +19,11 @@ add_library(lps_ STATIC ${SRC} ${FUNC_DEF} ${FUNC_IMPL} ${FUNC_DIAG_DEF} ${FUNC_
 
 install(TARGETS lps_ DESTINATION ${CMAKE_INSTALL_PREFIX}/lib/)
 
+configure_file(
+  ${CMAKE_SOURCE_DIR}/template/dump_parsing_results.html
+  ${CMAKE_BINARY_DIR}/share/lps/dump_parsing_results.html COPYONLY)
+
 add_executable(lps ./main.cc)
 target_link_libraries(lps lps_)
 install(TARGETS lps DESTINATION ${CMAKE_INSTALL_PREFIX}/bin/)
+install(FILES ${CMAKE_SOURCE_DIR}/template/dump_parsing_results.html DESTINATION ${CMAKE_INSTALL_PREFIX}/share/lps/)

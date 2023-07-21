@@ -21,52 +21,19 @@
 * SOFTWARE.
 */
 
-#include <iostream>
-#include "basic/arg.h"
+#pragma once
+
 #include "basic/exception.h"
-#include "basic/file.h"
-#include "basic/vec.h"
 #include "parser.h"
-#include "src.h"
-#include "version.h"
 
-int main(int argc, char** argv) {
+namespace lps::dump {
 
-  argparse::ArgumentParser program("lps", lps::version::git_hash);
+namespace details {}
 
-  program.add_argument("-c").required().default_value("-").help(
-      "specify the source file.");
+namespace parse_tree {
+void html(const parser::details::Tree& tree, const char* saved_path);
+void json(const parser::details::Tree& tree, const char* saved_path);
+void graphviz(const parser::details::Tree& tree, const char* saved_path);
+}  // namespace parse_tree
 
-  program.add_description(
-      "A Lexer, Parser and Semantics Engine for the C++ Programming Language.");
-
-  try {
-    program.parse_args(argc, argv);
-  } catch (const std::runtime_error& err) {
-    std::cerr << err.what() << std::endl;
-    std::cerr << program;
-    std::exit(1);
-  }
-
-  auto filename = program.get<std::string>("-c");
-
-  auto file_id = lps::src::Manager::instance().append(filename.c_str());
-
-  lps::src::Manager::instance().exe_path(
-      weakly_canonical(std::filesystem::path(argv[0])).parent_path());
-
-  if (file_id == -1) {
-    return 0;
-  }
-
-  auto contents = lps::src::Manager::instance().ref_of_char_file(file_id);
-
-  using lps::basic::str::details::operator<<;
-  std::cout << contents;
-
-  lps::parser::Parser parser;
-
-  parser.parse(file_id);
-
-  return 0;
-}
+}  // namespace lps::dump
