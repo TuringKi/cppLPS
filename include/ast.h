@@ -42,6 +42,8 @@ namespace kind {
 static constexpr std::array<std::pair<ParseFunctionKind, const char*>,
                             static_cast<uint16_t>(ParseFunctionKind::kNum)>
     kLists = {{
+        {ParseFunctionKind::kUnknown, "kUnknown"},
+        {ParseFunctionKind::kExpectedToken, "kExpectedToken"},
 #define PARSE_FUNC(X) {ParseFunctionKind::X, #X},
 #include "parse_function/kinds.def"
     }};
@@ -110,7 +112,7 @@ class Tree {
   };
   Tree() = default;
   explicit Tree(const Line* line) : root_(Node(line)) {}
-  const Node& root() { return root_; }
+  [[nodiscard]] const Node& root() const { return root_; }
 
  private:
   Node root_;

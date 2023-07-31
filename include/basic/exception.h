@@ -106,8 +106,9 @@ inline void fail(const char* tag_name, const char* file_name, uint32_t line,
       details::msg<Args...>(tag_name, file_name, line, func_name, args...));
 }
 
-inline void assert(bool condition, const char* tag_name, const char* file_name,
-                   uint32_t line, const char* func_name, std::string&& msg) {
+inline void do_assert(bool condition, const char* tag_name,
+                      const char* file_name, uint32_t line,
+                      const char* func_name, std::string&& msg) {
   if (!condition)
     throw Error(details::msg(tag_name, file_name, line, func_name, msg));
 }
@@ -158,8 +159,9 @@ inline void assert(bool condition, const char* tag_name, const char* file_name,
 
 #define unreachable(TagName) LPS_ERROR(TagName, "unreachable")
 
-#define lps_assert(TagName, COND)                                              \
-  lps::basic::exception::assert((COND), TagName, __FILE__, __LINE__, __func__, \
-                                lps::basic::tui::color::Shell::colorize(       \
-                                    " [ASSERT FAILED]: [`" #COND "`] ",        \
-                                    lps::basic::tui::color::Shell::fred()));
+#define lps_assert(TagName, COND)                    \
+  lps::basic::exception::do_assert(                  \
+      (COND), TagName, __FILE__, __LINE__, __func__, \
+      lps::basic::tui::color::Shell::colorize(       \
+          " [ASSERT FAILED]: [`" #COND "`] ",        \
+          lps::basic::tui::color::Shell::fred()));

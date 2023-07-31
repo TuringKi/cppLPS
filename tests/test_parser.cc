@@ -26,6 +26,8 @@
 #include "parser.h"
 #include "src.h"
 int main(int argc, char** argv) {
+  lps::src::Manager::instance().exe_path(
+      weakly_canonical(std::filesystem::path(argv[0])).parent_path());
 
   lps_assert("test_parser", argc == 2);
 

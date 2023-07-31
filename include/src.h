@@ -146,6 +146,16 @@ class Manager {
     return token_files_.at(file_id)->size();
   }
 
+  std::filesystem::path exe_path() const { return current_executable_path_; }
+  void exe_path(const std::filesystem::path& p) {
+    current_executable_path_ = p;
+  }
+  std::filesystem::path share_path() const {
+    auto p = current_executable_path_ / "../share/lps/";
+    lps_assert(kTag, std::filesystem::exists(p));
+    return p;
+  }
+
  private:
   void fill_next_info_for_token_file(uint32_t file_id) {
     if (!token_files_.contains(file_id)) {
@@ -171,6 +181,7 @@ class Manager {
   std::unordered_map<uint32_t, token::TokenContainer::ptr_type> token_files_;
   std::unordered_map<uint32_t, FilePathStaticString> abs_file_paths_;
   uint32_t file_count_{0};
+  std::filesystem::path current_executable_path_;
 };
 
 }  // namespace lps::src

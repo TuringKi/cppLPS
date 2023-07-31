@@ -1,0 +1,1927 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <title>cppLPS parser result visualization</title>
+    <meta charset="UTF-8" />
+    <style type="text/css">
+        .type_Token {
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kTranslationUnit {
+            background-color: #AC8F45;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kPrimaryExpression {
+            background-color: #F89AC1;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kIdExpression {
+            background-color: #ABC0E2;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kUnqualifiedId {
+            background-color: #6908CB;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kQualifiedId {
+            background-color: #EAB680;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kNestedNameSpecifier {
+            background-color: #945CE3;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kLambdaExpression {
+            background-color: #6042D1;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kLambdaIntroducer {
+            background-color: #4EEF41;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kLambdaDeclarator {
+            background-color: #CBD121;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kLambdaCapture {
+            background-color: #7FD758;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kCaptureDefault {
+            background-color: #AD9687;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kCaptureList {
+            background-color: #BF9BD0;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kCapture {
+            background-color: #857BEF;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kSimpleCapture {
+            background-color: #E9FCFE;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kInitCapture {
+            background-color: #929C74;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kFoldExpression {
+            background-color: #BFBE87;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kFoldOperator {
+            background-color: #E0FE69;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kRequiresExpression {
+            background-color: #3A0E8C;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kRequirementParameterList {
+            background-color: #5C724B;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kRequirementBody {
+            background-color: #164117;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kRequirementSeq {
+            background-color: #91622C;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kRequirement {
+            background-color: #D73EFE;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kSimpleRequirement {
+            background-color: #D4B7BA;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kTypeRequirement {
+            background-color: #EB118A;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kCompoundRequirement {
+            background-color: #9B0D21;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kReturnTypeRequirement {
+            background-color: #101140;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kNestedRequirement {
+            background-color: #640D19;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kPostfixExpression {
+            background-color: #3B380A;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kExpressionList {
+            background-color: #CBC76A;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kUnaryExpression {
+            background-color: #569A48;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kUnaryOperator {
+            background-color: #66BA6B;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kAwaitExpression {
+            background-color: #0FCA83;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kNoexceptExpression {
+            background-color: #2CAC4F;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kNewExpression {
+            background-color: #216E69;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kNewPlacement {
+            background-color: #F25D5A;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kNewTypeId {
+            background-color: #89F342;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kNewDeclarator {
+            background-color: #61B92D;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kNoptrNewDeclarator {
+            background-color: #F01FBC;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kNewInitializer {
+            background-color: #67C9A2;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kDeleteExpression {
+            background-color: #A20492;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kCastExpression {
+            background-color: #4B74EB;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kPmExpression {
+            background-color: #DD1622;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kMultiplicativeExpression {
+            background-color: #265E71;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kAdditiveExpression {
+            background-color: #6D44D6;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kShiftExpression {
+            background-color: #CAF4DA;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kCompareExpression {
+            background-color: #30265A;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kRelationalExpression {
+            background-color: #32DBA1;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kEqualityExpression {
+            background-color: #55BFE0;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kAndExpression {
+            background-color: #DF4F1C;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kExclusiveOrExpression {
+            background-color: #2D219A;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kInclusiveOrExpression {
+            background-color: #104BA3;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kLogicalAndExpression {
+            background-color: #074A4A;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kLogicalOrExpression {
+            background-color: #BD4B6D;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kConditionalExpression {
+            background-color: #D1AB78;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kYieldExpression {
+            background-color: #D63339;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kThrowExpression {
+            background-color: #6D0FC0;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kAssignmentExpression {
+            background-color: #E46FC0;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kAssignmentOperator {
+            background-color: #1A60E8;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kExpression {
+            background-color: #6B57E6;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kConstantExpression {
+            background-color: #24A543;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kStatement {
+            background-color: #7457D0;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kInitStatement {
+            background-color: #4465B3;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kCondition {
+            background-color: #C2F6DF;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kLabeledStatement {
+            background-color: #4DBDE8;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kExpressionStatement {
+            background-color: #884F93;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kCompoundStatement {
+            background-color: #8FE14C;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kStatementSeq {
+            background-color: #0EE772;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kSelectionStatement {
+            background-color: #229B91;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kIterationStatement {
+            background-color: #A203FC;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kForRangeDeclaration {
+            background-color: #EF5DA4;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kForRangeInitializer {
+            background-color: #603274;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kJumpStatement {
+            background-color: #2FFBB2;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kCoroutineReturnStatement {
+            background-color: #D6BA7C;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kDeclarationStatement {
+            background-color: #9F4E48;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kDeclarationSeq {
+            background-color: #A6520D;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kDeclaration {
+            background-color: #6CB32F;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kBlockDeclaration {
+            background-color: #77EEFB;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kNodeclspecFunctionDeclaration {
+            background-color: #06707F;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kAliasDeclaration {
+            background-color: #CC0937;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kSimpleDeclaration {
+            background-color: #05C3C9;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kStaticAssertDeclaration {
+            background-color: #BB574A;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kEmptyDeclaration {
+            background-color: #CB3A27;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kAttributeDeclaration {
+            background-color: #D585C0;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kDeclSpecifier {
+            background-color: #CA542A;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kDeclSpecifierSeq {
+            background-color: #6845D7;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kStorageClassSpecifier {
+            background-color: #647E43;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kFunctionSpecifier {
+            background-color: #45849D;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kExplicitSpecifier {
+            background-color: #0D2E77;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kTypedefName {
+            background-color: #54D6A9;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kTypeSpecifier {
+            background-color: #05E997;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kTypeSpecifierSeq {
+            background-color: #1BFA91;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kDefiningTypeSpecifier {
+            background-color: #19F454;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kDefiningTypeSpecifierSeq {
+            background-color: #8B5A5C;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kSimpleTypeSpecifier {
+            background-color: #115B39;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kTypeName {
+            background-color: #299722;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kElaboratedTypeSpecifier {
+            background-color: #7FC362;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kElaboratedEnumSpecifier {
+            background-color: #440B14;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kDecltypeSpecifier {
+            background-color: #876C31;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kPlaceholderTypeSpecifier {
+            background-color: #7A4F5C;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kInitDeclaratorList {
+            background-color: #53E7F7;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kInitDeclarator {
+            background-color: #08B34B;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kDeclarator {
+            background-color: #18C338;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kPtrDeclarator {
+            background-color: #5A8770;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kNoptrDeclarator {
+            background-color: #0F142D;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kParametersAndQualifiers {
+            background-color: #49FCD4;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kTrailingReturnType {
+            background-color: #906EEA;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kPtrOperator {
+            background-color: #8B055A;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kCvQualifierSeq {
+            background-color: #68DC5B;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kCvQualifier {
+            background-color: #27A741;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kRefQualifier {
+            background-color: #93FC98;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kDeclaratorId {
+            background-color: #F91746;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kTypeId {
+            background-color: #B2E29B;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kDefiningTypeId {
+            background-color: #71979B;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kAbstractDeclarator {
+            background-color: #71737F;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kPtrAbstractDeclarator {
+            background-color: #EA7C69;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kNoptrAbstractDeclarator {
+            background-color: #9D2908;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kAbstractPackDeclarator {
+            background-color: #26CE13;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kNoptrAbstractPackDeclarator {
+            background-color: #068752;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kParameterDeclarationClause {
+            background-color: #DACD00;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kParameterDeclarationList {
+            background-color: #F89663;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kParameterDeclaration {
+            background-color: #330A04;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kInitializer {
+            background-color: #CD3BC0;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kBraceOrEqualInitializer {
+            background-color: #71A316;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kInitializerClause {
+            background-color: #5DEDD4;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kBracedInitList {
+            background-color: #577060;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kInitializerList {
+            background-color: #12C7D5;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kDesignatedInitializerList {
+            background-color: #69A771;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kDesignatedInitializerClause {
+            background-color: #79EBF7;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kDesignator {
+            background-color: #9147B3;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kExprOrBracedInitList {
+            background-color: #18ECD9;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kFunctionDefinition {
+            background-color: #3F4C8E;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kFunctionBody {
+            background-color: #25265E;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kEnumName {
+            background-color: #A368B5;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kEnumSpecifier {
+            background-color: #1762DE;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kEnumHead {
+            background-color: #27D006;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kEnumHeadName {
+            background-color: #E20930;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kOpaqueEnumDeclaration {
+            background-color: #2337F3;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kEnumKey {
+            background-color: #96B59F;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kEnumBase {
+            background-color: #2485C3;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kEnumeratorList {
+            background-color: #20D5D9;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kEnumeratorDefinition {
+            background-color: #8A1965;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kEnumerator {
+            background-color: #E94C25;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kUsingEnumDeclaration {
+            background-color: #6B76BC;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kNamespaceName {
+            background-color: #2B17EE;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kNamespaceDefinition {
+            background-color: #8C27D9;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kNamedNamespaceDefinition {
+            background-color: #DA1073;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kUnnamedNamespaceDefinition {
+            background-color: #CEF723;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kNestedNamespaceDefinition {
+            background-color: #11A741;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kEnclosingNamespaceSpecifier {
+            background-color: #0C0856;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kNamespaceBody {
+            background-color: #CF323B;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kNamespaceAlias {
+            background-color: #A48B36;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kNamespaceAliasDefinition {
+            background-color: #9CB50C;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kQualifiedNamespaceSpecifier {
+            background-color: #D5B135;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kUsingDirective {
+            background-color: #2198C3;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kUsingDeclaration {
+            background-color: #CE4D77;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kUsingDeclaratorList {
+            background-color: #4EB0EA;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kUsingDeclarator {
+            background-color: #BFFFD7;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kAsmDeclaration {
+            background-color: #93C923;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kLinkageSpecification {
+            background-color: #118102;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kAttributeSpecifierSeq {
+            background-color: #9FBF7C;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kAttributeSpecifier {
+            background-color: #007F30;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kAlignmentSpecifier {
+            background-color: #AB4A25;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kAttributeUsingPrefix {
+            background-color: #963C92;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kAttributeList {
+            background-color: #18A5B7;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kAttribute {
+            background-color: #0A713F;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kAttributeToken {
+            background-color: #07F4CF;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kAttributeScopedToken {
+            background-color: #77EDF8;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kAttributeNamespace {
+            background-color: #C5EDDF;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kAttributeArgumentClause {
+            background-color: #C3D19E;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kBalancedTokenSeq {
+            background-color: #47B0FA;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kBalancedToken {
+            background-color: #2874F7;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kModuleDeclaration {
+            background-color: #B44DF3;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kModuleName {
+            background-color: #6D5431;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kModulePartition {
+            background-color: #9215FF;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kModuleNameQualifier {
+            background-color: #1648F4;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kExportDeclaration {
+            background-color: #C369E1;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kModuleImportDeclaration {
+            background-color: #B89059;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kGlobalModuleFragment {
+            background-color: #A15D88;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kPrivateModuleFragment {
+            background-color: #FBE692;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kClassName {
+            background-color: #1BF789;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kClassSpecifier {
+            background-color: #40729C;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kClassHead {
+            background-color: #944E78;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kClassHeadName {
+            background-color: #6C5691;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kClassVirtSpecifier {
+            background-color: #2CF68D;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kClassKey {
+            background-color: #A354BA;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kMemberSpecification {
+            background-color: #560BEA;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kMemberDeclaration {
+            background-color: #FA5C81;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kMemberDeclaratorList {
+            background-color: #306CDB;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kMemberDeclarator {
+            background-color: #73BCCE;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kVirtSpecifierSeq {
+            background-color: #C49373;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kVirtSpecifier {
+            background-color: #990226;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kPureSpecifier {
+            background-color: #5168A3;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kConversionFunctionId {
+            background-color: #842D1E;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kConversionTypeId {
+            background-color: #BEC0AC;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kConversionDeclarator {
+            background-color: #B4B662;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kBaseClause {
+            background-color: #9DAA2C;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kBaseSpecifierList {
+            background-color: #B43CE6;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kBaseSpecifier {
+            background-color: #B8B6C9;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kClassOrDecltype {
+            background-color: #57E0A6;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kAccessSpecifier {
+            background-color: #C332EA;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kCtorInitializer {
+            background-color: #E6FDD9;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kMemInitializerList {
+            background-color: #727F4B;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kMemInitializer {
+            background-color: #99745A;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kMemInitializerId {
+            background-color: #6CA9E3;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kOperatorFunctionId {
+            background-color: #A8E5E3;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kTheOperator {
+            background-color: #B08913;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kLiteralOperatorId {
+            background-color: #732002;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kTemplateDeclaration {
+            background-color: #BA55CD;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kTemplateHead {
+            background-color: #A97781;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kTemplateParameterList {
+            background-color: #3477F0;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kRequiresClause {
+            background-color: #35E1C8;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kConstraintLogicalOrExpression {
+            background-color: #FE3968;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kConstraintLogicalAndExpression {
+            background-color: #F84792;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kTemplateParameter {
+            background-color: #D7F59A;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kTypeParameter {
+            background-color: #61F51A;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kTypeParameterKey {
+            background-color: #95BFB3;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kTypeConstraint {
+            background-color: #EBB275;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kSimpleTemplateId {
+            background-color: #A4C8FF;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kTemplateId {
+            background-color: #DD8BE4;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kTemplateName {
+            background-color: #9A4CB9;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kTemplateArgumentList {
+            background-color: #F07031;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kTemplateArgument {
+            background-color: #40B1A6;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kConstraintExpression {
+            background-color: #D5CB31;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kDeductionGuide {
+            background-color: #1DA0A2;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kConceptDefinition {
+            background-color: #756BBF;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kConceptName {
+            background-color: #A2F295;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kTypenameSpecifier {
+            background-color: #78A7FF;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kExplicitInstantiation {
+            background-color: #96251B;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kExplicitSpecialization {
+            background-color: #38D4FE;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kTryBlock {
+            background-color: #61BEEB;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kFunctionTryBlock {
+            background-color: #E710EE;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kHandlerSeq {
+            background-color: #EFC226;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kHandler {
+            background-color: #914214;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kExceptionDeclaration {
+            background-color: #B1EFDA;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kNoexceptSpecifier {
+            background-color: #43FE87;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kPreprocessingFile {
+            background-color: #36888B;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kModuleFile {
+            background-color: #718915;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kPpGlobalModuleFragment {
+            background-color: #4654C5;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kPpPrivateModuleFragment {
+            background-color: #B82415;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kGroup {
+            background-color: #D3A686;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kGroupPart {
+            background-color: #B8EA0B;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kControlLine {
+            background-color: #45F470;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kIfSection {
+            background-color: #889B5C;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kIfGroup {
+            background-color: #E6154C;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kElifGroups {
+            background-color: #84A490;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kElifGroup {
+            background-color: #2D559A;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kElseGroup {
+            background-color: #836CA2;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kEndifLine {
+            background-color: #C3F269;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kTextLine {
+            background-color: #15E5AD;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kConditionallySupportedDirective {
+            background-color: #678221;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kLparen {
+            background-color: #3935B9;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kIdentifierList {
+            background-color: #C56DCC;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kReplacementList {
+            background-color: #645D22;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kPpTokens {
+            background-color: #BB439E;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kNewLine {
+            background-color: #CF4FFD;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kDefinedMacroExpression {
+            background-color: #23DD2B;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kHPreprocessingToken {
+            background-color: #830D2D;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kHPpTokens {
+            background-color: #82A8E0;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kHeaderNameTokens {
+            background-color: #7A5C53;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kHasIncludeExpression {
+            background-color: #FF5435;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kHasAttributeExpression {
+            background-color: #C5A297;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kPpModule {
+            background-color: #606BD4;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kPpImport {
+            background-color: #6F783B;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kVaOptReplacement {
+            background-color: #9D4695;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kHexQuad {
+            background-color: #F8C8B1;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kUniversalCharacterName {
+            background-color: #5A075C;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kPreprocessingToken {
+            background-color: #DA2F59;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kToken {
+            background-color: #7B6C14;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kHeaderName {
+            background-color: #6CA830;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kHCharSequence {
+            background-color: #71567F;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kHChar {
+            background-color: #B52714;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kQCharSequence {
+            background-color: #C1AA1E;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kQChar {
+            background-color: #74BEE5;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kPpNumber {
+            background-color: #0BFFFE;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kIdentifierNondigit {
+            background-color: #178E26;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kNondigit {
+            background-color: #8BE081;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kDigit {
+            background-color: #DBC6DE;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kKeyword {
+            background-color: #953D11;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kPreprocessingOpOrPunc {
+            background-color: #5D0F94;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kPreprocessingOperator {
+            background-color: #2D43A3;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kOperatorOrPunctuator {
+            background-color: #1C99E9;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kLiteral {
+            background-color: #70506E;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kBinaryDigit {
+            background-color: #40EFCA;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kOctalDigit {
+            background-color: #4A19B3;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kNonzeroDigit {
+            background-color: #90EC7E;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kHexadecimalPrefix {
+            background-color: #2E6C9D;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kHexadecimalDigitSequence {
+            background-color: #E8908E;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kHexadecimalDigit {
+            background-color: #240208;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kIntegerSuffix {
+            background-color: #35BEFF;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kUnsignedSuffix {
+            background-color: #D14980;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kLongSuffix {
+            background-color: #F02660;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kLongLongSuffix {
+            background-color: #7242AF;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kEncodingPrefix {
+            background-color: #32A63C;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kCCharSequence {
+            background-color: #3896B5;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kCChar {
+            background-color: #8FA4A1;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kEscapeSequence {
+            background-color: #DD252B;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kSimpleEscapeSequence {
+            background-color: #DF1708;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kOctalEscapeSequence {
+            background-color: #CB76AC;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kHexadecimalEscapeSequence {
+            background-color: #D3B1F2;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kDecimalFloatingPointLiteral {
+            background-color: #805CA2;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kHexadecimalFloatingPointLiteral {
+            background-color: #20F68A;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kFractionalConstant {
+            background-color: #E13E67;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kHexadecimalFractionalConstant {
+            background-color: #F5686B;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kExponentPart {
+            background-color: #B40E4A;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kBinaryExponentPart {
+            background-color: #5A8C51;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kSign {
+            background-color: #56FF35;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kDigitSequence {
+            background-color: #7B0B78;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kFloatingPointSuffix {
+            background-color: #DE0A8C;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kSCharSequence {
+            background-color: #D278C4;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kSChar {
+            background-color: #A9B048;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kRCharSequence {
+            background-color: #91E394;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kRChar {
+            background-color: #1D385E;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kDCharSequence {
+            background-color: #FEC8EA;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kDChar {
+            background-color: #6BC772;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kBooleanLiteral {
+            background-color: #9FA949;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kPointerLiteral {
+            background-color: #E2FDBA;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kUserDefinedLiteral {
+            background-color: #87D6E0;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+
+        .type_kUdSuffix {
+            background-color: #79A659;
+            width: 1.2rem;
+            padding: 1.2rem;
+        }
+    </style>
+</head>
+
+<body>
+    {{ source_code }}
+</body>
+
+</html>

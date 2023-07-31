@@ -24,6 +24,7 @@
 #include "parser.h"
 #include "basic/exception.h"
 #include "diag.h"
+#include "dump.h"
 #include "lexer.h"
 #include "parse_function/function.h"
 #include "token.h"
@@ -56,7 +57,7 @@ void Parser::parse(uint32_t file_id) {
         auto line = context->longest_line(next_tok);
         if (output.work_) {
           auto tree = context->l2t(line);
-          int dummy = -1;
+          dump::parse_tree::json(tree, "./");
         }
       }
     });

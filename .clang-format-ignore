@@ -1,3 +1,4 @@
 # ignore third_party code from clang-format checks
 ./tests/samples
 ./include/basic/tui/table.h
+./include/basic/fmt

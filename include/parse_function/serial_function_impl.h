@@ -173,7 +173,7 @@ ParseFunctionOutputs SerialParseFunctions<Kind, ParseFuncs...>::operator()() {
       Line empty_line;
       empty_line.len_ = 0;
       empty_line.start_ = &context_->token_lists().at(this->cur_token());
-      empty_line.start_ = empty_line.end_;
+      empty_line.end_ = empty_line.start_;
       empty_line.calling_depth_ = this->calling_depth();
       empty_line.kind_ = this->kind();
       empty_line.token_kind_ = token::details::TokenKind::unknown;
