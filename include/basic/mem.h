@@ -36,7 +36,7 @@ namespace lps::basic::mem {
 class TraceTag {
  public:
   using tag_type = const char*;
-  explicit TraceTag() : tag_("") {}
+  explicit constexpr TraceTag() : tag_("") {}
   explicit TraceTag(tag_type tag) : tag_(tag) {}
   [[nodiscard]] tag_type tag() const { return tag_; }
 
