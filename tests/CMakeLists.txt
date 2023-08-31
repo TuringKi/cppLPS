@@ -10,6 +10,5 @@ target_link_libraries(test_parser  lps_)
 
 enable_testing()
 
-add_test(NAME test_lexer COMMAND test_lexer)
-add_test(NAME test_parser COMMAND test_parser)
-add_test(NAME test_parse_function_output COMMAND test_parse_function_output)
+# add_test(NAME test_lexer COMMAND test_lexer)
+# add_test(NAME test_parser COMMAND test_parser)

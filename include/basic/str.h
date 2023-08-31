@@ -25,6 +25,7 @@
 
 #include <sys/types.h>
 #include <array>
+#include <cassert>
 #include <cstring>
 #include <iostream>
 #include <sstream>
@@ -141,6 +142,80 @@ template <typename... Args>
 inline decltype(auto) from(const Args&... args) {
   return details::Warper<typename details::Canonicalize<Args>::type...>::call(
       args...);
+}
+
+inline int compare(const char* Lhs, const char* Rhs, size_t Length) {
+  if (Length == 0) {
+    return 0;
+  }
+  return std::memcmp(Lhs, Rhs, Length);
+}
+
+inline std::string utostr(uint64_t x, bool isNeg = false) {
+  char buffer[21];
+  char* buffer_ptr = std::end(buffer);
+  if (x == 0)
+    *--buffer_ptr = '0';
+  while (x) {
+    *--buffer_ptr = '0' + static_cast<char>(x % 10);
+    x /= 10;
+  }
+  if (isNeg)
+    *--buffer_ptr = '-';
+  return std::string(buffer_ptr, std::end(buffer));
+}
+
+inline std::string itostr(int64_t x) {
+  if (x < 0)
+    return utostr(static_cast<uint64_t>(1) + ~static_cast<uint64_t>(x), true);
+  return utostr(static_cast<uint64_t>(x));
+}
+
+inline unsigned hex_digit(char c) {
+  /* clang-format off */
+  static const int16_t kLut[256] = {
+    -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+    -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+    -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+     0,  1,  2,  3,  4,  5,  6,  7,  8,  9, -1, -1, -1, -1, -1, -1,  // '0'..'9'
+    -1, 10, 11, 12, 13, 14, 15, -1, -1, -1, -1, -1, -1, -1, -1, -1,  // 'A'..'F'
+    -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+    -1, 10, 11, 12, 13, 14, 15, -1, -1, -1, -1, -1, -1, -1, -1, -1,  // 'a'..'f'
+    -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+    -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+    -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+    -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+    -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+    -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+    -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+    -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+    -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+  };
+  /* clang-format on */
+  return kLut[static_cast<unsigned char>(c)];
+}
+
+inline char hex_digit(unsigned x, bool lc = false) {
+  assert(x < 16);
+  static const char kLut[] = "0123456789ABCDEF";
+  const uint8_t offset = lc ? 32 : 0;
+  return kLut[x] | offset;
+}
+
+inline std::string utohexstr(uint64_t x, bool lc = false, unsigned w = 0) {
+  char buffer[17];
+  char* buffer_ptr = std::end(buffer);
+
+  if (x == 0)
+    *--buffer_ptr = '0';
+
+  for (uint64_t i = 0; w ? static_cast<uint64_t>(i < w) : x; ++i) {
+    auto mod = static_cast<uint8_t>(x) & 15;
+    *--buffer_ptr = hex_digit(mod, lc);
+    x >>= 4;
+  }
+
+  return std::string(buffer_ptr, std::end(buffer));
 }
 
 namespace ascii {

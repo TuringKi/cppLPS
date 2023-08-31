@@ -43,13 +43,13 @@ class Base : public mem::TraceTag {
   using Size = SizeType<T>;
 
  public:
-  explicit Base(basic::mem::TraceTag::tag_type tag)
+  explicit constexpr Base(basic::mem::TraceTag::tag_type tag)
       : basic::mem::TraceTag(tag) {}
-
+  explicit constexpr Base() : basic::mem::TraceTag("vec::details::Base") {}
   [[nodiscard]] size_t size() const { return size_; }
   void size(size_t n) { size_ = n; }
   [[nodiscard]] size_t capacity() const { return capacity_; }
-  [[nodiscard]] bool empty() const { return !size_; }
+  [[nodiscard]] bool empty() const { return size_ == 0U; }
 
   pointer first_;
   Size size_{0};
@@ -66,31 +66,38 @@ class ConstCommon : public Base<T> {
   using const_reverse_iterator = std::reverse_iterator<const_iterator>;
   using size_type = size_t;
 
-  ConstCommon(basic::mem::TraceTag::tag_type tag) : base_type(tag) {}
+  constexpr explicit ConstCommon(basic::mem::TraceTag::tag_type tag)
+      : base_type(tag) {}
 
-  const_iterator begin() const { return this->first_; }
-  const_iterator end() const { return this->first_ + this->size(); }
+  constexpr explicit ConstCommon() = default;
 
-  const_reverse_iterator rbegin() const {
+  [[nodiscard]] const_iterator begin() const { return this->first_; }
+  [[nodiscard]] const_iterator end() const {
+    return this->first_ + this->size();
+  }
+
+  [[nodiscard]] const_reverse_iterator rbegin() const {
     return const_reverse_iterator(end());
   }
-  const_reverse_iterator rend() const {
+  [[nodiscard]] const_reverse_iterator rend() const {
     return const_reverse_iterator(begin());
   }
 
-  const_pointer data() const { return const_pointer(begin()); }
+  [[nodiscard]] const_pointer data() const {
+    return static_cast<const_pointer>(begin());
+  }
 
   const_reference operator[](size_type idx) const {
     lps_assert(this->tag_, idx < this->size());
     return begin()[idx];
   }
 
-  const_reference front() const {
+  [[nodiscard]] const_reference front() const {
     lps_assert(this->tag_, !this->empty());
     return begin()[0];
   }
 
-  const_reference back() const {
+  [[nodiscard]] const_reference back() const {
     lps_assert(this->tag_, !this->empty());
     return end()[-1];
   }
@@ -183,7 +190,42 @@ class TemplateCommon : public Common<T> {
     size_inc();
   }
 
+  inline void append(uint64_t sz, typename common::const_reference a) {
+    // fixme(@mxlol233): it's too slow!!
+    for (uint64_t i = 0; i < sz; i++) {
+      append(a);
+    }
+  }
+
+  inline typename common::iterator erase(typename common::const_iterator cs,
+                                         typename common::const_iterator ce) {
+    auto s = const_cast<typename common::iterator>(cs);
+    auto e = const_cast<typename common::iterator>(ce);
+
+    LPS_CHECK_ERROR(this->tag_, is_range_in_storage(s, e),
+                    "range to erase is out of bounds.");
+
+    typename common::iterator n = s;
+    auto i = std::move(e, this->end(), s);
+    destroy_range(i, this->end());
+    this->size_ = i - this->begin();
+    return (n);
+  }
+
  protected:
+  bool is_range_in_storage(const void* first, const void* last) const {
+    std::less<> lt;
+    return !lt(first, this->begin()) && !lt(last, first) &&
+           !lt(this->end(), last);
+  }
+
+  static void destroy_range(T* s, T* e) {
+    while (s != e) {
+      --e;
+      e->~T();
+    }
+  }
+
   TemplateCommon(basic::mem::TraceTag::tag_type tag) : common(tag) {}
 
   inline void need_grow() {
@@ -269,7 +311,7 @@ class Vector : public vec::details::Impl<N, T> {
     SET();
   }
 
-  Vector(size_t N_hat, const ele_type& val) : base_type("Vector") {
+  Vector(size_t N_hat, const ele_type& val = ele_type()) : base_type("Vector") {
     for (size_t i = 0; i < N_hat; i++) {
       this->append(val);
     }
@@ -338,6 +380,11 @@ class String : public Vector<N, char> {
   String& operator=(const char (&d)[N]) {
     base_type::operator=(d);
     return *this;
+  }
+  explicit operator std::string() const { return std(); }
+  [[nodiscard]] std::string std() const {
+    std::string a(this->data(), this->size());
+    return a;
   }
 };
 
@@ -480,12 +527,16 @@ class StaticString : public StaticVector<char> {
       : base_type(str.c_str(), str.size()) {}
 };
 
+namespace apn {
+class Int;
+}
+
 class StringRef : public vec::details::ConstCommon<char> {
   using base_type = vec::details::ConstCommon<char>;
 
  public:
   explicit operator std::string() const { return std(); }
-  std::string std() const {
+  [[nodiscard]] std::string std() const {
     std::string a(this->data(), this->size());
     return a;
   }
@@ -500,14 +551,30 @@ class StringRef : public vec::details::ConstCommon<char> {
     return std::strncmp(this->data(), b.data(), this->capacity()) == 0;
   }
 
-  explicit StringRef(const char* data, size_t size) : base_type("StringRef") {
+  bool operator==(const char* b) const { return operator==(StringRef(b)); }
+  bool eq(const char* b) const { return operator==(b); }
+
+  constexpr StringRef(const char* data) : base_type("StringRef") {
+    lps_assert(this->tag_, data != nullptr);
+    this->first_ = (char*)data;
+    this->size_ = std::char_traits<char>::length(this->first_);
+    this->capacity_ = this->size_;
+  }
+
+  constexpr StringRef(const char* data, size_t size) : base_type("StringRef") {
     lps_assert(this->tag_, data != nullptr);
     this->first_ = (char*)data;
     this->size_ = size;
     this->capacity_ = size;
   }
 
-  explicit StringRef(const StaticString& str) : base_type("StringRef") {
+  constexpr explicit StringRef(const std::string& s) : base_type("StringRef") {
+    this->first_ = (char*)s.data();
+    this->size_ = s.size();
+    this->capacity_ = this->size_;
+  }
+
+  StringRef(const StaticString& str) : base_type("StringRef") {
     lps_assert(this->tag_, str.data() != nullptr);
     this->first_ = (char*)str.data();
     this->size_ = str.size();
@@ -515,18 +582,48 @@ class StringRef : public vec::details::ConstCommon<char> {
   }
 
   template <size_t N>
-  explicit StringRef(const char (&s)[N]) : base_type("StringRef") {
+  constexpr StringRef(const char (&s)[N]) : base_type("StringRef") {
     lps_assert(this->tag_, N >= 1);
     this->first_ = (char*)s;
     this->size_ = N - 1;
     this->capacity_ = N - 1;
   }
 
-  explicit StringRef() : base_type("StringRef") {
+  constexpr StringRef() : base_type("StringRef") {
     this->first_ = nullptr;
     this->size_ = 0;
     this->capacity_ = 0;
   }
+  StringRef(std::nullptr_t) = delete;
+
+  static constexpr size_t kNpos = ~static_cast<size_t>(0);
+  [[nodiscard]] constexpr StringRef substr(size_t start,
+                                           size_t n = kNpos) const {
+    start = std::min(start, size_);
+    return StringRef(first_ + start, std::min(n, size_ - start));
+  }
+
+  [[nodiscard]] StringRef drop_front(size_t N = 1) const {
+    LPS_CHECK_ERROR(tag_, size() >= N, "dropping more elements than exist");
+    return substr(N);
+  }
+  [[nodiscard]] StringRef drop_back(size_t N = 1) const {
+    LPS_CHECK_ERROR(tag_, size() >= N, "dropping more elements than exist");
+    return substr(0, size() - N);
+  }
+
+  [[nodiscard]] bool starts_with(StringRef prefix) const {
+    return size_ >= prefix.size_ &&
+           str::compare(first_, prefix.first_, prefix.size_) == 0;
+  }
+
+  [[nodiscard]] StringRef slice(size_t start, size_t end) const {
+    start = std::min(start, size_);
+    end = std::min(std::max(start, end), size_);
+    return StringRef(first_ + start, end - start);
+  }
+
+  bool as_int(uint64_t, apn::Int&) const;
 
  private:
 };
@@ -591,3 +688,8 @@ inline bool ValidIdent(const StringRef& s) {
 }  // namespace str::ascii::is
 
 }  // namespace lps::basic
+
+inline std::string& operator+=(std::string& buffer,
+                               lps::basic::StringRef string) {
+  return buffer.append(string.data(), string.size());
+}

@@ -32,7 +32,7 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++20 -Werror")
 set(CMAKE_INSTALL_PREFIX ${PROJECT_SOURCE_DIR}/.install/)
 
 
-set(INCLUDE_DIR ${PROJECT_SOURCE_DIR}/include)
+set(INCLUDE_DIR ${PROJECT_SOURCE_DIR}/include ${PROJECT_SOURCE_DIR}/tests/)
 
 include_directories(${INCLUDE_DIR})
 
