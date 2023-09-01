@@ -58,6 +58,18 @@ bool Preprocessing::lex_conditional_expression(
       return false;
     }
     auto tree = context.l2t(line);
+
+    // run optimization passes
+    tree = parser::details::opt::run(tree);
+
+    // now, check whether all the leaf tokens are constant
+    auto leafs = tree.leafs();
+    for (const auto& leaf : leafs) {
+      if (!leaf->is_number_literal()) {
+        return false;
+      }
+    }
+
     int dummy = -1;
   }
 

@@ -203,6 +203,14 @@ struct Token {
     return basic::StringRef(char_store_->data(), offset());
   }
 
+  [[nodiscard]] bool is_number_literal() const {
+    return kind_ == details::TokenKind::floating_point_literal ||
+           kind_ == details::TokenKind::integer_literal ||
+           kind_ == details::TokenKind::binary_literal ||
+           kind_ == details::TokenKind::decimal_literal ||
+           kind_ == details::TokenKind::hexadecimal_literal;
+  }
+
   [[nodiscard]] const archived_type* next() const { return next_token_; }
 
   [[nodiscard]] const archived_type* last() const { return last_token_; }
