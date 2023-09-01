@@ -262,8 +262,14 @@ const auto* p_start = &context_->token_lists().at(start_token);
       this->calling_depth(),
       Line::segments_type()
   }};
-  line.segments_.append(non_recursive_output.line_);
-  line.segments_.append(output.line_);
+  lps_assert({tag_name}, !non_recursive_output.line_->segments_.empty());
+  for(const auto&l : non_recursive_output.line_->segments_){{
+    line.segments_.append(l);
+  }}
+    lps_assert({tag_name}, !output.line_->segments_.empty());
+  for(const auto&l : output.line_->segments_){{
+    line.segments_.append(l);
+  }}
   output.line_ = context_->paint(line);
  for (const auto& a : recursive_funcs_1.valid_outputs()) {{
        this->context_->save(this->cur_token(), a.cur_token_, this->kind(),
