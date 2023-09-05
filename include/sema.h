@@ -22,6 +22,8 @@
 */
 #pragma once
 
+#include <memory>
+#include "basic/exception.h"
 #include "basic/mem.h"
 #include "parser.h"
 #include "token.h"
@@ -36,7 +38,16 @@ class Unit {
 
  protected:
   const parser::details::Tree::Node* gram_node_{nullptr};
+
+ private:
+  constexpr static const char* kTag = "lps::sema::details::Unit";
 };
+
+class TranslationUnit;
+class Expression;
+class AssignmentExpression;
+class LogicalOrExpression;
+class InitializerClause;
 
 // A program consists of one or more translation units linked together.
 // A `translation unit` consists of a sequence of declarations.
@@ -47,7 +58,43 @@ class Unit {
 class TranslationUnit : public Unit {
 
  public:
-  void build() override;
+  void build() override { LPS_ERROR(kTag, "not implemented"); }
+
+ private:
+  constexpr static const char* kTag = "lps::sema::details::TranslationUnit";
+};
+
+// A pair of expressions separated by a comma is evaluated left-to-right;
+// the left expression is a `discarded-value expression`. The left expression
+// is sequenced before the right expression.
+// The type and value of the result are the type and value of the right operand;
+// the result is of the same value category as its right operand,
+// and is a bit-field if its right operand is a bit-field.
+class Expression : public Unit {
+
+ public:
+  void build() override { LPS_ERROR(kTag, "not implemented"); }
+  virtual void constant_evaluate() { LPS_ERROR(kTag, "not implemented"); }
+
+ private:
+  constexpr static const char* kTag = "lps::sema::details::Expression";
+
+  basic::Vector<2, std::shared_ptr<AssignmentExpression>> assignment_exprs_;
+};
+
+class AssignmentExpression : public Expression {
+
+ public:
+  void build() override { LPS_ERROR(kTag, "not implemented"); }
+  void constant_evaluate() override { LPS_ERROR(kTag, "not implemented"); }
+
+ private:
+  constexpr static const char* kTag =
+      "lps::sema::details::AssignmentExpression";
+
+  std::shared_ptr<LogicalOrExpression> logical_or_expr_{nullptr};
+  std::shared_ptr<InitializerClause> init_clause_{nullptr};
+  const char* assignment_op_{nullptr};
 };
 
 }  // namespace details
