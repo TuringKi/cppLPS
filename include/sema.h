@@ -35,66 +35,46 @@ namespace details {
 class Unit {
  public:
   virtual void build() = 0;
+  [[nodiscard]] parser::details::ParseFunctionKind kind() const {
+    return kind_;
+  }
+
+  [[nodiscard]] token::details::TokenKind token_kind() const {
+    return token_kind_;
+  }
 
  protected:
   const parser::details::Tree::Node* gram_node_{nullptr};
+  parser::details::ParseFunctionKind kind_{
+      parser::details::ParseFunctionKind::kUnknown};
+  token::details::TokenKind token_kind_{token::details::TokenKind::unknown};
 
  private:
   constexpr static const char* kTag = "lps::sema::details::Unit";
 };
 
-class TranslationUnit;
-class Expression;
-class AssignmentExpression;
-class LogicalOrExpression;
-class InitializerClause;
+class Symbol {
 
-// A program consists of one or more translation units linked together.
-// A `translation unit` consists of a sequence of declarations.
-// A name is said to have linkage when it can denote the same object,
-// reference, function, type, template, namespace or value as a name
-// introduced by a declaration in another scope:
-
-class TranslationUnit : public Unit {
-
- public:
-  void build() override { LPS_ERROR(kTag, "not implemented"); }
+ protected:
+  const token::Token* token_{nullptr};
 
  private:
-  constexpr static const char* kTag = "lps::sema::details::TranslationUnit";
+  constexpr static const char* kTag = "lps::sema::details::Symbol";
 };
 
-// A pair of expressions separated by a comma is evaluated left-to-right;
-// the left expression is a `discarded-value expression`. The left expression
-// is sequenced before the right expression.
-// The type and value of the result are the type and value of the right operand;
-// the result is of the same value category as its right operand,
-// and is a bit-field if its right operand is a bit-field.
-class Expression : public Unit {
-
- public:
-  void build() override { LPS_ERROR(kTag, "not implemented"); }
-  virtual void constant_evaluate() { LPS_ERROR(kTag, "not implemented"); }
-
+class Variable : public Symbol {
  private:
-  constexpr static const char* kTag = "lps::sema::details::Expression";
-
-  basic::Vector<2, std::shared_ptr<AssignmentExpression>> assignment_exprs_;
+  constexpr static const char* kTag = "lps::sema::details::Variable";
 };
 
-class AssignmentExpression : public Expression {
-
- public:
-  void build() override { LPS_ERROR(kTag, "not implemented"); }
-  void constant_evaluate() override { LPS_ERROR(kTag, "not implemented"); }
-
+class Literal : public Symbol {
  private:
-  constexpr static const char* kTag =
-      "lps::sema::details::AssignmentExpression";
+  constexpr static const char* kTag = "lps::sema::details::Literal";
+};
 
-  std::shared_ptr<LogicalOrExpression> logical_or_expr_{nullptr};
-  std::shared_ptr<InitializerClause> init_clause_{nullptr};
-  const char* assignment_op_{nullptr};
+class Operator : public Symbol {
+ private:
+  constexpr static const char* kTag = "lps::sema::details::Operator";
 };
 
 }  // namespace details

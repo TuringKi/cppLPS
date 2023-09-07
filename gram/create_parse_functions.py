@@ -27,10 +27,7 @@ import subprocess
 import sys
 import os
 
-
-def camel_case(s):
-    s = sub(r"(_|-)+", " ", s).title().replace(" ", "")
-    return ''.join([s[0].upper(), s[1:]])
+from util import camel_case, remove_opt, write_to_file
 
 
 diag_kinds = {}
@@ -289,45 +286,6 @@ this->tried();
         {content_r_type}
         """
         return content_op, "", content_type, "", flg
-
-
-def remove_opt(s_: str):
-    s = s_
-    if s_.endswith("[opt]"):
-        s = s_.replace("[opt]", "")
-    return s, s != s_
-
-
-def write_to_file(src_file_name, the_contents, title, end="}"):
-    with open(src_file_name, "w") as f:
-        f.write(title + the_contents + end)
-    encoding_py3 = {}
-    if sys.version_info[0] >= 3:
-        encoding_py3['encoding'] = 'utf-8'
-
-    try:
-        invocation = ["clang-format", src_file_name,
-                      "-i", f'--style=file:{os.path.dirname(__file__)}/../.clang-format']
-
-        proc = subprocess.Popen(
-            invocation,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            universal_newlines=True,
-            **encoding_py3)
-    except OSError as exc:
-        print("error.")
-        assert (False)
-    proc_stdout = proc.stdout
-    proc_stderr = proc.stderr
-    outs = list(proc_stdout.readlines())
-    errs = list(proc_stderr.readlines())
-    proc.wait()
-
-    if proc.returncode:
-        print("error.", subprocess.list2cmdline(
-            invocation), proc.returncode, errs)
-        assert (False)
 
 
 if __name__ == "__main__":
