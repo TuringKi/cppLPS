@@ -23,8 +23,10 @@
 #pragma once
 
 #include <memory>
+#include "ast.h"
 #include "basic/exception.h"
 #include "basic/mem.h"
+#include "basic/vec.h"
 #include "parser.h"
 #include "token.h"
 
@@ -53,7 +55,18 @@ class Unit {
   constexpr static const char* kTag = "lps::sema::details::Unit";
 };
 
-class Symbol {
+class HasElements {
+ protected:
+  basic::Vector<2, std::unique_ptr<Unit>> elements_;
+};
+
+class Symbol : public Unit {
+ public:
+  void build() override {}
+  explicit Symbol(const token::Token* t) : token_(t) {
+    lps_assert(kTag, t->kind() != token::details::TokenKind::unknown);
+    this->token_kind_ = t->kind();
+  }
 
  protected:
   const token::Token* token_{nullptr};
@@ -63,19 +76,49 @@ class Symbol {
 };
 
 class Variable : public Symbol {
+ public:
+  explicit Variable(const token::Token* t) : Symbol(t) {}
+
  private:
   constexpr static const char* kTag = "lps::sema::details::Variable";
 };
 
 class Literal : public Symbol {
+ public:
+  explicit Literal(const token::Token* t) : Symbol(t) {}
+
  private:
   constexpr static const char* kTag = "lps::sema::details::Literal";
 };
 
 class Operator : public Symbol {
+ public:
+  explicit Operator(const token::Token* t) : Symbol(t) {}
+
  private:
   constexpr static const char* kTag = "lps::sema::details::Operator";
 };
 
+class KeyWord : public Symbol {
+ public:
+  explicit KeyWord(const token::Token* t) : Symbol(t) {}
+
+ private:
+  constexpr static const char* kTag = "lps::sema::details::KeyWord";
+};
+
 }  // namespace details
+
+class Factory {
+
+ public:
+  static std::unique_ptr<details::Unit> create(
+      const parser::details::Tree::Node& node);
+
+ private:
+  static std::unique_ptr<details::Unit> create_by_token(
+      const parser::details::Tree::Node& node);
+  constexpr static const char* kTag = "lps::sema:Factory";
+};
+
 }  // namespace lps::sema
