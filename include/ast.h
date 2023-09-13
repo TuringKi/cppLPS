@@ -23,6 +23,8 @@
 #pragma once
 
 #include <array>
+#include <utility>
+#include "basic/apn.h"
 #include "basic/map.h"
 #include "basic/vec.h"
 #include "token.h"
@@ -99,6 +101,9 @@ class Tree {
     token::details::TokenKind token_kind_{token::details::TokenKind::unknown};
     size_t len_{0};
     explicit Node() = default;
+    [[nodiscard]] bool valid() const {
+      return start_ != nullptr && end_ != nullptr && len_ != 0;
+    }
     Node(const Line* line)
         : start_(line->start_),
           end_(line->end_),
@@ -111,11 +116,71 @@ class Tree {
     }
   };
   Tree() = default;
+  Tree(Node&& n) : root_(std::move(n)) {}
   explicit Tree(const Line* line) : root_(Node(line)) {}
   [[nodiscard]] const Node& root() const { return root_; }
+  [[nodiscard]] basic::Vector<4, const token::Token*> leafs() const {
+    using out_type = basic::Vector<4, const token::Token*>;
+    out_type out;
+    [](const Node& root, out_type& o) -> void {
+      auto visit_impl = [](const Node& root, out_type& o,
+                           const auto& func) -> void {
+        if (root.children_.empty() && root.len_ == 1) {
+          o.append(root.start_);
+          return;
+        }
+
+        for (const auto& child : root.children_) {
+          func(child, o, func);
+        }
+      };
+
+      return visit_impl(root, o, visit_impl);
+    }(root_, out);
+
+    return out;
+  }
 
  private:
   Node root_;
 };
+
+namespace opt {
+
+class Pass {
+
+ public:
+  virtual Tree operator()(const Tree& t) = 0;
+};
+
+class SingleNodePathFoldPass : public Pass {
+ public:
+  Tree operator()(const Tree& in) override {
+    return Tree([](const Tree::Node& root) -> Tree::Node {
+      auto visit_impl = [](const Tree::Node& root,
+                           const auto& func) -> Tree::Node {
+        if (root.children_.empty()) {
+          return root;
+        }
+
+        if (root.children_.size() == 1) {
+          return func(root.children_[0], func);
+        }
+        Tree::Node out = root;
+        out.children_.clear();
+        for (const auto& child : root.children_) {
+          out.children_.push_back(func(child, func));
+        }
+        return out;
+      };
+
+      return visit_impl(root, visit_impl);
+    }(in.root()));
+  }
+};
+
+Tree run(const Tree& in);
+
+}  // namespace opt
 
 }  // namespace lps::parser::details

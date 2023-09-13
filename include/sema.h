@@ -22,7 +22,11 @@
 */
 #pragma once
 
+#include <memory>
+#include "ast.h"
+#include "basic/exception.h"
 #include "basic/mem.h"
+#include "basic/vec.h"
 #include "parser.h"
 #include "token.h"
 
@@ -33,22 +37,94 @@ namespace details {
 class Unit {
  public:
   virtual void build() = 0;
+  virtual void check() = 0;
+  [[nodiscard]] parser::details::ParseFunctionKind kind() const {
+    return kind_;
+  }
+  virtual ~Unit() = default;
+
+  [[nodiscard]] token::details::TokenKind token_kind() const {
+    return token_kind_;
+  }
 
  protected:
-  const parser::details::Tree::Node* gram_node_{nullptr};
+  parser::details::ParseFunctionKind kind_{
+      parser::details::ParseFunctionKind::kUnknown};
+  token::details::TokenKind token_kind_{token::details::TokenKind::unknown};
+
+ private:
+  constexpr static const char* kTag = "lps::sema::details::Unit";
 };
 
-// A program consists of one or more translation units linked together.
-// A `translation unit` consists of a sequence of declarations.
-// A name is said to have linkage when it can denote the same object,
-// reference, function, type, template, namespace or value as a name
-// introduced by a declaration in another scope:
-
-class TranslationUnit : public Unit {
-
+class HasElements {
  public:
-  void build() override;
+  explicit HasElements(basic::Vector<2, std::unique_ptr<Unit>>&& elements)
+      : elements_(std::move(elements)) {}
+
+ protected:
+  basic::Vector<2, std::unique_ptr<Unit>> elements_;
+};
+
+class Symbol : public Unit {
+ public:
+  void build() override {}
+  void check() override {}
+  explicit Symbol(const token::Token* t) : token_(t) {
+    lps_assert(kTag, t->kind() != token::details::TokenKind::unknown);
+    this->token_kind_ = t->kind();
+  }
+
+ protected:
+  const token::Token* token_{nullptr};
+
+ private:
+  constexpr static const char* kTag = "lps::sema::details::Symbol";
+};
+
+class Variable : public Symbol {
+ public:
+  explicit Variable(const token::Token* t) : Symbol(t) {}
+
+ private:
+  constexpr static const char* kTag = "lps::sema::details::Variable";
+};
+
+class Literal : public Symbol {
+ public:
+  explicit Literal(const token::Token* t) : Symbol(t) {}
+
+ private:
+  constexpr static const char* kTag = "lps::sema::details::Literal";
+};
+
+class Operator : public Symbol {
+ public:
+  explicit Operator(const token::Token* t) : Symbol(t) {}
+
+ private:
+  constexpr static const char* kTag = "lps::sema::details::Operator";
+};
+
+class KeyWord : public Symbol {
+ public:
+  explicit KeyWord(const token::Token* t) : Symbol(t) {}
+
+ private:
+  constexpr static const char* kTag = "lps::sema::details::KeyWord";
 };
 
 }  // namespace details
+
+class Factory {
+
+ public:
+  static std::unique_ptr<details::Unit> create(
+      const parser::details::Tree::Node& node);
+
+ private:
+  static std::unique_ptr<details::Unit> create_by_token(
+      const parser::details::Tree::Node& node);
+  constexpr static const char* kTag = "lps::sema:Factory";
+};
+
 }  // namespace lps::sema

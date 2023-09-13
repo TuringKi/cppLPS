@@ -67,7 +67,10 @@ RecursiveParseFunctions<Kind, ParseFuncs...>::operator()() {
     }
 
     valid_idx = this->valid_outputs_.size() - 1;
-    saved_lines.append(tmp_output.line_);
+    lps_assert(kName_, !tmp_output.line_->segments_.empty());
+    for (const auto& l : tmp_output.line_->segments_) {
+      saved_lines.append(l);
+    }
   } while (true);
 
   if (!this->valid_outputs_.empty()) {
@@ -164,7 +167,10 @@ void RecursiveParseFunctions<Kind, ParseFuncs...>::execute(
 
     for (auto& a : local_saved_outputs) {
       Line::segments_type tmp_saved_lines(saved_lines);
-      tmp_saved_lines.append(a.line_);
+      lps_assert(kName_, !a.line_->segments_.empty());
+      for (const auto& l : a.line_->segments_) {
+        tmp_saved_lines.append(l);
+      }
       const auto* p_start = &context_->token_lists().at(this->cur_token());
       const auto* p_end = a.line_->end_;
       Line line{

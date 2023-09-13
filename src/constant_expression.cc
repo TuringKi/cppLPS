@@ -24,6 +24,7 @@
 #include "ast.h"
 #include "lex/pp.h"
 #include "parse_function/function.h"
+#include "sema.h"
 
 namespace lps::lexer::details::pp {
 
@@ -58,6 +59,12 @@ bool Preprocessing::lex_conditional_expression(
       return false;
     }
     auto tree = context.l2t(line);
+
+    // run optimization passes
+    tree = parser::details::opt::run(tree);
+
+    auto units = sema::Factory::create(tree.root());
+
     int dummy = -1;
   }
 
