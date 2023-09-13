@@ -60,7 +60,7 @@ if __name__ == "__main__":
 
 #include "sema.h"
 
-namespace lps::sema::details {
+namespace lps::sema::details::unit {
 
 __CONTENT_UNIT_DECL__
 
@@ -70,19 +70,32 @@ __CONTENT_UNIT_DEF__
      """
 
     unit_def_template = """
-class __NAME__ : public Unit {
+class __NAME__ : public Unit, public HasElements {
 
  public:
+ explicit __NAME__(const parser::details::Tree::Node* gram_node, basic::Vector<2, std::unique_ptr<Unit>>&& elements):Unit(gram_node), HasElements(std::move(elements)){{
+    this->kind_ = parser::details::ParseFunctionKind::k__NAME__;
+ }}
   void build() override { LPS_ERROR(kTag, "not implemented"); }
-__TYPE__
+  void check() override { LPS_ERROR(kTag, "not implemented"); }
+~__NAME__() override = default;
+
  private:
   constexpr static const char* kTag = "lps::sema::details::__NAME__";
-__MEMBER__
 };
+      """
+
+    case_template = f"""
+      case parser::details::ParseFunctionKind::k__NAME__: {{
+      return std::make_unique<details::unit::__NAME__>(&node,
+          std::move(elements));
+      break;
+    }}
       """
 
     str_unit_decl = ""
     str_unit_def_all = ""
+    case_strs = ""
 
     for k, v in gram_tree.items():
         name = camel_case(k)
@@ -142,6 +155,7 @@ __MEMBER__
         str_unit_def = unit_def_template.replace("__TYPE__", str_type)
         str_unit_def = str_unit_def.replace("__MEMBER__", str_member)
         str_unit_def = str_unit_def.replace("__NAME__", name)
+        case_strs += case_template.replace("__NAME__", name)
         str_unit_def_all += str_unit_def
 
     contents = unit_h_out_template.replace("__CONTENT_UNIT_DECL__", str_unit_decl)
@@ -149,3 +163,4 @@ __MEMBER__
 
 
     write_to_file(unit_h_out_path, contents, "\n", "\n")
+    write_to_file(unit_h_out_path + ".case", case_strs, "\n", "\n")

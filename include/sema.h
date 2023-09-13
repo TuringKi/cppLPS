@@ -37,16 +37,17 @@ namespace details {
 class Unit {
  public:
   virtual void build() = 0;
+  virtual void check() = 0;
   [[nodiscard]] parser::details::ParseFunctionKind kind() const {
     return kind_;
   }
+  virtual ~Unit() = default;
 
   [[nodiscard]] token::details::TokenKind token_kind() const {
     return token_kind_;
   }
 
  protected:
-  const parser::details::Tree::Node* gram_node_{nullptr};
   parser::details::ParseFunctionKind kind_{
       parser::details::ParseFunctionKind::kUnknown};
   token::details::TokenKind token_kind_{token::details::TokenKind::unknown};
@@ -56,6 +57,10 @@ class Unit {
 };
 
 class HasElements {
+ public:
+  explicit HasElements(basic::Vector<2, std::unique_ptr<Unit>>&& elements)
+      : elements_(std::move(elements)) {}
+
  protected:
   basic::Vector<2, std::unique_ptr<Unit>> elements_;
 };
@@ -63,6 +68,7 @@ class HasElements {
 class Symbol : public Unit {
  public:
   void build() override {}
+  void check() override {}
   explicit Symbol(const token::Token* t) : token_(t) {
     lps_assert(kTag, t->kind() != token::details::TokenKind::unknown);
     this->token_kind_ = t->kind();

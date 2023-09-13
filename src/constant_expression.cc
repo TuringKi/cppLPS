@@ -24,6 +24,7 @@
 #include "ast.h"
 #include "lex/pp.h"
 #include "parse_function/function.h"
+#include "sema.h"
 
 namespace lps::lexer::details::pp {
 
@@ -62,13 +63,7 @@ bool Preprocessing::lex_conditional_expression(
     // run optimization passes
     tree = parser::details::opt::run(tree);
 
-    // now, check whether all the leaf tokens are constant
-    auto leafs = tree.leafs();
-    for (const auto& leaf : leafs) {
-      if (!leaf->is_number_literal()) {
-        return false;
-      }
-    }
+    auto units = sema::Factory::create(tree.root());
 
     int dummy = -1;
   }
